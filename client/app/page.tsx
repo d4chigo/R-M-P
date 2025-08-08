@@ -1,0 +1,194 @@
+import Link from "next/link"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Truck, Route, Users, MapPin, Calendar, FileText, UserCheck, Package } from 'lucide-react'
+import { BarChart3, TrendingUp, Users2, Clock } from 'lucide-react'
+
+export default function HomePage() {
+  const modules = [
+    {
+      title: "Vehículos",
+      description: "Gestión de vehículos de transporte",
+      icon: Truck,
+      href: "/vehiculos",
+      color: "bg-blue-500"
+    },
+    {
+      title: "Carretas",
+      description: "Gestión de carretas y remolques",
+      icon: Package,
+      href: "/carretas",
+      color: "bg-green-500"
+    },
+    {
+      title: "Rutas",
+      description: "Administración de rutas de transporte",
+      icon: Route,
+      href: "/rutas",
+      color: "bg-purple-500"
+    },
+    {
+      title: "Clientes",
+      description: "Gestión de clientes y contactos",
+      icon: Users,
+      href: "/clientes",
+      color: "bg-orange-500"
+    },
+    {
+      title: "Tipos de Cliente",
+      description: "Configuración de tipos de cliente",
+      icon: UserCheck,
+      href: "/tipos-cliente",
+      color: "bg-cyan-500"
+    },
+    {
+      title: "Zonas",
+      description: "Gestión de zonas geográficas",
+      icon: MapPin,
+      href: "/zonas",
+      color: "bg-red-500"
+    },
+    {
+      title: "Viajes",
+      description: "Programación y seguimiento de viajes",
+      icon: Calendar,
+      href: "/viajes",
+      color: "bg-indigo-500"
+    },
+    {
+      title: "Visitas",
+      description: "Registro de visitas a clientes",
+      icon: FileText,
+      href: "/visitas",
+      color: "bg-pink-500"
+    }
+  ]
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            Sistema de Gestión de Transporte
+          </h1>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Plataforma integral para la administración de vehículos, rutas, clientes y operaciones logísticas
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {modules.map((module) => {
+            const IconComponent = module.icon
+            return (
+              <Link key={module.href} href={module.href}>
+                <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full">
+                  <CardHeader className="text-center pb-4">
+                    <div className={`w-16 h-16 ${module.color} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                      <IconComponent className="w-8 h-8 text-white" />
+                    </div>
+                    <CardTitle className="text-lg">{module.title}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <CardDescription className="text-center">
+                      {module.description}
+                    </CardDescription>
+                  </CardContent>
+                </Card>
+              </Link>
+            )
+          })}
+        </div>
+
+        <div className="mt-12">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6 text-center">Reportes y Análisis</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Link href="/reportes/resumen-rutas">
+              <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full">
+                <CardHeader className="text-center pb-4">
+                  <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <BarChart3 className="w-8 h-8 text-white" />
+                  </div>
+                  <CardTitle className="text-lg">Resumen de Rutas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-center">
+                    Análisis completo de rutas por fecha y vehículo
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/reportes/rutas-por-viaje">
+              <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full">
+                <CardHeader className="text-center pb-4">
+                  <div className="w-16 h-16 bg-teal-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <TrendingUp className="w-8 h-8 text-white" />
+                  </div>
+                  <CardTitle className="text-lg">Rutas por Viaje</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-center">
+                    Detalle de capacidad y rendimiento por viaje
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/reportes/clientes-multiples-rutas">
+              <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full">
+                <CardHeader className="text-center pb-4">
+                  <div className="w-16 h-16 bg-amber-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Users2 className="w-8 h-8 text-white" />
+                  </div>
+                  <CardTitle className="text-lg">Clientes Múltiples Rutas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-center">
+                    Clientes atendidos en múltiples rutas
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/reportes/cumplimiento-vh">
+              <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full">
+                <CardHeader className="text-center pb-4">
+                  <div className="w-16 h-16 bg-violet-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Clock className="w-8 h-8 text-white" />
+                  </div>
+                  <CardTitle className="text-lg">Cumplimiento VH</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <CardDescription className="text-center">
+                    Análisis de ventanas horarias de clientes
+                  </CardDescription>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-16 bg-white rounded-lg shadow-sm p-8">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-6">Resumen del Sistema</h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-blue-600 mb-2">8</div>
+              <div className="text-gray-600">Módulos Principales</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-emerald-600 mb-2">4</div>
+              <div className="text-gray-600">Reportes Avanzados</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-green-600 mb-2">100%</div>
+              <div className="text-gray-600">Funcionalidad Completa</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-purple-600 mb-2">24/7</div>
+              <div className="text-gray-600">Disponibilidad</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
