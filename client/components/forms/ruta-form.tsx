@@ -1,29 +1,22 @@
-import { useState } from "react"
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-interface Ruta {
-  id: number
-  codigo: string
-  nombre: string
-  origen: string
-  destino: string
-  distancia_km: number
-  duracion_aproximada: string
-  tipo_ruta: string
-  estado: string
-  fecha_creacion: string
-  ultima_actualizacion?: string
-}
+import type { Ruta } from "@/hooks/use-rutas"
 
 interface RutaFormProps {
-  onSubmit: (ruta: Omit<Ruta, 'id' | 'fecha_creacion' | 'ultima_actualizacion'>) => void
+  ruta?: Ruta | null
+  onSubmit: (ruta: Omit<Ruta, "id" | "fecha_creacion" | "ultima_actualizacion">) => void
   onCancel: () => void
+  isEditing?: boolean
 }
 
-export function RutaForm({ onSubmit, onCancel }: RutaFormProps) {
+export function RutaForm({ ruta, onSubmit, onCancel, isEditing = false }: RutaFormProps) {
   const [formData, setFormData] = useState({
     codigo: "",
     nombre: "",
@@ -32,8 +25,23 @@ export function RutaForm({ onSubmit, onCancel }: RutaFormProps) {
     distancia_km: "",
     duracion_aproximada: "",
     tipo_ruta: "",
-    estado: ""
+    estado: "",
   })
+
+  useEffect(() => {
+    if (ruta) {
+      setFormData({
+        codigo: ruta.codigo,
+        nombre: ruta.nombre,
+        origen: ruta.origen,
+        destino: ruta.destino,
+        distancia_km: ruta.distancia_km.toString(),
+        duracion_aproximada: ruta.duracion_aproximada,
+        tipo_ruta: ruta.tipo_ruta,
+        estado: ruta.estado,
+      })
+    }
+  }, [ruta])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,20 +50,20 @@ export function RutaForm({ onSubmit, onCancel }: RutaFormProps) {
       nombre: formData.nombre,
       origen: formData.origen,
       destino: formData.destino,
-      distancia_km: parseFloat(formData.distancia_km),
+      distancia_km: Number.parseFloat(formData.distancia_km),
       duracion_aproximada: formData.duracion_aproximada,
       tipo_ruta: formData.tipo_ruta,
-      estado: formData.estado
+      estado: formData.estado,
     })
   }
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="codigo">Código de Ruta *</Label>
           <Input
@@ -78,7 +86,7 @@ export function RutaForm({ onSubmit, onCancel }: RutaFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="origen">Origen *</Label>
           <Input
@@ -101,7 +109,7 @@ export function RutaForm({ onSubmit, onCancel }: RutaFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="distancia_km">Distancia (km) *</Label>
           <Input
@@ -127,7 +135,7 @@ export function RutaForm({ onSubmit, onCancel }: RutaFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="tipo_ruta">Tipo de Ruta *</Label>
           <Select value={formData.tipo_ruta} onValueChange={(value) => handleInputChange("tipo_ruta", value)}>
@@ -158,11 +166,13 @@ export function RutaForm({ onSubmit, onCancel }: RutaFormProps) {
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto bg-transparent">
           Cancelar
         </Button>
-        <Button type="submit">Registrar Ruta</Button>
+        <Button type="submit" className="w-full sm:w-auto">
+          {isEditing ? "Actualizar Ruta" : "Registrar Ruta"}
+        </Button>
       </div>
     </form>
   )

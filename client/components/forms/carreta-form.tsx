@@ -1,42 +1,52 @@
-import { useState } from "react"
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-interface Carreta {
-  id: number
-  placa: string
-  tipo: string
-  capacidad_kg: number
-  estado: string
-}
+import type { Carreta } from "@/hooks/use-carretas"
 
 interface CarretaFormProps {
-  onSubmit: (carreta: Omit<Carreta, 'id'>) => void
+  carreta?: Carreta | null
+  onSubmit: (carreta: Omit<Carreta, "id">) => void
   onCancel: () => void
+  isEditing?: boolean
 }
 
-export function CarretaForm({ onSubmit, onCancel }: CarretaFormProps) {
+export function CarretaForm({ carreta, onSubmit, onCancel, isEditing = false }: CarretaFormProps) {
   const [formData, setFormData] = useState({
     placa: "",
     tipo: "",
     capacidad_kg: "",
-    estado: ""
+    estado: "",
   })
+
+  useEffect(() => {
+    if (carreta) {
+      setFormData({
+        placa: carreta.placa,
+        tipo: carreta.tipo,
+        capacidad_kg: carreta.capacidad_kg.toString(),
+        estado: carreta.estado,
+      })
+    }
+  }, [carreta])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit({
       placa: formData.placa,
       tipo: formData.tipo,
-      capacidad_kg: parseFloat(formData.capacidad_kg),
-      estado: formData.estado
+      capacidad_kg: Number.parseFloat(formData.capacidad_kg),
+      estado: formData.estado,
     })
   }
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
   return (
@@ -97,11 +107,13 @@ export function CarretaForm({ onSubmit, onCancel }: CarretaFormProps) {
         </Select>
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto bg-transparent">
           Cancelar
         </Button>
-        <Button type="submit">Registrar Carreta</Button>
+        <Button type="submit" className="w-full sm:w-auto">
+          {isEditing ? "Actualizar Carreta" : "Registrar Carreta"}
+        </Button>
       </div>
     </form>
   )

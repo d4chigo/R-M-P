@@ -3,62 +3,122 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, ArrowLeft, FileText } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Plus, ArrowLeft, FileText } from "lucide-react"
 import Link from "next/link"
-import { VisitasTable } from "@/components/tables/visitas-table"
+import { DataTable, type Column } from "@/components/ui/data-table"
 import { VisitaForm } from "@/components/forms/visita-form"
-
-interface Visita {
-  id: number
-  id_viaje: number
-  id_cliente: number
-  entrega: number
-  recojo: number
-  llega: string
-  sale: string
-  sec1: string
-  sec2: string
-  distancia_km?: string
-  cliente_nombre?: string
-  viaje_info?: string
-}
+import { useVisitas, type Visita } from "@/hooks/use-visitas"
 
 export default function VisitasPage() {
-  const [visitas, setVisitas] = useState<Visita[]>([
-    {
-      id: 1,
-      id_viaje: 1,
-      id_cliente: 1,
-      entrega: 1500.50,
-      recojo: 800.25,
-      llega: "08:30",
-      sale: "10:15",
-      sec1: "SEC001",
-      sec2: "SEC002",
-      distancia_km: "25.5",
-      cliente_nombre: "Distribuidora Central S.A.",
-      viaje_info: "Chiclayo - Lima"
-    }
-  ])
+  const { visitas, editingVisita, addVisita, updateVisita, deleteVisita, startEdit, cancelEdit } = useVisitas()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const handleSubmit = (visitaData: Omit<Visita, 'id' | 'cliente_nombre' | 'viaje_info'>) => {
-    const newVisita: Visita = {
-      id: visitas.length + 1,
-      ...visitaData,
-      cliente_nombre: "Cliente " + visitaData.id_cliente,
-      viaje_info: "Viaje " + visitaData.id_viaje
+  const handleSubmit = (visitaData: Omit<Visita, "id" | "cliente_nombre" | "viaje_info">) => {
+    if (editingVisita) {
+      updateVisita(editingVisita.id, visitaData)
+    } else {
+      addVisita(visitaData)
     }
-    setVisitas([...visitas, newVisita])
     setIsDialogOpen(false)
   }
 
+  const handleEdit = (visita: Visita) => {
+    startEdit(visita)
+    setIsDialogOpen(true)
+  }
+
+  const handleDelete = (visita: Visita) => {
+    if (confirm(`¿Está seguro de eliminar la visita al cliente ${visita.cliente_nombre}?`)) {
+      deleteVisita(visita.id)
+    }
+  }
+
+  const handleCancel = () => {
+    cancelEdit()
+    setIsDialogOpen(false)
+  }
+
+  const columns: Column<Visita>[] = [
+    {
+      key: "id",
+      header: "ID",
+      sortable: true,
+      render: (visita) => <span className="font-medium">{visita.id}</span>,
+    },
+    {
+      key: "id_viaje",
+      header: "Viaje",
+      sortable: true,
+      render: (visita) => (
+        <div className="text-sm">
+          <div className="font-medium">ID: {visita.id_viaje}</div>
+          <div className="text-gray-500">{visita.viaje_info}</div>
+        </div>
+      ),
+    },
+    {
+      key: "id_cliente",
+      header: "Cliente",
+      sortable: true,
+      render: (visita) => (
+        <div className="text-sm">
+          <div className="font-medium">ID: {visita.id_cliente}</div>
+          <div className="text-gray-500">{visita.cliente_nombre}</div>
+        </div>
+      ),
+    },
+    {
+      key: "entrega",
+      header: "Entrega",
+      sortable: true,
+      render: (visita) => <span className="text-green-600 font-medium">{visita.entrega.toLocaleString()}</span>,
+    },
+    {
+      key: "recojo",
+      header: "Recojo",
+      sortable: true,
+      render: (visita) => <span className="text-blue-600 font-medium">{visita.recojo.toLocaleString()}</span>,
+    },
+    {
+      key: "llega",
+      header: "Llegada",
+      sortable: true,
+    },
+    {
+      key: "sale",
+      header: "Salida",
+      sortable: true,
+    },
+    {
+      key: "sec1",
+      header: "Sec1",
+      render: (visita) => <span className="font-mono text-xs">{visita.sec1}</span>,
+    },
+    {
+      key: "sec2",
+      header: "Sec2",
+      render: (visita) => <span className="font-mono text-xs">{visita.sec2}</span>,
+    },
+    {
+      key: "distancia_km",
+      header: "Distancia",
+      render: (visita) => visita.distancia_km || "-",
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="container mx-auto px-4 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="flex items-center gap-4">
             <Link href="/">
               <Button variant="outline" size="sm">
@@ -71,29 +131,33 @@ export default function VisitasPage() {
                 <FileText className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Gestión de Visitas</h1>
-                <p className="text-gray-600">Registra las visitas a clientes durante los viajes</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Gestión de Visitas</h1>
+                <p className="text-sm sm:text-base text-gray-600">Registra las visitas a clientes durante los viajes</p>
               </div>
             </div>
           </div>
-          
+
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={() => cancelEdit()} className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 Nueva Visita
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Registrar Nueva Visita</DialogTitle>
+                <DialogTitle>{editingVisita ? "Editar Visita" : "Registrar Nueva Visita"}</DialogTitle>
                 <DialogDescription>
-                  Complete los campos para registrar una visita a cliente.
+                  {editingVisita
+                    ? "Modifique los campos necesarios para actualizar la visita."
+                    : "Complete los campos para registrar una visita a cliente."}
                 </DialogDescription>
               </DialogHeader>
-              <VisitaForm 
+              <VisitaForm
+                visita={editingVisita}
                 onSubmit={handleSubmit}
-                onCancel={() => setIsDialogOpen(false)}
+                onCancel={handleCancel}
+                isEditing={!!editingVisita}
               />
             </DialogContent>
           </Dialog>
@@ -103,11 +167,18 @@ export default function VisitasPage() {
           <CardHeader>
             <CardTitle>Lista de Visitas</CardTitle>
             <CardDescription>
-              {visitas.length} visita{visitas.length !== 1 ? 's' : ''} registrada{visitas.length !== 1 ? 's' : ''}
+              Gestiona todas las visitas con funciones de búsqueda, filtrado y ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <VisitasTable visitas={visitas} />
+            <DataTable
+              data={visitas}
+              columns={columns}
+              searchPlaceholder="Buscar por cliente, viaje, secuencia..."
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              searchKeys={["cliente_nombre", "viaje_info", "sec1", "sec2"]}
+            />
           </CardContent>
         </Card>
       </div>

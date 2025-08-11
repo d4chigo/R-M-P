@@ -3,50 +3,91 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, ArrowLeft, Calendar } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Plus, ArrowLeft, Calendar } from "lucide-react"
 import Link from "next/link"
-import { ViajesTable } from "@/components/tables/viajes-table"
+import { DataTable, type Column } from "@/components/ui/data-table"
 import { ViajeForm } from "@/components/forms/viaje-form"
-
-interface Viaje {
-  id: number
-  id_ruta: number
-  id_vehiculo: number
-  fecha: string
-  ruta_nombre?: string
-  vehiculo_placa?: string
-}
+import { useViajes, type Viaje } from "@/hooks/use-viajes"
 
 export default function ViajesPage() {
-  const [viajes, setViajes] = useState<Viaje[]>([
-    {
-      id: 1,
-      id_ruta: 1,
-      id_vehiculo: 1,
-      fecha: "2024-02-15",
-      ruta_nombre: "Chiclayo - Lima",
-      vehiculo_placa: "ABC-123"
-    }
-  ])
+  const { viajes, editingViaje, addViaje, updateViaje, deleteViaje, startEdit, cancelEdit } = useViajes()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const handleSubmit = (viajeData: Omit<Viaje, 'id' | 'ruta_nombre' | 'vehiculo_placa'>) => {
-    const newViaje: Viaje = {
-      id: viajes.length + 1,
-      ...viajeData,
-      ruta_nombre: "Ruta " + viajeData.id_ruta,
-      vehiculo_placa: "VEH-" + viajeData.id_vehiculo
+  const handleSubmit = (viajeData: Omit<Viaje, "id" | "ruta_nombre" | "vehiculo_placa">) => {
+    if (editingViaje) {
+      updateViaje(editingViaje.id, viajeData)
+    } else {
+      addViaje(viajeData)
     }
-    setViajes([...viajes, newViaje])
     setIsDialogOpen(false)
   }
 
+  const handleEdit = (viaje: Viaje) => {
+    startEdit(viaje)
+    setIsDialogOpen(true)
+  }
+
+  const handleDelete = (viaje: Viaje) => {
+    if (confirm(`¿Está seguro de eliminar el viaje del ${new Date(viaje.fecha).toLocaleDateString()}?`)) {
+      deleteViaje(viaje.id)
+    }
+  }
+
+  const handleCancel = () => {
+    cancelEdit()
+    setIsDialogOpen(false)
+  }
+
+  const columns: Column<Viaje>[] = [
+    {
+      key: "id",
+      header: "ID",
+      sortable: true,
+      render: (viaje) => <span className="font-medium">{viaje.id}</span>,
+    },
+    {
+      key: "id_ruta",
+      header: "Ruta",
+      sortable: true,
+      render: (viaje) => (
+        <div className="text-sm">
+          <div className="font-medium">ID: {viaje.id_ruta}</div>
+          <div className="text-gray-500">{viaje.ruta_nombre}</div>
+        </div>
+      ),
+    },
+    {
+      key: "id_vehiculo",
+      header: "Vehículo",
+      sortable: true,
+      render: (viaje) => (
+        <div className="text-sm">
+          <div className="font-medium">ID: {viaje.id_vehiculo}</div>
+          <div className="text-gray-500 font-semibold">{viaje.vehiculo_placa}</div>
+        </div>
+      ),
+    },
+    {
+      key: "fecha",
+      header: "Fecha",
+      sortable: true,
+      render: (viaje) => new Date(viaje.fecha).toLocaleDateString(),
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="container mx-auto px-4 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="flex items-center gap-4">
             <Link href="/">
               <Button variant="outline" size="sm">
@@ -59,29 +100,33 @@ export default function ViajesPage() {
                 <Calendar className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Gestión de Viajes</h1>
-                <p className="text-gray-600">Programa y gestiona los viajes de transporte</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Gestión de Viajes</h1>
+                <p className="text-sm sm:text-base text-gray-600">Programa y gestiona los viajes de transporte</p>
               </div>
             </div>
           </div>
-          
+
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={() => cancelEdit()} className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 Nuevo Viaje
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md mx-4 sm:mx-auto">
               <DialogHeader>
-                <DialogTitle>Programar Nuevo Viaje</DialogTitle>
+                <DialogTitle>{editingViaje ? "Editar Viaje" : "Programar Nuevo Viaje"}</DialogTitle>
                 <DialogDescription>
-                  Complete los campos para programar un nuevo viaje.
+                  {editingViaje
+                    ? "Modifique los campos necesarios para actualizar el viaje."
+                    : "Complete los campos para programar un nuevo viaje."}
                 </DialogDescription>
               </DialogHeader>
-              <ViajeForm 
+              <ViajeForm
+                viaje={editingViaje}
                 onSubmit={handleSubmit}
-                onCancel={() => setIsDialogOpen(false)}
+                onCancel={handleCancel}
+                isEditing={!!editingViaje}
               />
             </DialogContent>
           </Dialog>
@@ -91,11 +136,20 @@ export default function ViajesPage() {
           <CardHeader>
             <CardTitle>Lista de Viajes</CardTitle>
             <CardDescription>
-              {viajes.length} viaje{viajes.length !== 1 ? 's' : ''} programado{viajes.length !== 1 ? 's' : ''}
+              Gestiona todos los viajes con funciones de búsqueda, filtrado y ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ViajesTable viajes={viajes} />
+            <DataTable
+              data={viajes}
+              columns={columns}
+              searchPlaceholder="Buscar por ruta, vehículo..."
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              showDateFilter={true}
+              dateFilterKey="fecha"
+              searchKeys={["ruta_nombre", "vehiculo_placa"]}
+            />
           </CardContent>
         </Card>
       </div>
