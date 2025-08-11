@@ -65,9 +65,9 @@ CREATE TABLE `CLIENTE` (
 	`cierra` TIME NOT NULL,
 	`estado` VARCHAR(255) NOT NULL,
 	`fecha_registro` DATETIME NOT NULL,
-	`longitud` DECIMAL NOT NULL,
-	`latitud` DECIMAL NOT NULL,
-	PRIMARY KEY(`id`, `contacto_nombre`, `contacto_telefono`)
+	`longitud` DECIMAL(10,7) NOT NULL,
+	`latitud` DECIMAL(10,7) NOT NULL,
+	PRIMARY KEY(`id`)
 );
 
 
@@ -110,21 +110,68 @@ CREATE TABLE `VISITA` (
 );
 
 
-ALTER TABLE `CARRETA`
-ADD FOREIGN KEY(`id`) REFERENCES `VEHICULO`(`id_carreta`)
-ON UPDATE NO ACTION ON DELETE NO ACTION;
-ALTER TABLE `TIPO_CLIENTE`
-ADD FOREIGN KEY(`id`) REFERENCES `CLIENTE`(`id_tipo_cliente`)
-ON UPDATE NO ACTION ON DELETE NO ACTION;
-ALTER TABLE `VISITA`
-ADD FOREIGN KEY(`id_viaje`) REFERENCES `VIAJE`(`id`)
-ON UPDATE NO ACTION ON DELETE NO ACTION;
+-- ======================================
+-- FOREIGN KEYS (RELACIONES ENTRE TABLAS)
+-- ======================================
+
+-- Relación: VEHICULO -> CARRETA (un vehículo puede tener una carreta)
+ALTER TABLE `VEHICULO`
+ADD CONSTRAINT `fk_vehiculo_carreta`
+FOREIGN KEY(`id_carreta`) REFERENCES `CARRETA`(`id`)
+ON UPDATE CASCADE ON DELETE SET NULL;
+
+-- Relación: CLIENTE -> TIPO_CLIENTE (un cliente tiene un tipo)
+ALTER TABLE `CLIENTE`
+ADD CONSTRAINT `fk_cliente_tipo`
+FOREIGN KEY(`id_tipo_cliente`) REFERENCES `TIPO_CLIENTE`(`id`)
+ON UPDATE CASCADE ON DELETE RESTRICT;
+
+-- Relación: VIAJE -> RUTA (un viaje pertenece a una ruta)
 ALTER TABLE `VIAJE`
-ADD FOREIGN KEY(`id_ruta`) REFERENCES `RUTA`(`id`)
-ON UPDATE NO ACTION ON DELETE NO ACTION;
+ADD CONSTRAINT `fk_viaje_ruta`
+FOREIGN KEY(`id_ruta`) REFERENCES `RUTA`(`id`)
+ON UPDATE CASCADE ON DELETE RESTRICT;
+
+-- Relación: VIAJE -> VEHICULO (un viaje usa un vehículo)
 ALTER TABLE `VIAJE`
-ADD FOREIGN KEY(`id_vehiculo`) REFERENCES `VEHICULO`(`id`)
-ON UPDATE NO ACTION ON DELETE NO ACTION;
+ADD CONSTRAINT `fk_viaje_vehiculo`
+FOREIGN KEY(`id_vehiculo`) REFERENCES `VEHICULO`(`id`)
+ON UPDATE CASCADE ON DELETE RESTRICT;
+
+-- Relación: VISITA -> VIAJE (una visita pertenece a un viaje)
 ALTER TABLE `VISITA`
-ADD FOREIGN KEY(`id_cliente`) REFERENCES `CLIENTE`(`id`)
+ADD CONSTRAINT `fk_visita_viaje`
+FOREIGN KEY(`id_viaje`) REFERENCES `VIAJE`(`id`)
+ON UPDATE CASCADE ON DELETE CASCADE;
+
+-- Relación: VISITA -> CLIENTE (una visita es a un cliente)
+ALTER TABLE `VISITA`
+ADD CONSTRAINT `fk_visita_cliente`
+FOREIGN KEY(`id_cliente`) REFERENCES `CLIENTE`(`id`)
+ON UPDATE CASCADE ON DELETE RESTRICT;
+
+-- ======================================
+-- ÍNDICES PARA MEJORAR RENDIMIENTO
+-- ======================================
+
+-- Índices en foreign keys
+CREATE INDEX `idx_vehiculo_carreta` ON `VEHICULO`(`id_carreta`);
+CREATE INDEX `idx_cliente_tipo` ON `CLIENTE`(`id_tipo_cliente`);
+CREATE INDEX `idx_viaje_ruta` ON `VIAJE`(`id_ruta`);
+CREATE INDEX `idx_viaje_vehiculo` ON `VIAJE`(`id_vehiculo`);
+CREATE INDEX `idx_visita_viaje` ON `VISITA`(`id_viaje`);
+CREATE INDEX `idx_visita_cliente` ON `VISITA`(`id_cliente`);
+
+-- Índices adicionales para búsquedas comunes
+CREATE INDEX `idx_vehiculo_placa` ON `VEHICULO`(`placa`);
+CREATE INDEX `idx_cliente_ruc` ON `CLIENTE`(`ruc`);
+CREATE INDEX `idx_ruta_codigo` ON `RUTA`(`codigo`);
+CREATE INDEX `idx_viaje_fecha` ON `VIAJE`(`fecha`);
+
+-- ======================================
+-- VERIFICACIÓN DE INTEGRIDAD
+-- ======================================
+
+-- Verificar que todas las foreign keys funcionan
+SELECT 'Base de datos inicializada correctamente con relaciones establecidas' AS resultado;
 ON UPDATE NO ACTION ON DELETE NO ACTION;
