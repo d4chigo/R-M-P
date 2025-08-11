@@ -42,8 +42,6 @@ export function ClientesTable({ clientes }: ClientesTableProps) {
             <TableHead>Contacto</TableHead>
             <TableHead>Horario</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead>Latitud</TableHead>
-            <TableHead>Longitud</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -72,8 +70,6 @@ export function ClientesTable({ clientes }: ClientesTableProps) {
                   {cliente.estado}
                 </span>
               </TableCell>
-              <TableCell>{cliente.latitud}</TableCell>
-              <TableCell>{cliente.longitud}</TableCell>
             </TableRow>
           ))}
         </TableBody>

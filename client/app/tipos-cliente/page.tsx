@@ -3,40 +3,77 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, ArrowLeft, UserCheck } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Plus, ArrowLeft, UserCheck } from "lucide-react"
 import Link from "next/link"
-import { TiposClienteTable } from "@/components/tables/tipos-cliente-table"
+import { DataTable, type Column } from "@/components/ui/data-table"
 import { TipoClienteForm } from "@/components/forms/tipo-cliente-form"
-
-interface TipoCliente {
-  id: number
-  nombre: string
-}
+import { useTiposCliente, type TipoCliente } from "@/hooks/use-tipos-cliente"
 
 export default function TiposClientePage() {
-  const [tiposCliente, setTiposCliente] = useState<TipoCliente[]>([
-    { id: 1, nombre: "Mayorista" },
-    { id: 2, nombre: "Minorista" },
-    { id: 3, nombre: "Distribuidor" },
-    { id: 4, nombre: "Corporativo" }
-  ])
+  const {
+    tiposCliente,
+    editingTipoCliente,
+    addTipoCliente,
+    updateTipoCliente,
+    deleteTipoCliente,
+    startEdit,
+    cancelEdit,
+  } = useTiposCliente()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const handleSubmit = (tipoClienteData: Omit<TipoCliente, 'id'>) => {
-    const newTipoCliente: TipoCliente = {
-      id: tiposCliente.length + 1,
-      ...tipoClienteData
+  const handleSubmit = (tipoClienteData: Omit<TipoCliente, "id">) => {
+    if (editingTipoCliente) {
+      updateTipoCliente(editingTipoCliente.id, tipoClienteData)
+    } else {
+      addTipoCliente(tipoClienteData)
     }
-    setTiposCliente([...tiposCliente, newTipoCliente])
     setIsDialogOpen(false)
   }
 
+  const handleEdit = (tipoCliente: TipoCliente) => {
+    startEdit(tipoCliente)
+    setIsDialogOpen(true)
+  }
+
+  const handleDelete = (tipoCliente: TipoCliente) => {
+    if (confirm(`¿Está seguro de eliminar el tipo de cliente ${tipoCliente.nombre}?`)) {
+      deleteTipoCliente(tipoCliente.id)
+    }
+  }
+
+  const handleCancel = () => {
+    cancelEdit()
+    setIsDialogOpen(false)
+  }
+
+  const columns: Column<TipoCliente>[] = [
+    {
+      key: "id",
+      header: "ID",
+      sortable: true,
+      render: (tipo) => <span className="font-medium">{tipo.id}</span>,
+    },
+    {
+      key: "nombre",
+      header: "Nombre",
+      sortable: true,
+      render: (tipo) => <span className="font-semibold">{tipo.nombre}</span>,
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="container mx-auto px-4 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="flex items-center gap-4">
             <Link href="/">
               <Button variant="outline" size="sm">
@@ -49,29 +86,35 @@ export default function TiposClientePage() {
                 <UserCheck className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Tipos de Cliente</h1>
-                <p className="text-gray-600">Configura los tipos de cliente del sistema</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Tipos de Cliente</h1>
+                <p className="text-sm sm:text-base text-gray-600">Configura los tipos de cliente del sistema</p>
               </div>
             </div>
           </div>
-          
+
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={() => cancelEdit()} className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 Nuevo Tipo
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md mx-4 sm:mx-auto">
               <DialogHeader>
-                <DialogTitle>Crear Nuevo Tipo de Cliente</DialogTitle>
+                <DialogTitle>
+                  {editingTipoCliente ? "Editar Tipo de Cliente" : "Crear Nuevo Tipo de Cliente"}
+                </DialogTitle>
                 <DialogDescription>
-                  Ingrese el nombre del nuevo tipo de cliente.
+                  {editingTipoCliente
+                    ? "Modifique el nombre del tipo de cliente."
+                    : "Ingrese el nombre del nuevo tipo de cliente."}
                 </DialogDescription>
               </DialogHeader>
-              <TipoClienteForm 
+              <TipoClienteForm
+                tipoCliente={editingTipoCliente}
                 onSubmit={handleSubmit}
-                onCancel={() => setIsDialogOpen(false)}
+                onCancel={handleCancel}
+                isEditing={!!editingTipoCliente}
               />
             </DialogContent>
           </Dialog>
@@ -81,11 +124,18 @@ export default function TiposClientePage() {
           <CardHeader>
             <CardTitle>Lista de Tipos de Cliente</CardTitle>
             <CardDescription>
-              {tiposCliente.length} tipo{tiposCliente.length !== 1 ? 's' : ''} de cliente configurado{tiposCliente.length !== 1 ? 's' : ''}
+              Gestiona todos los tipos de cliente con funciones de búsqueda, filtrado y ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <TiposClienteTable tiposCliente={tiposCliente} />
+            <DataTable
+              data={tiposCliente}
+              columns={columns}
+              searchPlaceholder="Buscar por nombre..."
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              searchKeys={["nombre"]}
+            />
           </CardContent>
         </Card>
       </div>

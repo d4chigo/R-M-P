@@ -1,32 +1,42 @@
-import { useState } from "react"
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-
-interface TipoCliente {
-  id: number
-  nombre: string
-}
+import type { TipoCliente } from "@/hooks/use-tipos-cliente"
 
 interface TipoClienteFormProps {
-  onSubmit: (tipoCliente: Omit<TipoCliente, 'id'>) => void
+  tipoCliente?: TipoCliente | null
+  onSubmit: (tipoCliente: Omit<TipoCliente, "id">) => void
   onCancel: () => void
+  isEditing?: boolean
 }
 
-export function TipoClienteForm({ onSubmit, onCancel }: TipoClienteFormProps) {
+export function TipoClienteForm({ tipoCliente, onSubmit, onCancel, isEditing = false }: TipoClienteFormProps) {
   const [formData, setFormData] = useState({
-    nombre: ""
+    nombre: "",
   })
+
+  useEffect(() => {
+    if (tipoCliente) {
+      setFormData({
+        nombre: tipoCliente.nombre,
+      })
+    }
+  }, [tipoCliente])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit({
-      nombre: formData.nombre
+      nombre: formData.nombre,
     })
   }
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
   return (
@@ -42,11 +52,13 @@ export function TipoClienteForm({ onSubmit, onCancel }: TipoClienteFormProps) {
         />
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto bg-transparent">
           Cancelar
         </Button>
-        <Button type="submit">Crear Tipo</Button>
+        <Button type="submit" className="w-full sm:w-auto">
+          {isEditing ? "Actualizar Tipo" : "Crear Tipo"}
+        </Button>
       </div>
     </form>
   )

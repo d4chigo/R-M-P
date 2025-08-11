@@ -1,30 +1,22 @@
-import { useState } from "react"
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-interface Visita {
-  id: number
-  id_viaje: number
-  id_cliente: number
-  entrega: number
-  recojo: number
-  llega: string
-  sale: string
-  sec1: string
-  sec2: string
-  distancia_km?: string
-  cliente_nombre?: string
-  viaje_info?: string
-}
+import type { Visita } from "@/hooks/use-visitas"
 
 interface VisitaFormProps {
-  onSubmit: (visita: Omit<Visita, 'id' | 'cliente_nombre' | 'viaje_info'>) => void
+  visita?: Visita | null
+  onSubmit: (visita: Omit<Visita, "id" | "cliente_nombre" | "viaje_info">) => void
   onCancel: () => void
+  isEditing?: boolean
 }
 
-export function VisitaForm({ onSubmit, onCancel }: VisitaFormProps) {
+export function VisitaForm({ visita, onSubmit, onCancel, isEditing = false }: VisitaFormProps) {
   const [formData, setFormData] = useState({
     id_viaje: "",
     id_cliente: "",
@@ -34,31 +26,47 @@ export function VisitaForm({ onSubmit, onCancel }: VisitaFormProps) {
     sale: "",
     sec1: "",
     sec2: "",
-    distancia_km: ""
+    distancia_km: "",
   })
+
+  useEffect(() => {
+    if (visita) {
+      setFormData({
+        id_viaje: visita.id_viaje.toString(),
+        id_cliente: visita.id_cliente.toString(),
+        entrega: visita.entrega.toString(),
+        recojo: visita.recojo.toString(),
+        llega: visita.llega,
+        sale: visita.sale,
+        sec1: visita.sec1,
+        sec2: visita.sec2,
+        distancia_km: visita.distancia_km || "",
+      })
+    }
+  }, [visita])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit({
-      id_viaje: parseInt(formData.id_viaje),
-      id_cliente: parseInt(formData.id_cliente),
-      entrega: parseFloat(formData.entrega),
-      recojo: parseFloat(formData.recojo),
+      id_viaje: Number.parseInt(formData.id_viaje),
+      id_cliente: Number.parseInt(formData.id_cliente),
+      entrega: Number.parseFloat(formData.entrega),
+      recojo: Number.parseFloat(formData.recojo),
       llega: formData.llega,
       sale: formData.sale,
       sec1: formData.sec1,
       sec2: formData.sec2,
-      distancia_km: formData.distancia_km
+      distancia_km: formData.distancia_km,
     })
   }
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="id_viaje">ID Viaje *</Label>
           <Select value={formData.id_viaje} onValueChange={(value) => handleInputChange("id_viaje", value)}>
@@ -87,7 +95,7 @@ export function VisitaForm({ onSubmit, onCancel }: VisitaFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="entrega">Entrega *</Label>
           <Input
@@ -114,7 +122,7 @@ export function VisitaForm({ onSubmit, onCancel }: VisitaFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="llega">Hora de Llegada *</Label>
           <Input
@@ -137,7 +145,7 @@ export function VisitaForm({ onSubmit, onCancel }: VisitaFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="sec1">Secuencia 1 *</Label>
           <Input
@@ -170,11 +178,13 @@ export function VisitaForm({ onSubmit, onCancel }: VisitaFormProps) {
         />
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto bg-transparent">
           Cancelar
         </Button>
-        <Button type="submit">Registrar Visita</Button>
+        <Button type="submit" className="w-full sm:w-auto">
+          {isEditing ? "Actualizar Visita" : "Registrar Visita"}
+        </Button>
       </div>
     </form>
   )

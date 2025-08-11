@@ -3,58 +3,126 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Plus, ArrowLeft, Route } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Plus, ArrowLeft, Route } from "lucide-react"
 import Link from "next/link"
-import { RutasTable } from "@/components/tables/rutas-table"
+import { DataTable, type Column } from "@/components/ui/data-table"
 import { RutaForm } from "@/components/forms/ruta-form"
-
-interface Ruta {
-  id: number
-  codigo: string
-  nombre: string
-  origen: string
-  destino: string
-  distancia_km: number
-  duracion_aproximada: string
-  tipo_ruta: string
-  estado: string
-  fecha_creacion: string
-  ultima_actualizacion?: string
-}
+import { useRutas, type Ruta } from "@/hooks/use-rutas"
 
 export default function RutasPage() {
-  const [rutas, setRutas] = useState<Ruta[]>([
-    {
-      id: 1,
-      codigo: "RUT001",
-      nombre: "Chiclayo - Lima",
-      origen: "Chiclayo",
-      destino: "Lima",
-      distancia_km: 1009,
-      duracion_aproximada: "14:30:00",
-      tipo_ruta: "Nacional",
-      estado: "Activo",
-      fecha_creacion: "2025-01-15T10:30:00"
-    }
-  ])
+  const { rutas, editingRuta, addRuta, updateRuta, deleteRuta, startEdit, cancelEdit } = useRutas()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
-  const handleSubmit = (rutaData: Omit<Ruta, 'id' | 'fecha_creacion' | 'ultima_actualizacion'>) => {
-    const newRuta: Ruta = {
-      id: rutas.length + 1,
-      ...rutaData,
-      fecha_creacion: new Date().toISOString()
+  const handleSubmit = (rutaData: Omit<Ruta, "id" | "fecha_creacion" | "ultima_actualizacion">) => {
+    if (editingRuta) {
+      updateRuta(editingRuta.id, rutaData)
+    } else {
+      addRuta(rutaData)
     }
-    setRutas([...rutas, newRuta])
     setIsDialogOpen(false)
   }
 
+  const handleEdit = (ruta: Ruta) => {
+    startEdit(ruta)
+    setIsDialogOpen(true)
+  }
+
+  const handleDelete = (ruta: Ruta) => {
+    if (confirm(`¿Está seguro de eliminar la ruta ${ruta.nombre}?`)) {
+      deleteRuta(ruta.id)
+    }
+  }
+
+  const handleCancel = () => {
+    cancelEdit()
+    setIsDialogOpen(false)
+  }
+
+  const columns: Column<Ruta>[] = [
+    {
+      key: "id",
+      header: "ID",
+      sortable: true,
+      render: (ruta) => <span className="font-medium">{ruta.id}</span>,
+    },
+    {
+      key: "codigo",
+      header: "Código",
+      sortable: true,
+      render: (ruta) => <span className="font-semibold">{ruta.codigo}</span>,
+    },
+    {
+      key: "nombre",
+      header: "Nombre",
+      sortable: true,
+    },
+    {
+      key: "origen",
+      header: "Origen",
+      sortable: true,
+    },
+    {
+      key: "destino",
+      header: "Destino",
+      sortable: true,
+    },
+    {
+      key: "distancia_km",
+      header: "Distancia (km)",
+      sortable: true,
+      render: (ruta) => ruta.distancia_km.toLocaleString(),
+    },
+    {
+      key: "duracion_aproximada",
+      header: "Duración",
+      sortable: true,
+    },
+    {
+      key: "tipo_ruta",
+      header: "Tipo",
+      sortable: true,
+    },
+    {
+      key: "estado",
+      header: "Estado",
+      sortable: true,
+      render: (ruta) => (
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            ruta.estado === "Activo"
+              ? "bg-green-100 text-green-800"
+              : ruta.estado === "En Mantenimiento"
+                ? "bg-yellow-100 text-yellow-800"
+                : ruta.estado === "Suspendido"
+                  ? "bg-red-100 text-red-800"
+                  : "bg-gray-100 text-gray-800"
+          }`}
+        >
+          {ruta.estado}
+        </span>
+      ),
+    },
+    {
+      key: "fecha_creacion",
+      header: "Fecha Creación",
+      sortable: true,
+      render: (ruta) => new Date(ruta.fecha_creacion).toLocaleDateString(),
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
+      <div className="container mx-auto px-4 py-4 sm:py-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="flex items-center gap-4">
             <Link href="/">
               <Button variant="outline" size="sm">
@@ -67,30 +135,29 @@ export default function RutasPage() {
                 <Route className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Gestión de Rutas</h1>
-                <p className="text-gray-600">Administra las rutas de transporte</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Gestión de Rutas</h1>
+                <p className="text-sm sm:text-base text-gray-600">Administra las rutas de transporte</p>
               </div>
             </div>
           </div>
-          
+
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={() => cancelEdit()} className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 Nueva Ruta
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Registrar Nueva Ruta</DialogTitle>
+                <DialogTitle>{editingRuta ? "Editar Ruta" : "Registrar Nueva Ruta"}</DialogTitle>
                 <DialogDescription>
-                  Complete los campos para registrar una nueva ruta de transporte.
+                  {editingRuta
+                    ? "Modifique los campos necesarios para actualizar la ruta."
+                    : "Complete los campos para registrar una nueva ruta de transporte."}
                 </DialogDescription>
               </DialogHeader>
-              <RutaForm 
-                onSubmit={handleSubmit}
-                onCancel={() => setIsDialogOpen(false)}
-              />
+              <RutaForm ruta={editingRuta} onSubmit={handleSubmit} onCancel={handleCancel} isEditing={!!editingRuta} />
             </DialogContent>
           </Dialog>
         </div>
@@ -99,11 +166,20 @@ export default function RutasPage() {
           <CardHeader>
             <CardTitle>Lista de Rutas</CardTitle>
             <CardDescription>
-              {rutas.length} ruta{rutas.length !== 1 ? 's' : ''} registrada{rutas.length !== 1 ? 's' : ''}
+              Gestiona todas las rutas con funciones de búsqueda, filtrado y ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RutasTable rutas={rutas} />
+            <DataTable
+              data={rutas}
+              columns={columns}
+              searchPlaceholder="Buscar por código, nombre, origen, destino..."
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              showDateFilter={true}
+              dateFilterKey="fecha_creacion"
+              searchKeys={["codigo", "nombre", "origen", "destino", "tipo_ruta", "estado"]}
+            />
           </CardContent>
         </Card>
       </div>

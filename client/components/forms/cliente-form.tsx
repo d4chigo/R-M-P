@@ -1,37 +1,22 @@
-import { useState } from "react"
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-interface Cliente {
-  id: number
-  nombre: string
-  codigo: string
-  id_tipo_cliente: number
-  ruc: string
-  direccion: string
-  ciudad: string
-  departamento: string
-  pais: string
-  telefono: string
-  email: string
-  contacto_nombre: string
-  contacto_telefono: string
-  abre: string
-  cierra: string
-  estado: string
-  fecha_registro: string
-  longitud: number
-  latitud: number
-}
+import type { Cliente } from "@/hooks/use-clientes"
 
 interface ClienteFormProps {
-  onSubmit: (cliente: Omit<Cliente, 'id' | 'fecha_registro'>) => void
+  cliente?: Cliente | null
+  onSubmit: (cliente: Omit<Cliente, "id" | "fecha_registro">) => void
   onCancel: () => void
+  isEditing?: boolean
 }
 
-export function ClienteForm({ onSubmit, onCancel }: ClienteFormProps) {
+export function ClienteForm({ cliente, onSubmit, onCancel, isEditing = false }: ClienteFormProps) {
   const [formData, setFormData] = useState({
     nombre: "",
     codigo: "",
@@ -49,15 +34,39 @@ export function ClienteForm({ onSubmit, onCancel }: ClienteFormProps) {
     cierra: "",
     estado: "",
     longitud: "",
-    latitud: ""
+    latitud: "",
   })
+
+  useEffect(() => {
+    if (cliente) {
+      setFormData({
+        nombre: cliente.nombre,
+        codigo: cliente.codigo,
+        id_tipo_cliente: cliente.id_tipo_cliente.toString(),
+        ruc: cliente.ruc,
+        direccion: cliente.direccion,
+        ciudad: cliente.ciudad,
+        departamento: cliente.departamento,
+        pais: cliente.pais,
+        telefono: cliente.telefono,
+        email: cliente.email,
+        contacto_nombre: cliente.contacto_nombre,
+        contacto_telefono: cliente.contacto_telefono,
+        abre: cliente.abre,
+        cierra: cliente.cierra,
+        estado: cliente.estado,
+        longitud: cliente.longitud.toString(),
+        latitud: cliente.latitud.toString(),
+      })
+    }
+  }, [cliente])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit({
       nombre: formData.nombre,
       codigo: formData.codigo,
-      id_tipo_cliente: parseInt(formData.id_tipo_cliente),
+      id_tipo_cliente: Number.parseInt(formData.id_tipo_cliente),
       ruc: formData.ruc,
       direccion: formData.direccion,
       ciudad: formData.ciudad,
@@ -70,13 +79,13 @@ export function ClienteForm({ onSubmit, onCancel }: ClienteFormProps) {
       abre: formData.abre,
       cierra: formData.cierra,
       estado: formData.estado,
-      longitud: parseFloat(formData.longitud),
-      latitud: parseFloat(formData.latitud)
+      longitud: Number.parseFloat(formData.longitud),
+      latitud: Number.parseFloat(formData.latitud),
     })
   }
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
   return (
@@ -117,7 +126,10 @@ export function ClienteForm({ onSubmit, onCancel }: ClienteFormProps) {
         </div>
         <div>
           <Label htmlFor="id_tipo_cliente">Tipo de Cliente *</Label>
-          <Select value={formData.id_tipo_cliente} onValueChange={(value) => handleInputChange("id_tipo_cliente", value)}>
+          <Select
+            value={formData.id_tipo_cliente}
+            onValueChange={(value) => handleInputChange("id_tipo_cliente", value)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar tipo" />
             </SelectTrigger>
@@ -289,7 +301,7 @@ export function ClienteForm({ onSubmit, onCancel }: ClienteFormProps) {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button type="submit">Registrar Cliente</Button>
+        <Button type="submit">{isEditing ? "Actualizar Cliente" : "Registrar Cliente"}</Button>
       </div>
     </form>
   )

@@ -1,41 +1,49 @@
-import { useState } from "react"
+"use client"
+
+import type React from "react"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-
-interface Viaje {
-  id: number
-  id_ruta: number
-  id_vehiculo: number
-  fecha: string
-  ruta_nombre?: string
-  vehiculo_placa?: string
-}
+import type { Viaje } from "@/hooks/use-viajes"
 
 interface ViajeFormProps {
-  onSubmit: (viaje: Omit<Viaje, 'id' | 'ruta_nombre' | 'vehiculo_placa'>) => void
+  viaje?: Viaje | null
+  onSubmit: (viaje: Omit<Viaje, "id" | "ruta_nombre" | "vehiculo_placa">) => void
   onCancel: () => void
+  isEditing?: boolean
 }
 
-export function ViajeForm({ onSubmit, onCancel }: ViajeFormProps) {
+export function ViajeForm({ viaje, onSubmit, onCancel, isEditing = false }: ViajeFormProps) {
   const [formData, setFormData] = useState({
     id_ruta: "",
     id_vehiculo: "",
-    fecha: ""
+    fecha: "",
   })
+
+  useEffect(() => {
+    if (viaje) {
+      setFormData({
+        id_ruta: viaje.id_ruta.toString(),
+        id_vehiculo: viaje.id_vehiculo.toString(),
+        fecha: viaje.fecha,
+      })
+    }
+  }, [viaje])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSubmit({
-      id_ruta: parseInt(formData.id_ruta),
-      id_vehiculo: parseInt(formData.id_vehiculo),
-      fecha: formData.fecha
+      id_ruta: Number.parseInt(formData.id_ruta),
+      id_vehiculo: Number.parseInt(formData.id_vehiculo),
+      fecha: formData.fecha,
     })
   }
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+    setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
   return (
@@ -47,7 +55,7 @@ export function ViajeForm({ onSubmit, onCancel }: ViajeFormProps) {
             <SelectValue placeholder="Seleccionar ruta" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="1">1 - Chiclayo - Lima</SelectItem>
+            <SelectItem value="1">1 - Lima - Arequipa</SelectItem>
             <SelectItem value="2">2 - Lima - Cusco</SelectItem>
             <SelectItem value="3">3 - Lima - Trujillo</SelectItem>
           </SelectContent>
@@ -79,11 +87,13 @@ export function ViajeForm({ onSubmit, onCancel }: ViajeFormProps) {
         />
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto bg-transparent">
           Cancelar
         </Button>
-        <Button type="submit">Programar Viaje</Button>
+        <Button type="submit" className="w-full sm:w-auto">
+          {isEditing ? "Actualizar Viaje" : "Programar Viaje"}
+        </Button>
       </div>
     </form>
   )
