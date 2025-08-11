@@ -1,0 +1,96 @@
+services:
+  # Base de datos MySQL
+  mysql:
+    image: mysql:9.0
+    container_name: rmp_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    ports:
+      - "${MYSQL_PORT}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - rmp_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # phpMyAdmin para administrar la base de datos
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: rmp_phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: ${MYSQL_USER}
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "${PHPMYADMIN_PORT}:80"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - rmp_network
+
+  # Servidor backend
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: rmp_server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      PORT: ${SERVER_PORT}
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    networks:
+      - rmp_network
+
+  # Cliente frontend (Next.js)
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: rmp_client
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      PORT: ${CLIENT_PORT}
+    ports:
+      - "${CLIENT_PORT}:${CLIENT_PORT}"
+    depends_on:
+      - server
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - rmp_network
+
+volumes:
+  mysql_data:
+
+networks:
+  rmp_network:
+    driver: bridge
