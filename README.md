@@ -14,7 +14,6 @@
 - [🔗 API Endpoints](#-api-endpoints)
 - [🛠️ Desarrollo](#️-desarrollo)
 - [📝 Comandos Útiles](#-comandos-útiles)
-- [🤝 Contribución](#-contribución)
 - [📄 Licencia](#-licencia)
 
 ## 🎯 Características
