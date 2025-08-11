@@ -1,0 +1,130 @@
+-- Script de inicialización de la base de datos R-M-P
+-- Este archivo se ejecuta automáticamente cuando se crea el contenedor MySQL
+-- Asegurar que existe la base de datos (opcional, ya existe)
+CREATE DATABASE IF NOT EXISTS rmp_db;
+USE rmp_db;
+
+CREATE TABLE `VEHICULO` (
+	`id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+	`placa` VARCHAR(255) NOT NULL UNIQUE,
+	`marca` VARCHAR(255) NOT NULL,
+	`modelo` VARCHAR(255) NOT NULL,
+	`anio` INTEGER NOT NULL,
+	`tipo` VARCHAR(255) NOT NULL,
+	`capacidad_carga_kg` DECIMAL NOT NULL,
+	`tipo_carga` VARCHAR(255) NOT NULL,
+	`estado` VARCHAR(255) NOT NULL,
+	`fecha_adquisicion` DATE NOT NULL,
+	`vin` VARCHAR(255) NOT NULL UNIQUE,
+	`id_carreta` INTEGER,
+	PRIMARY KEY(`id`)
+);
+
+
+CREATE TABLE `RUTA` (
+	`id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+	`codigo` VARCHAR(255) NOT NULL,
+	`nombre` VARCHAR(255) NOT NULL,
+	`origen` VARCHAR(255) NOT NULL,
+	`destino` VARCHAR(255) NOT NULL,
+	`distancia_km` DECIMAL NOT NULL,
+	`duracion_aproximada` TIME NOT NULL,
+	`tipo_ruta` VARCHAR(255) NOT NULL,
+	`estado` VARCHAR(255) NOT NULL,
+	`fecha_creacion` DATETIME NOT NULL,
+	`ultima_actualizacion` DATETIME,
+	PRIMARY KEY(`id`)
+);
+
+
+CREATE TABLE `CARRETA` (
+	`id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+	`placa` VARCHAR(255) NOT NULL UNIQUE,
+	`tipo` VARCHAR(255) NOT NULL,
+	`capacidad_kg` DECIMAL NOT NULL,
+	`estado` VARCHAR(255) NOT NULL,
+	PRIMARY KEY(`id`)
+);
+
+
+CREATE TABLE `CLIENTE` (
+	`id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+	`nombre` VARCHAR(255) NOT NULL,
+	`codigo` VARCHAR(255) NOT NULL,
+	`id_tipo_cliente` INTEGER NOT NULL,
+	`ruc` VARCHAR(255) NOT NULL UNIQUE,
+	`direccion` VARCHAR(255) NOT NULL,
+	`ciudad` VARCHAR(255) NOT NULL,
+	`departamento` VARCHAR(255) NOT NULL,
+	`pais` VARCHAR(255) NOT NULL,
+	`telefono` VARCHAR(255) NOT NULL,
+	`email` VARCHAR(255) NOT NULL,
+	`contacto_nombre` VARCHAR(255) NOT NULL,
+	`contacto_telefono` VARCHAR(255) NOT NULL,
+	`abre` TIME NOT NULL,
+	`cierra` TIME NOT NULL,
+	`estado` VARCHAR(255) NOT NULL,
+	`fecha_registro` DATETIME NOT NULL,
+	`longitud` DECIMAL NOT NULL,
+	`latitud` DECIMAL NOT NULL,
+	PRIMARY KEY(`id`, `contacto_nombre`, `contacto_telefono`)
+);
+
+
+CREATE TABLE `ZONA` (
+	`id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+	`nombre` VARCHAR(255) NOT NULL,
+	`descripcion` TEXT(65535) NOT NULL,
+	PRIMARY KEY(`id`)
+) COMMENT='Nombre de la zona(zona norte.....)';
+
+
+CREATE TABLE `VIAJE` (
+	`id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+	`id_ruta` INTEGER NOT NULL COMMENT 'codigo de ruta',
+	`id_vehiculo` INTEGER NOT NULL COMMENT 'placa ',
+	`fecha` DATE NOT NULL,
+	PRIMARY KEY(`id`)
+);
+
+
+CREATE TABLE `TIPO_CLIENTE` (
+	`id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+	`nombre` VARCHAR(255) NOT NULL,
+	PRIMARY KEY(`id`)
+);
+
+
+CREATE TABLE `VISITA` (
+	`id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+	`id_viaje` INTEGER NOT NULL,
+	`id_cliente` INTEGER NOT NULL,
+	`entrega` DECIMAL NOT NULL,
+	`recojo` DECIMAL NOT NULL,
+	`llega` TIME NOT NULL,
+	`sale` TIME NOT NULL,
+	`sec1` VARCHAR(255) NOT NULL,
+	`sec2` VARCHAR(255) NOT NULL,
+	`distancia_km` VARCHAR(255),
+	PRIMARY KEY(`id`)
+);
+
+
+ALTER TABLE `CARRETA`
+ADD FOREIGN KEY(`id`) REFERENCES `VEHICULO`(`id_carreta`)
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `TIPO_CLIENTE`
+ADD FOREIGN KEY(`id`) REFERENCES `CLIENTE`(`id_tipo_cliente`)
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `VISITA`
+ADD FOREIGN KEY(`id_viaje`) REFERENCES `VIAJE`(`id`)
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `VIAJE`
+ADD FOREIGN KEY(`id_ruta`) REFERENCES `RUTA`(`id`)
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `VIAJE`
+ADD FOREIGN KEY(`id_vehiculo`) REFERENCES `VEHICULO`(`id`)
+ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `VISITA`
+ADD FOREIGN KEY(`id_cliente`) REFERENCES `CLIENTE`(`id`)
+ON UPDATE NO ACTION ON DELETE NO ACTION;
