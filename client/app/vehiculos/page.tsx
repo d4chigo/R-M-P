@@ -49,7 +49,6 @@ export default function VehiculosPage() {
     setIsDialogOpen(false)
   }
 
-  // Columnas de la tabla de vehículos
   const columns: Column<Vehiculo>[] = [
     {
       key: "id",
@@ -187,7 +186,7 @@ export default function VehiculosPage() {
           <CardHeader>
             <CardTitle className="dark:text-gray-100">Lista de Vehículos</CardTitle>
             <CardDescription className="dark:text-gray-300">
-              Gestiona todos los vehículos de la flota con funciones de búsqueda, filtrado, ordenamiento y filtro por fecha.
+              Gestiona todos los vehículos de la flota con funciones de búsqueda, filtrado y ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>

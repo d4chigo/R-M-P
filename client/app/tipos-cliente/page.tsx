@@ -16,6 +16,7 @@ import Link from "next/link"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { TipoClienteForm } from "@/components/forms/tipo-cliente-form"
 import { useTiposCliente, type TipoCliente } from "@/hooks/use-tipos-cliente"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 export default function TiposClientePage() {
   const {
@@ -71,12 +72,16 @@ export default function TiposClientePage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-4 sm:py-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="flex items-center gap-4">
             <Link href="/">
-              <Button variant="outline" size="sm">
+              <Button
+                variant="outline"
+                size="sm"
+                className="dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 bg-transparent"
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Volver
               </Button>
@@ -86,44 +91,49 @@ export default function TiposClientePage() {
                 <UserCheck className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Tipos de Cliente</h1>
-                <p className="text-sm sm:text-base text-gray-600">Configura los tipos de cliente del sistema</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Tipos de Cliente</h1>
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
+                  Configura los tipos de cliente del sistema
+                </p>
               </div>
             </div>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => cancelEdit()} className="w-full sm:w-auto">
-                <Plus className="w-4 h-4 mr-2" />
-                Nuevo Tipo
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md mx-4 sm:mx-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingTipoCliente ? "Editar Tipo de Cliente" : "Crear Nuevo Tipo de Cliente"}
-                </DialogTitle>
-                <DialogDescription>
-                  {editingTipoCliente
-                    ? "Modifique el nombre del tipo de cliente."
-                    : "Ingrese el nombre del nuevo tipo de cliente."}
-                </DialogDescription>
-              </DialogHeader>
-              <TipoClienteForm
-                tipoCliente={editingTipoCliente}
-                onSubmit={handleSubmit}
-                onCancel={handleCancel}
-                isEditing={!!editingTipoCliente}
-              />
-            </DialogContent>
-          </Dialog>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={() => cancelEdit()} className="w-full sm:w-auto mobile-button">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nuevo Tipo
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md mx-4 sm:mx-auto dark:bg-gray-800 dark:border-gray-700">
+                <DialogHeader>
+                  <DialogTitle className="dark:text-gray-100">
+                    {editingTipoCliente ? "Editar Tipo de Cliente" : "Crear Nuevo Tipo de Cliente"}
+                  </DialogTitle>
+                  <DialogDescription className="dark:text-gray-300">
+                    {editingTipoCliente
+                      ? "Modifique el nombre del tipo de cliente."
+                      : "Ingrese el nombre del nuevo tipo de cliente."}
+                  </DialogDescription>
+                </DialogHeader>
+                <TipoClienteForm
+                  tipoCliente={editingTipoCliente}
+                  onSubmit={handleSubmit}
+                  onCancel={handleCancel}
+                  isEditing={!!editingTipoCliente}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
-        <Card>
+        <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle>Lista de Tipos de Cliente</CardTitle>
-            <CardDescription>
+            <CardTitle className="dark:text-gray-100">Lista de Tipos de Cliente</CardTitle>
+            <CardDescription className="dark:text-gray-300">
               Gestiona todos los tipos de cliente con funciones de búsqueda, filtrado y ordenamiento
             </CardDescription>
           </CardHeader>
