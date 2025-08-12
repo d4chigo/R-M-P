@@ -16,6 +16,7 @@ import Link from "next/link"
 import { DataTable, type Column } from "@/components/ui/data-table"
 import { VisitaForm } from "@/components/forms/visita-form"
 import { useVisitas, type Visita } from "@/hooks/use-visitas"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
 
 export default function VisitasPage() {
   const { visitas, editingVisita, addVisita, updateVisita, deleteVisita, startEdit, cancelEdit } = useVisitas()
@@ -61,7 +62,7 @@ export default function VisitasPage() {
       render: (visita) => (
         <div className="text-sm">
           <div className="font-medium">ID: {visita.id_viaje}</div>
-          <div className="text-gray-500">{visita.viaje_info}</div>
+          <div className="text-gray-500 dark:text-gray-400">{visita.viaje_info}</div>
         </div>
       ),
     },
@@ -72,7 +73,7 @@ export default function VisitasPage() {
       render: (visita) => (
         <div className="text-sm">
           <div className="font-medium">ID: {visita.id_cliente}</div>
-          <div className="text-gray-500">{visita.cliente_nombre}</div>
+          <div className="text-gray-500 dark:text-gray-400">{visita.cliente_nombre}</div>
         </div>
       ),
     },
@@ -80,13 +81,17 @@ export default function VisitasPage() {
       key: "entrega",
       header: "Entrega",
       sortable: true,
-      render: (visita) => <span className="text-green-600 font-medium">{visita.entrega.toLocaleString()}</span>,
+      render: (visita) => (
+        <span className="text-green-600 dark:text-green-400 font-medium">{visita.entrega.toLocaleString()}</span>
+      ),
     },
     {
       key: "recojo",
       header: "Recojo",
       sortable: true,
-      render: (visita) => <span className="text-blue-600 font-medium">{visita.recojo.toLocaleString()}</span>,
+      render: (visita) => (
+        <span className="text-blue-600 dark:text-blue-400 font-medium">{visita.recojo.toLocaleString()}</span>
+      ),
     },
     {
       key: "llega",
@@ -116,12 +121,16 @@ export default function VisitasPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-4 sm:py-8">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="flex items-center gap-4">
             <Link href="/">
-              <Button variant="outline" size="sm">
+              <Button
+                variant="outline"
+                size="sm"
+                className="dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 bg-transparent"
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Volver
               </Button>
@@ -131,42 +140,49 @@ export default function VisitasPage() {
                 <FileText className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Gestión de Visitas</h1>
-                <p className="text-sm sm:text-base text-gray-600">Registra las visitas a clientes durante los viajes</p>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Gestión de Visitas</h1>
+                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
+                  Registra las visitas a clientes durante los viajes
+                </p>
               </div>
             </div>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => cancelEdit()} className="w-full sm:w-auto">
-                <Plus className="w-4 h-4 mr-2" />
-                Nueva Visita
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{editingVisita ? "Editar Visita" : "Registrar Nueva Visita"}</DialogTitle>
-                <DialogDescription>
-                  {editingVisita
-                    ? "Modifique los campos necesarios para actualizar la visita."
-                    : "Complete los campos para registrar una visita a cliente."}
-                </DialogDescription>
-              </DialogHeader>
-              <VisitaForm
-                visita={editingVisita}
-                onSubmit={handleSubmit}
-                onCancel={handleCancel}
-                isEditing={!!editingVisita}
-              />
-            </DialogContent>
-          </Dialog>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={() => cancelEdit()} className="w-full sm:w-auto mobile-button">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nueva Visita
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto dark:bg-gray-800 dark:border-gray-700">
+                <DialogHeader>
+                  <DialogTitle className="dark:text-gray-100">
+                    {editingVisita ? "Editar Visita" : "Registrar Nueva Visita"}
+                  </DialogTitle>
+                  <DialogDescription className="dark:text-gray-300">
+                    {editingVisita
+                      ? "Modifique los campos necesarios para actualizar la visita."
+                      : "Complete los campos para registrar una visita a cliente."}
+                  </DialogDescription>
+                </DialogHeader>
+                <VisitaForm
+                  visita={editingVisita}
+                  onSubmit={handleSubmit}
+                  onCancel={handleCancel}
+                  isEditing={!!editingVisita}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
-        <Card>
+        <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle>Lista de Visitas</CardTitle>
-            <CardDescription>
+            <CardTitle className="dark:text-gray-100">Lista de Visitas</CardTitle>
+            <CardDescription className="dark:text-gray-300">
               Gestiona todas las visitas con funciones de búsqueda, filtrado y ordenamiento
             </CardDescription>
           </CardHeader>

@@ -60,7 +60,6 @@ export function DataTable<T extends Record<string, any>>({
 
   // Función para mostrar fecha en formato peruano
   const formatDateForDisplay = (dateStr: string): string => {
-    if (!dateStr) return ""
     const [year, month, day] = dateStr.split("-")
     return `${day}/${month}/${year}`
   }
@@ -79,29 +78,38 @@ export function DataTable<T extends Record<string, any>>({
       })
     }
 
-    // Filtro de fecha: comparar solo año, mes y día (ignorar hora)
+    // Filtro de fecha mejorado
     if (dateFilter && dateFilterKey) {
       filtered = filtered.filter((item) => {
-        const itemDateRaw = item[dateFilterKey]
-        if (!itemDateRaw) return false
+        const itemDate = item[dateFilterKey]
+        if (!itemDate) return false
 
-        // Normalizar la fecha del item a formato YYYY-MM-DD
-        let itemDateString: string
-        if (typeof itemDateRaw === "string" && itemDateRaw.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          // Ya está en formato YYYY-MM-DD
-          itemDateString = itemDateRaw
-        } else if (typeof itemDateRaw === "string" && itemDateRaw.includes("T")) {
-          // Formato ISO, extraer solo la parte de fecha
-          itemDateString = itemDateRaw.split("T")[0]
-        } else {
-          // Convertir otros formatos a YYYY-MM-DD
-          const date = new Date(itemDateRaw)
-          itemDateString = date.toISOString().split("T")[0]
+        let itemDateStr: string
+
+        try {
+          // Si la fecha ya está en formato YYYY-MM-DD
+          if (typeof itemDate === "string" && itemDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            itemDateStr = itemDate
+          }
+          // Si la fecha está en formato ISO (con hora)
+          else if (typeof itemDate === "string" && itemDate.includes("T")) {
+            itemDateStr = itemDate.split("T")[0]
+          }
+          // Para otros formatos de fecha
+          else {
+            // Crear fecha sin problemas de zona horaria
+            const date = new Date(itemDate + "T00:00:00")
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, "0")
+            const day = String(date.getDate()).padStart(2, "0")
+            itemDateStr = `${year}-${month}-${day}`
+          }
+        } catch (error) {
+          console.error("Error parsing date:", itemDate, error)
+          return false
         }
 
-        // Comparar directamente las strings de fecha (YYYY-MM-DD)
-        // Esto evita problemas de zona horaria
-        return itemDateString === dateFilter
+        return itemDateStr === dateFilter
       })
     }
 
