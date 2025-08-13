@@ -84,7 +84,7 @@ export function ViajeForm({
         <div>
           <Label htmlFor="id_ruta">ID Ruta *</Label>
           <Select
-            value={formData.id_ruta}
+            value={formData.id_ruta || ""}
             onValueChange={(value) => {
               handleInputChange("id_ruta", value);
               const selectedRuta = rutas.find(
@@ -123,7 +123,7 @@ export function ViajeForm({
         <div>
           <Label htmlFor="id_vehiculo">ID Vehículo *</Label>
           <Select
-            value={formData.id_vehiculo}
+            value={formData.id_vehiculo || ""}
             onValueChange={(value) => {
               handleInputChange("id_vehiculo", value);
               const selectedVehiculo = vehiculos.find(
@@ -175,7 +175,7 @@ export function ViajeForm({
         <div>
           <Label htmlFor="id_repartidor">Repartidor *</Label>
           <Select
-            value={formData.id_repartidor}
+            value={formData.id_repartidor || ""}
             onValueChange={(value) => handleInputChange("id_repartidor", value)}
           >
             <SelectTrigger>

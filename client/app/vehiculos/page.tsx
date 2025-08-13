@@ -20,7 +20,7 @@ import {
 import { Plus, ArrowLeft, Truck } from "lucide-react";
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { VehiculoForm } from "@/components/forms/vehiculo-form";
+import { VehiculoFormSimple } from "@/components/forms/vehiculo-form-simple";
 import { useVehiculos, type Vehiculo } from "@/hooks/use-vehiculos";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
@@ -206,7 +206,7 @@ export default function VehiculosPage() {
                       : "Complete todos los campos para registrar un nuevo vehículo en el sistema."}
                   </DialogDescription>
                 </DialogHeader>
-                <VehiculoForm
+                <VehiculoFormSimple
                   vehiculo={editingVehiculo}
                   onSubmit={handleSubmit}
                   onCancel={handleCancel}
