@@ -1,77 +1,133 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { Vehiculo } from "@/hooks/use-vehiculos"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+import type { Vehiculo } from "@/hooks/use-vehiculos";
+import { useCarretas } from "@/hooks/use-carretas";
 
 interface VehiculoFormProps {
-  vehiculo?: Vehiculo | null
-  onSubmit: (vehiculo: Omit<Vehiculo, "id">) => void
-  onCancel: () => void
-  isEditing?: boolean
+  vehiculo?: Vehiculo | null;
+  onSubmit: (vehiculo: Omit<Vehiculo, "id">) => void;
+  onCancel: () => void;
+  isEditing?: boolean;
 }
 
-export function VehiculoForm({ vehiculo, onSubmit, onCancel, isEditing = false }: VehiculoFormProps) {
+export function VehiculoForm({
+  vehiculo,
+  onSubmit,
+  onCancel,
+  isEditing = false,
+}: VehiculoFormProps) => {
+  const {
+    carretas,
+    isLoading: carretasLoading,
+    error: carretasError,
+  } = useCarretas();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Debug logging
+  useEffect(() => {
+    console.log("🚛 VehiculoForm - Props:", { vehiculo, isEditing });
+    console.log("🚛 VehiculoForm - Carretas:", { carretas, carretasLoading, carretasError });
+  }, [vehiculo, isEditing, carretas, carretasLoading, carretasError]);
+
   const [formData, setFormData] = useState({
     placa: "",
     marca: "",
     modelo: "",
     anio: "",
-    tipo: "",
+    tipo: "Tractocamión",
     capacidad_carga_kg: "",
-    tipo_carga: "",
-    estado: "",
+    tipo_carga: "General",
+    estado: "Activo",
     fecha_adquisicion: "",
     vin: "",
     id_carreta: "",
-  })
+  });
 
   useEffect(() => {
     if (vehiculo) {
+      console.log("🚛 VehiculoForm - Setting form data:", vehiculo);
       setFormData({
-        placa: vehiculo.placa,
-        marca: vehiculo.marca,
-        modelo: vehiculo.modelo,
-        anio: vehiculo.anio.toString(),
-        tipo: vehiculo.tipo,
-        capacidad_carga_kg: vehiculo.capacidad_carga_kg.toString(),
-        tipo_carga: vehiculo.tipo_carga,
-        estado: vehiculo.estado,
-        fecha_adquisicion: vehiculo.fecha_adquisicion,
-        vin: vehiculo.vin,
+        placa: vehiculo.placa || "",
+        marca: vehiculo.marca || "",
+        modelo: vehiculo.modelo || "",
+        anio: vehiculo.anio?.toString() || "",
+        tipo: vehiculo.tipo || "",
+        capacidad_carga_kg: vehiculo.capacidad_carga_kg?.toString() || "",
+        tipo_carga: vehiculo.tipo_carga || "",
+        estado: vehiculo.estado || "",
+        fecha_adquisicion: vehiculo.fecha_adquisicion || "",
+        vin: vehiculo.vin || "",
         id_carreta: vehiculo.id_carreta?.toString() || "",
-      })
+      });
     }
-  }, [vehiculo])
+  }, [vehiculo]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSubmit({
-      placa: formData.placa,
-      marca: formData.marca,
-      modelo: formData.modelo,
-      anio: Number.parseInt(formData.anio),
-      tipo: formData.tipo,
-      capacidad_carga_kg: Number.parseFloat(formData.capacidad_carga_kg),
-      tipo_carga: formData.tipo_carga,
-      estado: formData.estado,
-      fecha_adquisicion: formData.fecha_adquisicion,
-      vin: formData.vin,
-      id_carreta: formData.id_carreta ? Number.parseInt(formData.id_carreta) : undefined,
-    })
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setFormError(null);
+
+    try {
+      await onSubmit({
+        placa: formData.placa,
+        marca: formData.marca,
+        modelo: formData.modelo,
+        anio: Number.parseInt(formData.anio) || 0,
+        tipo: formData.tipo,
+        capacidad_carga_kg: Number.parseFloat(formData.capacidad_carga_kg) || 0,
+        tipo_carga: formData.tipo_carga,
+        estado: formData.estado,
+        fecha_adquisicion: formData.fecha_adquisicion,
+        vin: formData.vin,
+        id_carreta: formData.id_carreta && formData.id_carreta !== ""
+          ? Number.parseInt(formData.id_carreta)
+          : undefined,
+      });
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      setFormError(
+        "Error al guardar el vehículo. Por favor intenta nuevamente.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    console.log("🚛 VehiculoForm - Input change:", { field, value });
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   return (
     <div className="mobile-form-spacing">
+      {carretasError && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            Error cargando carretas: {carretasError}
+          </AlertDescription>
+        </Alert>
+      )}
+      {formError && (
+        <Alert variant="destructive">
+          <AlertDescription>{formError}</AlertDescription>
+        </Alert>
+      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -140,7 +196,10 @@ export function VehiculoForm({ vehiculo, onSubmit, onCancel, isEditing = false }
           </div>
           <div>
             <Label htmlFor="tipo">Tipo de Vehículo *</Label>
-            <Select value={formData.tipo} onValueChange={(value) => handleInputChange("tipo", value)}>
+            <Select
+              value={formData.tipo || "Tractocamión"}
+              onValueChange={(value) => handleInputChange("tipo", value)}
+            >
               <SelectTrigger className="mobile-input">
                 <SelectValue placeholder="Seleccionar tipo" />
               </SelectTrigger>
@@ -156,12 +215,16 @@ export function VehiculoForm({ vehiculo, onSubmit, onCancel, isEditing = false }
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="capacidad_carga_kg">Capacidad de Carga (kg) *</Label>
+            <Label htmlFor="capacidad_carga_kg">
+              Capacidad de Carga (kg) *
+            </Label>
             <Input
               id="capacidad_carga_kg"
               type="number"
               value={formData.capacidad_carga_kg}
-              onChange={(e) => handleInputChange("capacidad_carga_kg", e.target.value)}
+              onChange={(e) =>
+                handleInputChange("capacidad_carga_kg", e.target.value)
+              }
               placeholder="25000"
               min="0"
               step="0.01"
@@ -171,12 +234,15 @@ export function VehiculoForm({ vehiculo, onSubmit, onCancel, isEditing = false }
           </div>
           <div>
             <Label htmlFor="tipo_carga">Tipo de Carga *</Label>
-            <Select value={formData.tipo_carga} onValueChange={(value) => handleInputChange("tipo_carga", value)}>
+            <Select
+              value={formData.tipo_carga || "General"}
+              onValueChange={(value) => handleInputChange("tipo_carga", value)}
+            >
               <SelectTrigger className="mobile-input">
                 <SelectValue placeholder="Seleccionar tipo de carga" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Carga General">Carga General</SelectItem>
+                <SelectItem value="General">General</SelectItem>
                 <SelectItem value="Refrigerada">Refrigerada</SelectItem>
                 <SelectItem value="Líquidos">Líquidos</SelectItem>
                 <SelectItem value="Peligrosa">Peligrosa</SelectItem>
@@ -189,7 +255,10 @@ export function VehiculoForm({ vehiculo, onSubmit, onCancel, isEditing = false }
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="estado">Estado *</Label>
-            <Select value={formData.estado} onValueChange={(value) => handleInputChange("estado", value)}>
+            <Select
+              value={formData.estado || "Activo"}
+              onValueChange={(value) => handleInputChange("estado", value)}
+            >
               <SelectTrigger className="mobile-input">
                 <SelectValue placeholder="Seleccionar estado" />
               </SelectTrigger>
@@ -197,7 +266,9 @@ export function VehiculoForm({ vehiculo, onSubmit, onCancel, isEditing = false }
                 <SelectItem value="Activo">Activo</SelectItem>
                 <SelectItem value="Inactivo">Inactivo</SelectItem>
                 <SelectItem value="Mantenimiento">Mantenimiento</SelectItem>
-                <SelectItem value="Fuera de Servicio">Fuera de Servicio</SelectItem>
+                <SelectItem value="Fuera de Servicio">
+                  Fuera de Servicio
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -207,7 +278,9 @@ export function VehiculoForm({ vehiculo, onSubmit, onCancel, isEditing = false }
               id="fecha_adquisicion"
               type="date"
               value={formData.fecha_adquisicion}
-              onChange={(e) => handleInputChange("fecha_adquisicion", e.target.value)}
+              onChange={(e) =>
+                handleInputChange("fecha_adquisicion", e.target.value)
+              }
               className="mobile-input"
               required
             />
@@ -215,27 +288,61 @@ export function VehiculoForm({ vehiculo, onSubmit, onCancel, isEditing = false }
         </div>
 
         <div>
-          <Label htmlFor="id_carreta">ID Carreta (Opcional)</Label>
-          <Input
-            id="id_carreta"
-            type="number"
-            value={formData.id_carreta}
-            onChange={(e) => handleInputChange("id_carreta", e.target.value)}
-            placeholder="ID de la carreta asociada"
-            min="1"
-            className="mobile-input"
-          />
+          <Label htmlFor="id_carreta">Carreta Asociada (Opcional)</Label>
+          <Select
+            value={formData.id_carreta || undefined}
+            onValueChange={(value) => handleInputChange("id_carreta", value || "")}
+          >
+            <SelectTrigger className="mobile-input">
+              <SelectValue
+                placeholder={
+                  carretasLoading
+                    ? "Cargando carretas..."
+                    : "Seleccionar carreta"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">Sin carreta</SelectItem>
+              {!carretasLoading && carretas.map((carreta) => (
+                <SelectItem
+                  key={carreta.id}
+                  value={carreta.id?.toString() || ""}
+                >
+                  {carreta.id} - {carreta.placa} ({carreta.tipo})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-2 pt-4">
-          <Button type="button" variant="outline" onClick={onCancel} className="mobile-button bg-transparent">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="mobile-button bg-transparent"
+          >
             Cancelar
           </Button>
-          <Button type="submit" className="mobile-button">
-            {isEditing ? "Actualizar Vehículo" : "Registrar Vehículo"}
+          <Button
+            type="submit"
+            className="mobile-button"
+            disabled={isSubmitting || carretasLoading}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                {isEditing ? "Actualizando..." : "Registrando..."}
+              </>
+            ) : isEditing ? (
+              "Actualizar Vehículo"
+            ) : (
+              "Registrar Vehículo"
+            )}
           </Button>
         </div>
       </form>
     </div>
-  )
+  );
 }

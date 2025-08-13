@@ -44,7 +44,8 @@ export function ClienteForm({
     telefono: "",
     email: "",
     contacto_nombre: "",
-    horario: "",
+    hora_apertura: "",
+    hora_cierre: "",
     estado: "",
     longitud: "",
     latitud: "",
@@ -63,7 +64,12 @@ export function ClienteForm({
         telefono: cliente.telefono,
         email: cliente.email,
         contacto_nombre: cliente.contacto_nombre,
-        horario: cliente.horario,
+        hora_apertura: cliente.horario
+          ? cliente.horario.split(" - ")[0] || ""
+          : "",
+        hora_cierre: cliente.horario
+          ? cliente.horario.split(" - ")[1] || ""
+          : "",
         estado: cliente.estado,
         longitud: cliente.longitud.toString(),
         latitud: cliente.latitud.toString(),
@@ -95,7 +101,7 @@ export function ClienteForm({
       telefono: formData.telefono,
       email: formData.email,
       contacto_nombre: formData.contacto_nombre,
-      horario: formData.horario,
+      horario: `${formData.hora_apertura} - ${formData.hora_cierre}`,
       estado: formData.estado,
       longitud: Number.parseFloat(formData.longitud),
       latitud: Number.parseFloat(formData.latitud),
@@ -148,7 +154,7 @@ export function ClienteForm({
         <div>
           <Label htmlFor="id_tipo_cliente">Tipo de Cliente *</Label>
           <Select
-            value={formData.id_tipo_cliente}
+            value={formData.id_tipo_cliente || ""}
             onValueChange={(value) =>
               handleInputChange("id_tipo_cliente", value)
             }
@@ -168,7 +174,7 @@ export function ClienteForm({
         <div>
           <Label htmlFor="estado">Estado *</Label>
           <Select
-            value={formData.estado}
+            value={formData.estado || ""}
             onValueChange={(value) => handleInputChange("estado", value)}
           >
             <SelectTrigger>
@@ -197,7 +203,7 @@ export function ClienteForm({
         <div>
           <Label htmlFor="id_zona_pvta">Zona PVTA</Label>
           <Select
-            value={formData.id_zona_pvta}
+            value={formData.id_zona_pvta || ""}
             onValueChange={(value) => handleInputChange("id_zona_pvta", value)}
           >
             <SelectTrigger>
@@ -215,7 +221,7 @@ export function ClienteForm({
         <div>
           <Label htmlFor="id_zona_tvta">Zona TVTA</Label>
           <Select
-            value={formData.id_zona_tvta}
+            value={formData.id_zona_tvta || ""}
             onValueChange={(value) => handleInputChange("id_zona_tvta", value)}
           >
             <SelectTrigger>
@@ -267,15 +273,27 @@ export function ClienteForm({
         />
       </div>
 
-      <div>
-        <Label htmlFor="horario">Horario de Atención *</Label>
-        <Input
-          id="horario"
-          value={formData.horario}
-          onChange={(e) => handleInputChange("horario", e.target.value)}
-          placeholder="Lunes a Viernes 8:00 AM - 6:00 PM"
-          required
-        />
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="hora_apertura">Hora de Apertura *</Label>
+          <Input
+            id="hora_apertura"
+            type="time"
+            value={formData.hora_apertura}
+            onChange={(e) => handleInputChange("hora_apertura", e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="hora_cierre">Hora de Cierre *</Label>
+          <Input
+            id="hora_cierre"
+            type="time"
+            value={formData.hora_cierre}
+            onChange={(e) => handleInputChange("hora_cierre", e.target.value)}
+            required
+          />
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

@@ -1,22 +1,33 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { Ruta } from "@/hooks/use-rutas"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Ruta } from "@/hooks/use-rutas";
 
 interface RutaFormProps {
-  ruta?: Ruta | null
-  onSubmit: (ruta: Omit<Ruta, "id" | "fecha_creacion" | "ultima_actualizacion">) => void
-  onCancel: () => void
-  isEditing?: boolean
+  ruta?: Ruta | null;
+  onSubmit: (ruta: Omit<Ruta, "id">) => void;
+  onCancel: () => void;
+  isEditing?: boolean;
 }
 
-export function RutaForm({ ruta, onSubmit, onCancel, isEditing = false }: RutaFormProps) {
+export function RutaForm({
+  ruta,
+  onSubmit,
+  onCancel,
+  isEditing = false,
+}: RutaFormProps) {
   const [formData, setFormData] = useState({
     codigo: "",
     nombre: "",
@@ -26,7 +37,7 @@ export function RutaForm({ ruta, onSubmit, onCancel, isEditing = false }: RutaFo
     duracion_aproximada: "",
     tipo_ruta: "",
     estado: "",
-  })
+  });
 
   useEffect(() => {
     if (ruta) {
@@ -39,12 +50,12 @@ export function RutaForm({ ruta, onSubmit, onCancel, isEditing = false }: RutaFo
         duracion_aproximada: ruta.duracion_aproximada,
         tipo_ruta: ruta.tipo_ruta,
         estado: ruta.estado,
-      })
+      });
     }
-  }, [ruta])
+  }, [ruta]);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     onSubmit({
       codigo: formData.codigo,
       nombre: formData.nombre,
@@ -54,12 +65,13 @@ export function RutaForm({ ruta, onSubmit, onCancel, isEditing = false }: RutaFo
       duracion_aproximada: formData.duracion_aproximada,
       tipo_ruta: formData.tipo_ruta,
       estado: formData.estado,
-    })
-  }
+      fecha_creacion: new Date().toISOString(),
+    });
+  };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -129,7 +141,9 @@ export function RutaForm({ ruta, onSubmit, onCancel, isEditing = false }: RutaFo
             id="duracion_aproximada"
             type="time"
             value={formData.duracion_aproximada}
-            onChange={(e) => handleInputChange("duracion_aproximada", e.target.value)}
+            onChange={(e) =>
+              handleInputChange("duracion_aproximada", e.target.value)
+            }
             required
           />
         </div>
@@ -138,7 +152,10 @@ export function RutaForm({ ruta, onSubmit, onCancel, isEditing = false }: RutaFo
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="tipo_ruta">Tipo de Ruta *</Label>
-          <Select value={formData.tipo_ruta} onValueChange={(value) => handleInputChange("tipo_ruta", value)}>
+          <Select
+            value={formData.tipo_ruta || ""}
+            onValueChange={(value) => handleInputChange("tipo_ruta", value)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar tipo" />
             </SelectTrigger>
@@ -152,7 +169,10 @@ export function RutaForm({ ruta, onSubmit, onCancel, isEditing = false }: RutaFo
         </div>
         <div>
           <Label htmlFor="estado">Estado *</Label>
-          <Select value={formData.estado} onValueChange={(value) => handleInputChange("estado", value)}>
+          <Select
+            value={formData.estado || ""}
+            onValueChange={(value) => handleInputChange("estado", value)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar estado" />
             </SelectTrigger>
@@ -167,7 +187,12 @@ export function RutaForm({ ruta, onSubmit, onCancel, isEditing = false }: RutaFo
       </div>
 
       <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto bg-transparent">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="w-full sm:w-auto bg-transparent"
+        >
           Cancelar
         </Button>
         <Button type="submit" className="w-full sm:w-auto">
@@ -175,5 +200,5 @@ export function RutaForm({ ruta, onSubmit, onCancel, isEditing = false }: RutaFo
         </Button>
       </div>
     </form>
-  )
+  );
 }

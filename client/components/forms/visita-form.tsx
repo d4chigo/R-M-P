@@ -98,7 +98,7 @@ export function VisitaForm({
         <div>
           <Label htmlFor="id_viaje">ID Viaje *</Label>
           <Select
-            value={formData.id_viaje}
+            value={formData.id_viaje || ""}
             onValueChange={(value) => handleInputChange("id_viaje", value)}
           >
             <SelectTrigger>
@@ -116,7 +116,7 @@ export function VisitaForm({
         <div>
           <Label htmlFor="id_cliente">ID Cliente *</Label>
           <Select
-            value={formData.id_cliente}
+            value={formData.id_cliente || ""}
             onValueChange={(value) => handleInputChange("id_cliente", value)}
           >
             <SelectTrigger>
