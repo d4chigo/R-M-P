@@ -87,9 +87,47 @@ exports.update = async (req, res) => {
 exports.delete = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Get vehicle info before deletion for logging
+    const [existingVehicle] = await db.query(
+      "SELECT placa FROM VEHICULO WHERE id = ?",
+      [id],
+    );
+
+    // Proceed with deletion
     const [result] = await db.query("DELETE FROM VEHICULO WHERE id=?", [id]);
-    res.json({ success: true, affectedRows: result.affectedRows });
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Vehículo no encontrado",
+      });
+    }
+
+    const placa = existingVehicle.length > 0 ? existingVehicle[0].placa : id;
+    console.log(`✅ Vehículo ${placa} eliminado correctamente`);
+
+    res.json({
+      success: true,
+      affectedRows: result.affectedRows,
+      message: `Vehículo eliminado correctamente`,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Error deleting vehiculo:", error);
+
+    // Handle specific MySQL errors
+    if (error.code === "ER_ROW_IS_REFERENCED_2") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "No se puede eliminar este vehículo porque tiene viajes asociados. Primero debe eliminar los viajes que usan este vehículo.",
+      });
+    }
+
+    // Generic database error
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor al eliminar el vehículo",
+    });
   }
 };

@@ -103,19 +103,30 @@ export const useVehiculos = () => {
   // Eliminar vehículo
   const deleteVehiculo = useCallback(
     async (id: number) => {
+      console.log(`🗑️ Iniciando eliminación de vehículo ID: ${id}`);
       setError(null);
 
       try {
         const response = await crud.remove(id);
+        console.log(`📡 Respuesta del servidor para eliminación:`, response);
+
         if (response.success) {
           // Remover el vehículo del estado sin recargar toda la lista
           setVehiculos((prev) => prev.filter((v) => v.id !== id));
+          console.log(`✅ Vehículo ${id} eliminado del estado local`);
           return { success: true };
         } else {
-          setError(response.error || "Error al eliminar vehículo");
-          return { success: false, error: response.error };
+          const errorMsg =
+            response.error || response.message || "Error al eliminar vehículo";
+          console.error(
+            `❌ Error del servidor al eliminar vehículo ${id}:`,
+            errorMsg,
+          );
+          setError(errorMsg);
+          return { success: false, error: errorMsg };
         }
       } catch (err) {
+        console.error(`❌ Error de conexión al eliminar vehículo ${id}:`, err);
         const errorMessage = "Error de conexión al eliminar vehículo";
         setError(errorMessage);
         return { success: false, error: errorMessage };

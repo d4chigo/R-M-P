@@ -79,13 +79,51 @@ export const useApi = () => {
           },
         );
 
-        // Si el token es inválido o expiró, hacer logout
+        // Si el token es inválido o expiró, hacer logout solo si es un error de autenticación real
         if (response.status === 401) {
-          console.warn("🔒 Token inválido o expirado, cerrando sesión");
-          logout();
+          let data: ApiResponse<T>;
+          try {
+            data = await response.json();
+          } catch (jsonError) {
+            console.warn(
+              "🔒 Error 401 sin respuesta JSON válida, cerrando sesión",
+            );
+            logout();
+            return {
+              success: false,
+              error: "Sesión expirada. Por favor, inicia sesión nuevamente.",
+            };
+          }
+
+          // Solo hacer logout si es realmente un problema de autenticación
+          const authMessages = [
+            "token",
+            "sesión",
+            "expirado",
+            "inválido",
+            "autenticación",
+          ];
+          const isAuthError = authMessages.some(
+            (msg) =>
+              (data.message || "").toLowerCase().includes(msg) ||
+              (data.error || "").toLowerCase().includes(msg),
+          );
+
+          if (isAuthError) {
+            console.warn("🔒 Token inválido o expirado, cerrando sesión");
+            logout();
+            return {
+              success: false,
+              error: "Sesión expirada. Por favor, inicia sesión nuevamente.",
+            };
+          }
+
+          // Si no es un error de autenticación, continuar con el manejo normal
+          console.warn("⚠️ Error 401 sin relación a autenticación:", data);
+          setError(data.message || data.error || "Error de autorización");
           return {
             success: false,
-            error: "Sesión expirada. Por favor, inicia sesión nuevamente.",
+            error: data.message || data.error || "Error de autorización",
           };
         }
 

@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Vehiculo } from "@/hooks/use-vehiculos";
+import { formatDateForInput } from "@/lib/utils/date";
 
 interface VehiculoFormSimpleProps {
   vehiculo?: Vehiculo | null;
@@ -43,6 +44,9 @@ export function VehiculoFormSimple({
   useEffect(() => {
     console.log("🚛 Simple Form - vehiculo prop:", vehiculo);
     if (vehiculo) {
+      // Format date for HTML date input (YYYY-MM-DD)
+      const formattedDate = formatDateForInput(vehiculo.fecha_adquisicion);
+
       setFormData({
         placa: vehiculo.placa || "",
         marca: vehiculo.marca || "",
@@ -52,7 +56,7 @@ export function VehiculoFormSimple({
         capacidad_carga_kg: vehiculo.capacidad_carga_kg?.toString() || "",
         tipo_carga: vehiculo.tipo_carga || "",
         estado: vehiculo.estado || "",
-        fecha_adquisicion: vehiculo.fecha_adquisicion || "",
+        fecha_adquisicion: formattedDate,
         vin: vehiculo.vin || "",
         id_carreta: vehiculo.id_carreta?.toString() || "",
       });
@@ -74,7 +78,9 @@ export function VehiculoFormSimple({
       estado: formData.estado,
       fecha_adquisicion: formData.fecha_adquisicion,
       vin: formData.vin,
-      id_carreta: formData.id_carreta ? Number.parseInt(formData.id_carreta) : undefined,
+      id_carreta: formData.id_carreta
+        ? Number.parseInt(formData.id_carreta)
+        : undefined,
     });
   };
 
@@ -151,7 +157,9 @@ export function VehiculoFormSimple({
             id="capacidad_carga_kg"
             type="number"
             value={formData.capacidad_carga_kg}
-            onChange={(e) => handleInputChange("capacidad_carga_kg", e.target.value)}
+            onChange={(e) =>
+              handleInputChange("capacidad_carga_kg", e.target.value)
+            }
             placeholder="25000"
             min="0"
             step="0.01"
@@ -219,7 +227,9 @@ export function VehiculoFormSimple({
             id="fecha_adquisicion"
             type="date"
             value={formData.fecha_adquisicion}
-            onChange={(e) => handleInputChange("fecha_adquisicion", e.target.value)}
+            onChange={(e) =>
+              handleInputChange("fecha_adquisicion", e.target.value)
+            }
             required
           />
         </div>
