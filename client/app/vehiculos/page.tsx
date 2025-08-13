@@ -1,8 +1,14 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -10,44 +16,63 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Plus, ArrowLeft, Truck } from "lucide-react"
-import Link from "next/link"
-import { DataTable, type Column } from "@/components/ui/data-table"
-import { VehiculoForm } from "@/components/forms/vehiculo-form"
-import { useVehiculos, type Vehiculo } from "@/hooks/use-vehiculos"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+} from "@/components/ui/dialog";
+import { Plus, ArrowLeft, Truck } from "lucide-react";
+import Link from "next/link";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { VehiculoForm } from "@/components/forms/vehiculo-form";
+import { useVehiculos, type Vehiculo } from "@/hooks/use-vehiculos";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function VehiculosPage() {
-  const { vehiculos, editingVehiculo, addVehiculo, updateVehiculo, deleteVehiculo, startEdit, cancelEdit } =
-    useVehiculos()
+  const {
+    vehiculos,
+    createVehiculo,
+    updateVehiculo,
+    deleteVehiculo,
+    isLoading,
+    error,
+  } = useVehiculos();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingVehiculo, setEditingVehiculo] = useState<Vehiculo | null>(null);
 
-  const handleSubmit = (vehiculoData: Omit<Vehiculo, "id">) => {
-    if (editingVehiculo) {
-      updateVehiculo(editingVehiculo.id, vehiculoData)
-    } else {
-      addVehiculo(vehiculoData)
+  const handleSubmit = async (vehiculoData: Omit<Vehiculo, "id">) => {
+    try {
+      if (editingVehiculo && editingVehiculo.id) {
+        await updateVehiculo(editingVehiculo.id, vehiculoData);
+      } else {
+        await createVehiculo(vehiculoData);
+      }
+      setIsDialogOpen(false);
+      setEditingVehiculo(null);
+    } catch (error) {
+      console.error("Error al guardar vehículo:", error);
     }
-    setIsDialogOpen(false)
-  }
+  };
 
   const handleEdit = (vehiculo: Vehiculo) => {
-    startEdit(vehiculo)
-    setIsDialogOpen(true)
-  }
+    setEditingVehiculo(vehiculo);
+    setIsDialogOpen(true);
+  };
 
-  const handleDelete = (vehiculo: Vehiculo) => {
+  const handleDelete = async (vehiculo: Vehiculo) => {
     if (confirm(`¿Está seguro de eliminar el vehículo ${vehiculo.placa}?`)) {
-      deleteVehiculo(vehiculo.id)
+      if (vehiculo.id) {
+        await deleteVehiculo(vehiculo.id);
+      }
     }
-  }
+  };
 
   const handleCancel = () => {
-    cancelEdit()
-    setIsDialogOpen(false)
-  }
+    setEditingVehiculo(null);
+    setIsDialogOpen(false);
+  };
+
+  const handleNewVehiculo = () => {
+    setEditingVehiculo(null);
+    setIsDialogOpen(true);
+  };
 
   const columns: Column<Vehiculo>[] = [
     {
@@ -60,7 +85,9 @@ export default function VehiculosPage() {
       key: "placa",
       header: "Placa",
       sortable: true,
-      render: (vehiculo) => <span className="font-semibold">{vehiculo.placa}</span>,
+      render: (vehiculo) => (
+        <span className="font-semibold">{vehiculo.placa}</span>
+      ),
     },
     {
       key: "marca",
@@ -114,14 +141,18 @@ export default function VehiculosPage() {
       header: "Fecha Adquisición",
       sortable: true,
       render: (vehiculo) =>
-        new Date(vehiculo.fecha_adquisicion).toLocaleDateString("es-PE", { timeZone: "America/Lima" }),
+        new Date(vehiculo.fecha_adquisicion).toLocaleDateString("es-PE", {
+          timeZone: "America/Lima",
+        }),
     },
     {
       key: "vin",
       header: "VIN",
-      render: (vehiculo) => <span className="font-mono text-xs">{vehiculo.vin}</span>,
+      render: (vehiculo) => (
+        <span className="font-mono text-xs">{vehiculo.vin}</span>
+      ),
     },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -146,7 +177,9 @@ export default function VehiculosPage() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
                   Gestión de Vehículos
                 </h1>
-                <p className="text-gray-600 dark:text-gray-300">Administra la flota de vehículos de transporte</p>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Administra la flota de vehículos de transporte
+                </p>
               </div>
             </div>
           </div>
@@ -155,7 +188,7 @@ export default function VehiculosPage() {
             <ThemeToggle />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => cancelEdit()} className="mobile-button">
+                <Button onClick={handleNewVehiculo} className="mobile-button">
                   <Plus className="w-4 h-4 mr-2" />
                   Nuevo Vehículo
                 </Button>
@@ -163,7 +196,9 @@ export default function VehiculosPage() {
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto dark:bg-gray-800 dark:border-gray-700">
                 <DialogHeader>
                   <DialogTitle className="dark:text-gray-100">
-                    {editingVehiculo ? "Editar Vehículo" : "Registrar Nuevo Vehículo"}
+                    {editingVehiculo
+                      ? "Editar Vehículo"
+                      : "Registrar Nuevo Vehículo"}
                   </DialogTitle>
                   <DialogDescription className="dark:text-gray-300">
                     {editingVehiculo
@@ -184,9 +219,12 @@ export default function VehiculosPage() {
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Lista de Vehículos</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Lista de Vehículos
+            </CardTitle>
             <CardDescription className="dark:text-gray-300">
-              Gestiona todos los vehículos de la flota con funciones de búsqueda, filtrado y ordenamiento
+              Gestiona todos los vehículos de la flota con funciones de
+              búsqueda, filtrado y ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -204,5 +242,5 @@ export default function VehiculosPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

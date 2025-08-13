@@ -125,6 +125,7 @@ CREATE TABLE `USUARIO` (
     `contrasena` VARCHAR(255) NOT NULL,
     `email` VARCHAR(100) NOT NULL UNIQUE,
     `estado` VARCHAR(10) DEFAULT 'Activo',
+    `last_login` DATETIME NULL COMMENT 'Última fecha de login',
     -- Auditoría
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -249,9 +250,66 @@ CREATE INDEX `idx_cliente_ruc` ON `CLIENTE`(`ruc`);
 CREATE INDEX `idx_ruta_codigo` ON `RUTA`(`codigo`);
 CREATE INDEX `idx_viaje_fecha` ON `VIAJE`(`fecha`);
 
+-- Índices para autenticación
+CREATE INDEX `idx_usuario_email` ON `USUARIO`(`email`);
+CREATE INDEX `idx_usuario_estado` ON `USUARIO`(`estado`);
+
+-- ======================================
+-- DATOS INICIALES
+-- ======================================
+
+-- Insertar usuarios de autenticación por defecto
+INSERT INTO USUARIO (nombre, contrasena, email, estado, created_by) VALUES
+('Administrador', '$2a$10$iUbSmL2uwaU5sIryjMYRVect6MhXSBNx85f5plAEF3p2GSwbxFXoa', 'admin@rmp.com', '1', 1),
+('Usuario Demo', '$2a$10$S16xtRVcad4th4ktbcUuY.RsU8rscIx02AXu17S1xBoKvhPSVRS6W', 'demo@rmp.com', '1', 1);
+
+-- Insertar tipos de cliente por defecto
+INSERT INTO TIPO_CLIENTE (nombre, descripcion, created_by) VALUES
+('Mayorista', 'Cliente mayorista con compras en volumen', 1),
+('Minorista', 'Cliente minorista con compras regulares', 1),
+('Corporativo', 'Cliente corporativo con contrato especial', 1);
+
+-- Insertar zonas por defecto
+INSERT INTO ZONA (nombre, descripcion, region, created_by) VALUES
+('Zona Norte', 'Zona norte de la ciudad', 'Norte', 1),
+('Zona Sur', 'Zona sur de la ciudad', 'Sur', 1),
+('Zona Este', 'Zona este de la ciudad', 'Este', 1),
+('Zona Oeste', 'Zona oeste de la ciudad', 'Oeste', 1),
+('Zona Centro', 'Zona centro de la ciudad', 'Centro', 1);
+
+-- Insertar carretas por defecto
+INSERT INTO CARRETA (placa, tipo, capacidad_kg, estado, created_by) VALUES
+('CAR-001', 'Remolque', 15000, 'Activo', 1),
+('CAR-002', 'Semirremolque', 25000, 'Activo', 1),
+('CAR-003', 'Trailer', 30000, 'Activo', 1);
+
+-- Insertar vehículos por defecto
+INSERT INTO VEHICULO (placa, marca, modelo, anio, tipo, capacidad_carga_kg, tipo_carga, estado, fecha_adquisicion, vin, id_carreta, created_by) VALUES
+('ABC-123', 'Volvo', 'FH16', 2020, 'Tractocamión', 20000, 'General', 'Activo', '2020-01-15', '1HGCM82633A004352', 1, 1),
+('DEF-456', 'Scania', 'R450', 2019, 'Tractocamión', 18000, 'General', 'Activo', '2019-06-20', '2HGCM82633A004353', 2, 1),
+('GHI-789', 'Mercedes', 'Actros', 2021, 'Tractocamión', 22000, 'General', 'Activo', '2021-03-10', '3HGCM82633A004354', 3, 1);
+
+-- Insertar rutas por defecto
+INSERT INTO RUTA (codigo, nombre, origen, destino, distancia_km, duracion_aproximada, tipo_ruta, estado, fecha_creacion, created_by) VALUES
+('RUT-001', 'Lima - Arequipa', 'Lima', 'Arequipa', 1020, '12:00:00', 'Nacional', 'Activo', '2024-01-01 08:00:00', 1),
+('RUT-002', 'Lima - Cusco', 'Lima', 'Cusco', 1165, '14:00:00', 'Nacional', 'Activo', '2024-01-01 08:00:00', 1),
+('RUT-003', 'Lima - Trujillo', 'Lima', 'Trujillo', 561, '07:00:00', 'Nacional', 'Activo', '2024-01-01 08:00:00', 1);
+
 -- ======================================
 -- VERIFICACIÓN DE INTEGRIDAD
 -- ======================================
 
 -- Verificar que todas las foreign keys funcionan
 SELECT 'Base de datos inicializada correctamente con relaciones establecidas' AS resultado;
+
+-- Mostrar usuarios creados
+SELECT 'Usuarios creados:' AS info;
+SELECT id, nombre, email, estado, created_at FROM USUARIO;
+
+-- Mostrar tipos de cliente creados
+SELECT 'Tipos de cliente creados:' AS info;
+SELECT id, nombre, descripcion FROM TIPO_CLIENTE;
+
+-- Mostrar zonas creadas
+SELECT 'Zonas creadas:' AS info;
+SELECT id, nombre, descripcion, region FROM ZONA;

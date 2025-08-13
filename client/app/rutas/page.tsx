@@ -1,8 +1,14 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -10,43 +16,72 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Plus, ArrowLeft, Route } from "lucide-react"
-import Link from "next/link"
-import { DataTable, type Column } from "@/components/ui/data-table"
-import { RutaForm } from "@/components/forms/ruta-form"
-import { useRutas, type Ruta } from "@/hooks/use-rutas"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+} from "@/components/ui/dialog";
+import { Plus, ArrowLeft, Route } from "lucide-react";
+import Link from "next/link";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { RutaForm } from "@/components/forms/ruta-form";
+import { useRutas, type Ruta } from "@/hooks/use-rutas";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function RutasPage() {
-  const { rutas, editingRuta, addRuta, updateRuta, deleteRuta, startEdit, cancelEdit } = useRutas()
+  const { rutas, createRuta, updateRuta, deleteRuta, isLoading, error } =
+    useRutas();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRuta, setEditingRuta] = useState<Ruta | null>(null);
 
-  const handleSubmit = (rutaData: Omit<Ruta, "id" | "fecha_creacion" | "ultima_actualizacion">) => {
-    if (editingRuta) {
-      updateRuta(editingRuta.id, rutaData)
-    } else {
-      addRuta(rutaData)
+  const handleSubmit = async (
+    rutaData: Omit<
+      Ruta,
+      | "id"
+      | "fecha_creacion"
+      | "created_at"
+      | "updated_at"
+      | "created_by"
+      | "updated_by"
+    >,
+  ) => {
+    try {
+      if (editingRuta && editingRuta.id) {
+        await updateRuta(editingRuta.id, rutaData);
+      } else {
+        // Agregar fecha_creacion automáticamente para nuevas rutas
+        const rutaConFecha = {
+          ...rutaData,
+          fecha_creacion: new Date().toISOString().split("T")[0], // YYYY-MM-DD
+        };
+        await createRuta(rutaConFecha);
+      }
+      setIsDialogOpen(false);
+      setEditingRuta(null);
+    } catch (error) {
+      console.error("Error al guardar ruta:", error);
     }
-    setIsDialogOpen(false)
-  }
+  };
 
   const handleEdit = (ruta: Ruta) => {
-    startEdit(ruta)
-    setIsDialogOpen(true)
-  }
+    setEditingRuta(ruta);
+    setIsDialogOpen(true);
+  };
 
-  const handleDelete = (ruta: Ruta) => {
+  const handleDelete = async (ruta: Ruta) => {
     if (confirm(`¿Está seguro de eliminar la ruta ${ruta.nombre}?`)) {
-      deleteRuta(ruta.id)
+      if (ruta.id) {
+        await deleteRuta(ruta.id);
+      }
     }
-  }
+  };
 
   const handleCancel = () => {
-    cancelEdit()
-    setIsDialogOpen(false)
-  }
+    setEditingRuta(null);
+    setIsDialogOpen(false);
+  };
+
+  const handleNewRuta = () => {
+    setEditingRuta(null);
+    setIsDialogOpen(true);
+  };
 
   const columns: Column<Ruta>[] = [
     {
@@ -116,9 +151,12 @@ export default function RutasPage() {
       key: "fecha_creacion",
       header: "Fecha Creación",
       sortable: true,
-      render: (ruta) => new Date(ruta.fecha_creacion).toLocaleDateString("es-PE", { timeZone: "America/Lima" }),
+      render: (ruta) =>
+        new Date(ruta.fecha_creacion).toLocaleDateString("es-PE", {
+          timeZone: "America/Lima",
+        }),
     },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -140,7 +178,9 @@ export default function RutasPage() {
                 <Route className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Gestión de Rutas</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Gestión de Rutas
+                </h1>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
                   Administra las rutas de transporte
                 </p>
@@ -152,7 +192,10 @@ export default function RutasPage() {
             <ThemeToggle />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => cancelEdit()} className="w-full sm:w-auto mobile-button">
+                <Button
+                  onClick={handleNewRuta}
+                  className="w-full sm:w-auto mobile-button"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Nueva Ruta
                 </Button>
@@ -183,7 +226,8 @@ export default function RutasPage() {
           <CardHeader>
             <CardTitle className="dark:text-gray-100">Lista de Rutas</CardTitle>
             <CardDescription className="dark:text-gray-300">
-              Gestiona todas las rutas con funciones de búsqueda, filtrado y ordenamiento
+              Gestiona todas las rutas con funciones de búsqueda, filtrado y
+              ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -195,11 +239,18 @@ export default function RutasPage() {
               onDelete={handleDelete}
               showDateFilter={true}
               dateFilterKey="fecha_creacion"
-              searchKeys={["codigo", "nombre", "origen", "destino", "tipo_ruta", "estado"]}
+              searchKeys={[
+                "codigo",
+                "nombre",
+                "origen",
+                "destino",
+                "tipo_ruta",
+                "estado",
+              ]}
             />
           </CardContent>
         </Card>
       </div>
     </div>
-  )
+  );
 }

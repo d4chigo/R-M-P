@@ -1,8 +1,14 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -10,43 +16,61 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Plus, ArrowLeft, Calendar } from "lucide-react"
-import Link from "next/link"
-import { DataTable, type Column } from "@/components/ui/data-table"
-import { ViajeForm } from "@/components/forms/viaje-form"
-import { useViajes, type Viaje } from "@/hooks/use-viajes"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+} from "@/components/ui/dialog";
+import { Plus, ArrowLeft, Calendar } from "lucide-react";
+import Link from "next/link";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { ViajeForm } from "@/components/forms/viaje-form";
+import { useViajes, type Viaje } from "@/hooks/use-viajes";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function ViajesPage() {
-  const { viajes, editingViaje, addViaje, updateViaje, deleteViaje, startEdit, cancelEdit } = useViajes()
+  const { viajes, createViaje, updateViaje, deleteViaje, isLoading, error } =
+    useViajes();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingViaje, setEditingViaje] = useState<Viaje | null>(null);
 
-  const handleSubmit = (viajeData: Omit<Viaje, "id" | "ruta_nombre" | "vehiculo_placa">) => {
-    if (editingViaje) {
-      updateViaje(editingViaje.id, viajeData)
-    } else {
-      addViaje(viajeData)
+  const handleSubmit = async (viajeData: Omit<Viaje, "id">) => {
+    try {
+      if (editingViaje && editingViaje.id) {
+        await updateViaje(editingViaje.id, viajeData);
+      } else {
+        await createViaje(viajeData);
+      }
+      setIsDialogOpen(false);
+      setEditingViaje(null);
+    } catch (error) {
+      console.error("Error al guardar viaje:", error);
     }
-    setIsDialogOpen(false)
-  }
+  };
 
   const handleEdit = (viaje: Viaje) => {
-    startEdit(viaje)
-    setIsDialogOpen(true)
-  }
+    setEditingViaje(viaje);
+    setIsDialogOpen(true);
+  };
 
-  const handleDelete = (viaje: Viaje) => {
-    if (confirm(`¿Está seguro de eliminar el viaje del ${new Date(viaje.fecha).toLocaleDateString()}?`)) {
-      deleteViaje(viaje.id)
+  const handleDelete = async (viaje: Viaje) => {
+    if (
+      confirm(
+        `¿Está seguro de eliminar el viaje del ${new Date(viaje.fecha).toLocaleDateString()}?`,
+      )
+    ) {
+      if (viaje.id) {
+        await deleteViaje(viaje.id);
+      }
     }
-  }
+  };
 
   const handleCancel = () => {
-    cancelEdit()
-    setIsDialogOpen(false)
-  }
+    setEditingViaje(null);
+    setIsDialogOpen(false);
+  };
+
+  const handleNewViaje = () => {
+    setEditingViaje(null);
+    setIsDialogOpen(true);
+  };
 
   const columns: Column<Viaje>[] = [
     {
@@ -62,7 +86,9 @@ export default function ViajesPage() {
       render: (viaje) => (
         <div className="text-sm">
           <div className="font-medium">ID: {viaje.id_ruta}</div>
-          <div className="text-gray-500 dark:text-gray-400">{viaje.ruta_nombre}</div>
+          <div className="text-gray-500 dark:text-gray-400">
+            {viaje.ruta_nombre}
+          </div>
         </div>
       ),
     },
@@ -73,7 +99,9 @@ export default function ViajesPage() {
       render: (viaje) => (
         <div className="text-sm">
           <div className="font-medium">ID: {viaje.id_vehiculo}</div>
-          <div className="text-gray-500 dark:text-gray-400 font-semibold">{viaje.vehiculo_placa}</div>
+          <div className="text-gray-500 dark:text-gray-400 font-semibold">
+            {viaje.vehiculo_placa}
+          </div>
         </div>
       ),
     },
@@ -81,9 +109,12 @@ export default function ViajesPage() {
       key: "fecha",
       header: "Fecha",
       sortable: true,
-      render: (viaje) => new Date(viaje.fecha).toLocaleDateString("es-PE", { timeZone: "America/Lima" }),
+      render: (viaje) =>
+        new Date(viaje.fecha).toLocaleDateString("es-PE", {
+          timeZone: "America/Lima",
+        }),
     },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -105,7 +136,9 @@ export default function ViajesPage() {
                 <Calendar className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Gestión de Viajes</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Gestión de Viajes
+                </h1>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
                   Programa y gestiona los viajes de transporte
                 </p>
@@ -117,7 +150,10 @@ export default function ViajesPage() {
             <ThemeToggle />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => cancelEdit()} className="w-full sm:w-auto mobile-button">
+                <Button
+                  onClick={handleNewViaje}
+                  className="w-full sm:w-auto mobile-button"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Nuevo Viaje
                 </Button>
@@ -146,9 +182,12 @@ export default function ViajesPage() {
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Lista de Viajes</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Lista de Viajes
+            </CardTitle>
             <CardDescription className="dark:text-gray-300">
-              Gestiona todos los viajes con funciones de búsqueda, filtrado y ordenamiento
+              Gestiona todos los viajes con funciones de búsqueda, filtrado y
+              ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -166,5 +205,5 @@ export default function ViajesPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

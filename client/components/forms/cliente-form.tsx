@@ -1,41 +1,54 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { Cliente } from "@/hooks/use-clientes"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Cliente } from "@/hooks/use-clientes";
+import { useTiposCliente } from "@/hooks/use-tipos-cliente";
+import { useZonas } from "@/hooks/use-zonas";
 
 interface ClienteFormProps {
-  cliente?: Cliente | null
-  onSubmit: (cliente: Omit<Cliente, "id" | "fecha_registro">) => void
-  onCancel: () => void
-  isEditing?: boolean
+  cliente?: Cliente | null;
+  onSubmit: (cliente: Omit<Cliente, "id" | "fecha_registro">) => void;
+  onCancel: () => void;
+  isEditing?: boolean;
 }
 
-export function ClienteForm({ cliente, onSubmit, onCancel, isEditing = false }: ClienteFormProps) {
+export function ClienteForm({
+  cliente,
+  onSubmit,
+  onCancel,
+  isEditing = false,
+}: ClienteFormProps) {
+  const { tiposCliente } = useTiposCliente();
+  const { zonas } = useZonas();
+
   const [formData, setFormData] = useState({
     nombre: "",
     codigo: "",
     id_tipo_cliente: "",
+    id_zona_pvta: "",
+    id_zona_tvta: "",
     ruc: "",
-    direccion: "",
     ciudad: "",
-    departamento: "",
-    pais: "",
     telefono: "",
     email: "",
     contacto_nombre: "",
-    contacto_telefono: "",
-    abre: "",
-    cierra: "",
+    horario: "",
     estado: "",
     longitud: "",
     latitud: "",
-  })
+  });
 
   useEffect(() => {
     if (cliente) {
@@ -43,50 +56,55 @@ export function ClienteForm({ cliente, onSubmit, onCancel, isEditing = false }: 
         nombre: cliente.nombre,
         codigo: cliente.codigo,
         id_tipo_cliente: cliente.id_tipo_cliente.toString(),
+        id_zona_pvta: cliente.id_zona_pvta?.toString() || "",
+        id_zona_tvta: cliente.id_zona_tvta?.toString() || "",
         ruc: cliente.ruc,
-        direccion: cliente.direccion,
         ciudad: cliente.ciudad,
-        departamento: cliente.departamento,
-        pais: cliente.pais,
         telefono: cliente.telefono,
         email: cliente.email,
         contacto_nombre: cliente.contacto_nombre,
-        contacto_telefono: cliente.contacto_telefono,
-        abre: cliente.abre,
-        cierra: cliente.cierra,
+        horario: cliente.horario,
         estado: cliente.estado,
         longitud: cliente.longitud.toString(),
         latitud: cliente.latitud.toString(),
-      })
+      });
     }
-  }, [cliente])
+  }, [cliente]);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
+
+    // Validar RUC
+    if (formData.ruc.length !== 11 || !/^\d{11}$/.test(formData.ruc)) {
+      alert("El RUC debe tener exactamente 11 dígitos");
+      return;
+    }
+
     onSubmit({
       nombre: formData.nombre,
       codigo: formData.codigo,
       id_tipo_cliente: Number.parseInt(formData.id_tipo_cliente),
+      id_zona_pvta: formData.id_zona_pvta
+        ? Number.parseInt(formData.id_zona_pvta)
+        : undefined,
+      id_zona_tvta: formData.id_zona_tvta
+        ? Number.parseInt(formData.id_zona_tvta)
+        : undefined,
       ruc: formData.ruc,
-      direccion: formData.direccion,
       ciudad: formData.ciudad,
-      departamento: formData.departamento,
-      pais: formData.pais,
       telefono: formData.telefono,
       email: formData.email,
       contacto_nombre: formData.contacto_nombre,
-      contacto_telefono: formData.contacto_telefono,
-      abre: formData.abre,
-      cierra: formData.cierra,
+      horario: formData.horario,
       estado: formData.estado,
       longitud: Number.parseFloat(formData.longitud),
       latitud: Number.parseFloat(formData.latitud),
-    })
-  }
+    });
+  };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -113,7 +131,7 @@ export function ClienteForm({ cliente, onSubmit, onCancel, isEditing = false }: 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
         <div>
           <Label htmlFor="ruc">RUC *</Label>
           <Input
@@ -121,6 +139,9 @@ export function ClienteForm({ cliente, onSubmit, onCancel, isEditing = false }: 
             value={formData.ruc}
             onChange={(e) => handleInputChange("ruc", e.target.value)}
             placeholder="20123456789"
+            maxLength={11}
+            pattern="\d{11}"
+            title="El RUC debe tener exactamente 11 dígitos"
             required
           />
         </div>
@@ -128,30 +149,38 @@ export function ClienteForm({ cliente, onSubmit, onCancel, isEditing = false }: 
           <Label htmlFor="id_tipo_cliente">Tipo de Cliente *</Label>
           <Select
             value={formData.id_tipo_cliente}
-            onValueChange={(value) => handleInputChange("id_tipo_cliente", value)}
+            onValueChange={(value) =>
+              handleInputChange("id_tipo_cliente", value)
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar tipo" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">Mayorista</SelectItem>
-              <SelectItem value="2">Minorista</SelectItem>
-              <SelectItem value="3">Distribuidor</SelectItem>
-              <SelectItem value="4">Corporativo</SelectItem>
+              {tiposCliente.map((tipo) => (
+                <SelectItem key={tipo.id} value={tipo.id?.toString() || ""}>
+                  {tipo.nombre}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      <div>
-        <Label htmlFor="direccion">Dirección *</Label>
-        <Input
-          id="direccion"
-          value={formData.direccion}
-          onChange={(e) => handleInputChange("direccion", e.target.value)}
-          placeholder="Av. Principal 123"
-          required
-        />
+        <div>
+          <Label htmlFor="estado">Estado *</Label>
+          <Select
+            value={formData.estado}
+            onValueChange={(value) => handleInputChange("estado", value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Activo">Activo</SelectItem>
+              <SelectItem value="Inactivo">Inactivo</SelectItem>
+              <SelectItem value="Suspendido">Suspendido</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -166,24 +195,40 @@ export function ClienteForm({ cliente, onSubmit, onCancel, isEditing = false }: 
           />
         </div>
         <div>
-          <Label htmlFor="departamento">Departamento *</Label>
-          <Input
-            id="departamento"
-            value={formData.departamento}
-            onChange={(e) => handleInputChange("departamento", e.target.value)}
-            placeholder="Lima"
-            required
-          />
+          <Label htmlFor="id_zona_pvta">Zona PVTA</Label>
+          <Select
+            value={formData.id_zona_pvta}
+            onValueChange={(value) => handleInputChange("id_zona_pvta", value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar zona PVTA" />
+            </SelectTrigger>
+            <SelectContent>
+              {zonas.map((zona) => (
+                <SelectItem key={zona.id} value={zona.id?.toString() || ""}>
+                  {zona.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
-          <Label htmlFor="pais">País *</Label>
-          <Input
-            id="pais"
-            value={formData.pais}
-            onChange={(e) => handleInputChange("pais", e.target.value)}
-            placeholder="Perú"
-            required
-          />
+          <Label htmlFor="id_zona_tvta">Zona TVTA</Label>
+          <Select
+            value={formData.id_zona_tvta}
+            onValueChange={(value) => handleInputChange("id_zona_tvta", value)}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar zona TVTA" />
+            </SelectTrigger>
+            <SelectContent>
+              {zonas.map((zona) => (
+                <SelectItem key={zona.id} value={zona.id?.toString() || ""}>
+                  {zona.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -211,63 +256,26 @@ export function ClienteForm({ cliente, onSubmit, onCancel, isEditing = false }: 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="contacto_nombre">Nombre del Contacto *</Label>
-          <Input
-            id="contacto_nombre"
-            value={formData.contacto_nombre}
-            onChange={(e) => handleInputChange("contacto_nombre", e.target.value)}
-            placeholder="Juan Pérez"
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="contacto_telefono">Teléfono del Contacto *</Label>
-          <Input
-            id="contacto_telefono"
-            value={formData.contacto_telefono}
-            onChange={(e) => handleInputChange("contacto_telefono", e.target.value)}
-            placeholder="+51-987654321"
-            required
-          />
-        </div>
+      <div>
+        <Label htmlFor="contacto_nombre">Nombre del Contacto *</Label>
+        <Input
+          id="contacto_nombre"
+          value={formData.contacto_nombre}
+          onChange={(e) => handleInputChange("contacto_nombre", e.target.value)}
+          placeholder="Juan Pérez"
+          required
+        />
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <Label htmlFor="abre">Hora de Apertura *</Label>
-          <Input
-            id="abre"
-            type="time"
-            value={formData.abre}
-            onChange={(e) => handleInputChange("abre", e.target.value)}
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="cierra">Hora de Cierre *</Label>
-          <Input
-            id="cierra"
-            type="time"
-            value={formData.cierra}
-            onChange={(e) => handleInputChange("cierra", e.target.value)}
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="estado">Estado *</Label>
-          <Select value={formData.estado} onValueChange={(value) => handleInputChange("estado", value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Activo">Activo</SelectItem>
-              <SelectItem value="Inactivo">Inactivo</SelectItem>
-              <SelectItem value="Suspendido">Suspendido</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div>
+        <Label htmlFor="horario">Horario de Atención *</Label>
+        <Input
+          id="horario"
+          value={formData.horario}
+          onChange={(e) => handleInputChange("horario", e.target.value)}
+          placeholder="Lunes a Viernes 8:00 AM - 6:00 PM"
+          required
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -301,8 +309,10 @@ export function ClienteForm({ cliente, onSubmit, onCancel, isEditing = false }: 
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button type="submit">{isEditing ? "Actualizar Cliente" : "Registrar Cliente"}</Button>
+        <Button type="submit">
+          {isEditing ? "Actualizar Cliente" : "Registrar Cliente"}
+        </Button>
       </div>
     </form>
-  )
+  );
 }
