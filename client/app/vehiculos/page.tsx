@@ -23,8 +23,11 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { VehiculoFormSimple } from "@/components/forms/vehiculo-form-simple";
 import { useVehiculos, type Vehiculo } from "@/hooks/use-vehiculos";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { formatDateForDisplay } from "@/lib/utils/date";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function VehiculosPage() {
+  const { token } = useAuth();
   const {
     vehiculos,
     createVehiculo,
@@ -57,9 +60,29 @@ export default function VehiculosPage() {
   };
 
   const handleDelete = async (vehiculo: Vehiculo) => {
-    if (confirm(`¿Está seguro de eliminar el vehículo ${vehiculo.placa}?`)) {
-      if (vehiculo.id) {
-        await deleteVehiculo(vehiculo.id);
+    if (!vehiculo.id) return;
+
+    // Simple confirmation dialog first
+    if (
+      confirm(
+        `¿Está seguro de eliminar el vehículo ${vehiculo.placa}?\n\nEsta acción no se puede deshacer.`,
+      )
+    ) {
+      try {
+        const result = await deleteVehiculo(vehiculo.id);
+        if (result.success) {
+          console.log(`✅ Vehículo ${vehiculo.placa} eliminado correctamente`);
+        } else {
+          console.error(`❌ Error al eliminar vehículo:`, result.error);
+          alert(
+            `Error al eliminar el vehículo: ${result.error || "Error desconocido"}`,
+          );
+        }
+      } catch (error) {
+        console.error(`❌ Error inesperado:`, error);
+        alert(
+          `Error inesperado al eliminar el vehículo: ${error instanceof Error ? error.message : "Error desconocido"}`,
+        );
       }
     }
   };
@@ -140,10 +163,7 @@ export default function VehiculosPage() {
       key: "fecha_adquisicion",
       header: "Fecha Adquisición",
       sortable: true,
-      render: (vehiculo) =>
-        new Date(vehiculo.fecha_adquisicion).toLocaleDateString("es-PE", {
-          timeZone: "America/Lima",
-        }),
+      render: (vehiculo) => formatDateForDisplay(vehiculo.fecha_adquisicion),
     },
     {
       key: "vin",

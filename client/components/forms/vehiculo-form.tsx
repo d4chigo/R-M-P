@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import type { Vehiculo } from "@/hooks/use-vehiculos";
 import { useCarretas } from "@/hooks/use-carretas";
+import { formatDateForInput } from "@/lib/utils/date";
 
 interface VehiculoFormProps {
   vehiculo?: Vehiculo | null;
@@ -30,7 +31,7 @@ export function VehiculoForm({
   onSubmit,
   onCancel,
   isEditing = false,
-}: VehiculoFormProps) => {
+}: VehiculoFormProps) {
   const {
     carretas,
     isLoading: carretasLoading,
@@ -42,7 +43,11 @@ export function VehiculoForm({
   // Debug logging
   useEffect(() => {
     console.log("🚛 VehiculoForm - Props:", { vehiculo, isEditing });
-    console.log("🚛 VehiculoForm - Carretas:", { carretas, carretasLoading, carretasError });
+    console.log("🚛 VehiculoForm - Carretas:", {
+      carretas,
+      carretasLoading,
+      carretasError,
+    });
   }, [vehiculo, isEditing, carretas, carretasLoading, carretasError]);
 
   const [formData, setFormData] = useState({
@@ -61,7 +66,9 @@ export function VehiculoForm({
 
   useEffect(() => {
     if (vehiculo) {
-      console.log("🚛 VehiculoForm - Setting form data:", vehiculo);
+      // Format date for HTML date input (YYYY-MM-DD)
+      const formattedDate = formatDateForInput(vehiculo.fecha_adquisicion);
+
       setFormData({
         placa: vehiculo.placa || "",
         marca: vehiculo.marca || "",
@@ -71,7 +78,7 @@ export function VehiculoForm({
         capacidad_carga_kg: vehiculo.capacidad_carga_kg?.toString() || "",
         tipo_carga: vehiculo.tipo_carga || "",
         estado: vehiculo.estado || "",
-        fecha_adquisicion: vehiculo.fecha_adquisicion || "",
+        fecha_adquisicion: formattedDate,
         vin: vehiculo.vin || "",
         id_carreta: vehiculo.id_carreta?.toString() || "",
       });
@@ -95,9 +102,10 @@ export function VehiculoForm({
         estado: formData.estado,
         fecha_adquisicion: formData.fecha_adquisicion,
         vin: formData.vin,
-        id_carreta: formData.id_carreta && formData.id_carreta !== ""
-          ? Number.parseInt(formData.id_carreta)
-          : undefined,
+        id_carreta:
+          formData.id_carreta && formData.id_carreta !== ""
+            ? Number.parseInt(formData.id_carreta)
+            : undefined,
       });
     } catch (error) {
       console.error("Error submitting form:", error);
@@ -291,7 +299,9 @@ export function VehiculoForm({
           <Label htmlFor="id_carreta">Carreta Asociada (Opcional)</Label>
           <Select
             value={formData.id_carreta || undefined}
-            onValueChange={(value) => handleInputChange("id_carreta", value || "")}
+            onValueChange={(value) =>
+              handleInputChange("id_carreta", value || "")
+            }
           >
             <SelectTrigger className="mobile-input">
               <SelectValue
@@ -304,14 +314,15 @@ export function VehiculoForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="">Sin carreta</SelectItem>
-              {!carretasLoading && carretas.map((carreta) => (
-                <SelectItem
-                  key={carreta.id}
-                  value={carreta.id?.toString() || ""}
-                >
-                  {carreta.id} - {carreta.placa} ({carreta.tipo})
-                </SelectItem>
-              ))}
+              {!carretasLoading &&
+                carretas.map((carreta) => (
+                  <SelectItem
+                    key={carreta.id}
+                    value={carreta.id?.toString() || ""}
+                  >
+                    {carreta.id} - {carreta.placa} ({carreta.tipo})
+                  </SelectItem>
+                ))}
             </SelectContent>
           </Select>
         </div>

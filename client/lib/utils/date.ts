@@ -1,0 +1,124 @@
+/**
+ * Date utility functions to handle date formatting consistently
+ * and avoid timezone issues when working with date-only values
+ */
+
+/**
+ * Formats a date string for display in the UI
+ * @param dateString - Date string in YYYY-MM-DD format or ISO string
+ * @param locale - Locale for formatting (default: 'es-PE')
+ * @returns Formatted date string
+ */
+export function formatDateForDisplay(dateString: string, locale: string = 'es-PE'): string {
+  if (!dateString) return '';
+
+  try {
+    // Parse the date as local date to avoid timezone issues
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    const date = new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day)
+    );
+
+    return date.toLocaleDateString(locale);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return dateString;
+  }
+}
+
+/**
+ * Formats a date string for HTML date input (YYYY-MM-DD format)
+ * @param dateString - Date string in any format
+ * @returns Date string in YYYY-MM-DD format
+ */
+export function formatDateForInput(dateString: string): string {
+  if (!dateString) return '';
+
+  try {
+    // If the date is already in YYYY-MM-DD format, return it
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return dateString;
+    }
+
+    // If it includes time (ISO string), extract just the date part
+    if (dateString.includes('T')) {
+      return dateString.split('T')[0];
+    }
+
+    // Otherwise, try to parse and format
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0];
+    }
+
+    return '';
+  } catch (error) {
+    console.error('Error formatting date for input:', error);
+    return '';
+  }
+}
+
+/**
+ * Parses a date string and returns a Date object in local time
+ * @param dateString - Date string in YYYY-MM-DD format
+ * @returns Date object or null if invalid
+ */
+export function parseLocalDate(dateString: string): Date | null {
+  if (!dateString) return null;
+
+  try {
+    const [year, month, day] = dateString.split('T')[0].split('-');
+    return new Date(
+      parseInt(year),
+      parseInt(month) - 1,
+      parseInt(day)
+    );
+  } catch (error) {
+    console.error('Error parsing local date:', error);
+    return null;
+  }
+}
+
+/**
+ * Checks if a date string is valid
+ * @param dateString - Date string to validate
+ * @returns True if valid, false otherwise
+ */
+export function isValidDate(dateString: string): boolean {
+  if (!dateString) return false;
+
+  try {
+    const date = parseLocalDate(dateString);
+    return date !== null && !isNaN(date.getTime());
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Compares two date strings (YYYY-MM-DD format)
+ * @param date1 - First date string
+ * @param date2 - Second date string
+ * @returns -1 if date1 < date2, 0 if equal, 1 if date1 > date2
+ */
+export function compareDates(date1: string, date2: string): number {
+  const d1 = parseLocalDate(date1);
+  const d2 = parseLocalDate(date2);
+
+  if (!d1 || !d2) return 0;
+
+  if (d1 < d2) return -1;
+  if (d1 > d2) return 1;
+  return 0;
+}
+
+/**
+ * Gets today's date in YYYY-MM-DD format
+ * @returns Today's date string
+ */
+export function getTodayString(): string {
+  const today = new Date();
+  return today.toISOString().split('T')[0];
+}
