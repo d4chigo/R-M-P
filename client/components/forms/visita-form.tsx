@@ -1,22 +1,50 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { Visita } from "@/hooks/use-visitas"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Visita } from "@/hooks/use-visitas";
+import { useViajes } from "@/hooks/use-viajes";
+import { useClientes } from "@/hooks/use-clientes";
 
 interface VisitaFormProps {
-  visita?: Visita | null
-  onSubmit: (visita: Omit<Visita, "id" | "cliente_nombre" | "viaje_info">) => void
-  onCancel: () => void
-  isEditing?: boolean
+  visita?: Visita | null;
+  onSubmit: (
+    visita: Omit<
+      Visita,
+      | "id"
+      | "cliente_nombre"
+      | "viaje_info"
+      | "cliente_codigo"
+      | "cliente_ruc"
+      | "viaje_fecha"
+      | "ruta_nombre"
+      | "vehiculo_placa"
+    >,
+  ) => void;
+  onCancel: () => void;
+  isEditing?: boolean;
 }
 
-export function VisitaForm({ visita, onSubmit, onCancel, isEditing = false }: VisitaFormProps) {
+export function VisitaForm({
+  visita,
+  onSubmit,
+  onCancel,
+  isEditing = false,
+}: VisitaFormProps) {
+  const { viajes } = useViajes();
+  const { clientes } = useClientes();
+
   const [formData, setFormData] = useState({
     id_viaje: "",
     id_cliente: "",
@@ -27,7 +55,7 @@ export function VisitaForm({ visita, onSubmit, onCancel, isEditing = false }: Vi
     sec1: "",
     sec2: "",
     distancia_km: "",
-  })
+  });
 
   useEffect(() => {
     if (visita) {
@@ -40,13 +68,13 @@ export function VisitaForm({ visita, onSubmit, onCancel, isEditing = false }: Vi
         sale: visita.sale,
         sec1: visita.sec1,
         sec2: visita.sec2,
-        distancia_km: visita.distancia_km || "",
-      })
+        distancia_km: visita.distancia_km?.toString() || "",
+      });
     }
-  }, [visita])
+  }, [visita]);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     onSubmit({
       id_viaje: Number.parseInt(formData.id_viaje),
       id_cliente: Number.parseInt(formData.id_cliente),
@@ -56,40 +84,53 @@ export function VisitaForm({ visita, onSubmit, onCancel, isEditing = false }: Vi
       sale: formData.sale,
       sec1: formData.sec1,
       sec2: formData.sec2,
-      distancia_km: formData.distancia_km,
-    })
-  }
+      distancia_km: formData.distancia_km || undefined,
+    });
+  };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label htmlFor="id_viaje">ID Viaje *</Label>
-          <Select value={formData.id_viaje} onValueChange={(value) => handleInputChange("id_viaje", value)}>
+          <Select
+            value={formData.id_viaje}
+            onValueChange={(value) => handleInputChange("id_viaje", value)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar viaje" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">1 - Lima - Arequipa</SelectItem>
-              <SelectItem value="2">2 - Lima - Cusco</SelectItem>
-              <SelectItem value="3">3 - Lima - Trujillo</SelectItem>
+              {viajes.map((viaje) => (
+                <SelectItem key={viaje.id} value={viaje.id?.toString() || ""}>
+                  {viaje.id} - {viaje.ruta} ({viaje.fecha})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <div>
           <Label htmlFor="id_cliente">ID Cliente *</Label>
-          <Select value={formData.id_cliente} onValueChange={(value) => handleInputChange("id_cliente", value)}>
+          <Select
+            value={formData.id_cliente}
+            onValueChange={(value) => handleInputChange("id_cliente", value)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Seleccionar cliente" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">1 - Distribuidora Central S.A.</SelectItem>
-              <SelectItem value="2">2 - Comercial Norte EIRL</SelectItem>
-              <SelectItem value="3">3 - Logística Sur SAC</SelectItem>
+              {clientes.map((cliente) => (
+                <SelectItem
+                  key={cliente.id}
+                  value={cliente.id?.toString() || ""}
+                >
+                  {cliente.id} - {cliente.nombre}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -97,7 +138,7 @@ export function VisitaForm({ visita, onSubmit, onCancel, isEditing = false }: Vi
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="entrega">Entrega *</Label>
+          <Label htmlFor="entrega">Entrega (kg) *</Label>
           <Input
             id="entrega"
             type="number"
@@ -109,7 +150,7 @@ export function VisitaForm({ visita, onSubmit, onCancel, isEditing = false }: Vi
           />
         </div>
         <div>
-          <Label htmlFor="recojo">Recojo *</Label>
+          <Label htmlFor="recojo">Recojo (kg) *</Label>
           <Input
             id="recojo"
             type="number"
@@ -172,6 +213,8 @@ export function VisitaForm({ visita, onSubmit, onCancel, isEditing = false }: Vi
         <Label htmlFor="distancia_km">Distancia (km) - Opcional</Label>
         <Input
           id="distancia_km"
+          type="number"
+          step="0.01"
           value={formData.distancia_km}
           onChange={(e) => handleInputChange("distancia_km", e.target.value)}
           placeholder="25.5"
@@ -179,7 +222,12 @@ export function VisitaForm({ visita, onSubmit, onCancel, isEditing = false }: Vi
       </div>
 
       <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto bg-transparent">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="w-full sm:w-auto bg-transparent"
+        >
           Cancelar
         </Button>
         <Button type="submit" className="w-full sm:w-auto">
@@ -187,5 +235,5 @@ export function VisitaForm({ visita, onSubmit, onCancel, isEditing = false }: Vi
         </Button>
       </div>
     </form>
-  )
+  );
 }

@@ -1,67 +1,181 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react";
+import { useCrud } from "./use-api";
 
 export interface Zona {
-  id: number
-  nombre: string
-  descripcion: string
+  id?: number;
+  nombre: string;
+  descripcion: string;
+  region?: string;
+  latitud?: number;
+  longitud?: number;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+  updated_by?: string;
 }
 
-export function useZonas() {
-  const [zonas, setZonas] = useState<Zona[]>([
-    {
-      id: 1,
-      nombre: "Zona Norte",
-      descripcion:
-        "Comprende los departamentos del norte del país: Tumbes, Piura, Lambayeque, La Libertad, Cajamarca y Amazonas.",
-    },
-    {
-      id: 2,
-      nombre: "Zona Centro",
-      descripcion: "Incluye Lima, Callao, Ica, Huancavelica, Junín, Pasco y Ancash.",
-    },
-    {
-      id: 3,
-      nombre: "Zona Sur",
-      descripcion: "Abarca Arequipa, Moquegua, Tacna, Cusco, Apurímac, Ayacucho y Puno.",
-    },
-  ])
+export const useZonas = () => {
+  const [zonas, setZonas] = useState<Zona[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [editingZona, setEditingZona] = useState<Zona | null>(null)
+  const crud = useCrud<Zona>("/zonas");
 
-  const addZona = (zonaData: Omit<Zona, "id">) => {
-    const newZona: Zona = {
-      id: Math.max(...zonas.map((z) => z.id), 0) + 1,
-      ...zonaData,
+  // Cargar todas las zonas
+  const fetchZonas = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await crud.getAll();
+      if (response.success && response.data) {
+        setZonas(response.data);
+      } else {
+        setError(response.error || "Error al cargar zonas");
+      }
+    } catch (err) {
+      setError("Error de conexión");
+    } finally {
+      setIsLoading(false);
     }
-    setZonas([...zonas, newZona])
-  }
+  }, [crud]);
 
-  const updateZona = (id: number, zonaData: Omit<Zona, "id">) => {
-    setZonas(zonas.map((z) => (z.id === id ? { ...zonaData, id } : z)))
-    setEditingZona(null)
-  }
+  // Crear zona
+  const createZona = useCallback(
+    async (zona: Omit<Zona, "id">) => {
+      setError(null);
 
-  const deleteZona = (id: number) => {
-    setZonas(zonas.filter((z) => z.id !== id))
-  }
+      try {
+        const response = await crud.create(zona);
+        if (response.success) {
+          // Agregar la nueva zona al estado sin recargar toda la lista
+          if (response.data) {
+            setZonas((prev) => [...prev, response.data]);
+          }
+          return { success: true, data: response.data };
+        } else {
+          setError(response.error || "Error al crear zona");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al crear zona";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
 
-  const startEdit = (zona: Zona) => {
-    setEditingZona(zona)
-  }
+  // Actualizar zona
+  const updateZona = useCallback(
+    async (id: number, zona: Partial<Zona>) => {
+      setError(null);
 
-  const cancelEdit = () => {
-    setEditingZona(null)
-  }
+      try {
+        const response = await crud.update(id, zona);
+        if (response.success) {
+          // Actualizar solo la zona modificada en el estado
+          setZonas((prev) =>
+            prev.map((z) => (z.id === id ? { ...z, ...zona } : z)),
+          );
+          return { success: true, data: response.data };
+        } else {
+          setError(response.error || "Error al actualizar zona");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al actualizar zona";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
+
+  // Eliminar zona
+  const deleteZona = useCallback(
+    async (id: number) => {
+      setError(null);
+
+      try {
+        const response = await crud.remove(id);
+        if (response.success) {
+          // Remover la zona del estado sin recargar toda la lista
+          setZonas((prev) => prev.filter((z) => z.id !== id));
+          return { success: true };
+        } else {
+          setError(response.error || "Error al eliminar zona");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al eliminar zona";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
+
+  // Obtener zona por ID
+  const getZonaById = useCallback(
+    async (id: number) => {
+      setError(null);
+
+      try {
+        const response = await crud.getById(id);
+        if (response.success) {
+          return { success: true, data: response.data };
+        } else {
+          setError(response.error || "Error al obtener zona");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al obtener zona";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
+
+  // Buscar zonas por nombre
+  const searchByNombre = useCallback(
+    (nombre: string) => {
+      return zonas.filter((zona) =>
+        zona.nombre.toLowerCase().includes(nombre.toLowerCase()),
+      );
+    },
+    [zonas],
+  );
+
+  // Obtener zonas por región
+  const getZonasByRegion = useCallback(
+    (region: string) => {
+      return zonas.filter((zona) => zona.region === region);
+    },
+    [zonas],
+  );
+
+  // Efecto para cargar zonas al montar el componente
+  useEffect(() => {
+    fetchZonas();
+  }, [fetchZonas]);
 
   return {
     zonas,
-    editingZona,
-    addZona,
+    isLoading: isLoading || crud.loading,
+    error: error || crud.error,
+    fetchZonas,
+    createZona,
     updateZona,
     deleteZona,
-    startEdit,
-    cancelEdit,
-  }
-}
+    getZonaById,
+    searchByNombre,
+    getZonasByRegion,
+    refetch: fetchZonas,
+  };
+};
+
+export default useZonas;

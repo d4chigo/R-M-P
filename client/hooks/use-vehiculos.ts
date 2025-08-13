@@ -1,100 +1,197 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react";
+import { useCrud } from "./use-api";
 
 export interface Vehiculo {
-  id: number
-  placa: string
-  marca: string
-  modelo: string
-  anio: number
-  tipo: string
-  capacidad_carga_kg: number
-  tipo_carga: string
-  estado: string
-  fecha_adquisicion: string
-  vin: string
-  id_carreta?: number
+  id?: number;
+  placa: string;
+  marca: string;
+  modelo: string;
+  anio: number;
+  tipo: string;
+  capacidad_carga_kg: number;
+  tipo_carga: string;
+  estado: string;
+  fecha_adquisicion: string;
+  vin: string;
+  id_carreta?: number;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+  updated_by?: string;
 }
 
-export function useVehiculos() {
-  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([
-    {
-      id: 1,
-      placa: "ABC-123",
-      marca: "Volvo",
-      modelo: "FH16",
-      anio: 2022,
-      tipo: "Camión",
-      capacidad_carga_kg: 25000,
-      tipo_carga: "Carga General",
-      estado: "Activo",
-      fecha_adquisicion: "2022-01-15",
-      vin: "YV2A2A18XCA123456",
-      id_carreta: 1,
-    },
-    {
-      id: 2,
-      placa: "DEF-456",
-      marca: "Mercedes",
-      modelo: "Actros",
-      anio: 2023,
-      tipo: "Tractocamión",
-      capacidad_carga_kg: 35000,
-      tipo_carga: "Contenedores",
-      estado: "Activo",
-      fecha_adquisicion: "2023-03-20",
-      vin: "WDB9340361L123456",
-    },
-    {
-      id: 3,
-      placa: "GHI-789",
-      marca: "Scania",
-      modelo: "R450",
-      anio: 2021,
-      tipo: "Camión",
-      capacidad_carga_kg: 28000,
-      tipo_carga: "Refrigerada",
-      estado: "Mantenimiento",
-      fecha_adquisicion: "2021-08-10",
-      vin: "YS2R4X20005123456",
-    },
-  ])
+export const useVehiculos = () => {
+  const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [editingVehiculo, setEditingVehiculo] = useState<Vehiculo | null>(null)
+  const crud = useCrud<Vehiculo>("/vehiculos");
 
-  const addVehiculo = (vehiculoData: Omit<Vehiculo, "id">) => {
-    const newVehiculo: Vehiculo = {
-      id: Math.max(...vehiculos.map((v) => v.id), 0) + 1,
-      ...vehiculoData,
+  // Cargar todos los vehículos
+  const fetchVehiculos = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await crud.getAll();
+      if (response.success && response.data) {
+        setVehiculos(response.data);
+      } else {
+        setError(response.error || "Error al cargar vehículos");
+      }
+    } catch (err) {
+      setError("Error de conexión");
+    } finally {
+      setIsLoading(false);
     }
-    setVehiculos([...vehiculos, newVehiculo])
-  }
+  }, [crud]);
 
-  const updateVehiculo = (id: number, vehiculoData: Omit<Vehiculo, "id">) => {
-    setVehiculos(vehiculos.map((v) => (v.id === id ? { ...vehiculoData, id } : v)))
-    setEditingVehiculo(null)
-  }
+  // Crear vehículo
+  const createVehiculo = useCallback(
+    async (vehiculo: Omit<Vehiculo, "id">) => {
+      setError(null);
 
-  const deleteVehiculo = (id: number) => {
-    setVehiculos(vehiculos.filter((v) => v.id !== id))
-  }
+      try {
+        const response = await crud.create(vehiculo);
+        if (response.success) {
+          // Agregar el nuevo vehículo al estado sin recargar toda la lista
+          if (response.data) {
+            setVehiculos((prev) => [...prev, response.data]);
+          }
+          return { success: true, data: response.data };
+        } else {
+          setError(response.error || "Error al crear vehículo");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al crear vehículo";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
 
-  const startEdit = (vehiculo: Vehiculo) => {
-    setEditingVehiculo(vehiculo)
-  }
+  // Actualizar vehículo
+  const updateVehiculo = useCallback(
+    async (id: number, vehiculo: Partial<Vehiculo>) => {
+      setError(null);
 
-  const cancelEdit = () => {
-    setEditingVehiculo(null)
-  }
+      try {
+        const response = await crud.update(id, vehiculo);
+        if (response.success) {
+          // Actualizar solo el vehículo modificado en el estado
+          setVehiculos((prev) =>
+            prev.map((v) => (v.id === id ? { ...v, ...vehiculo } : v)),
+          );
+          return { success: true, data: response.data };
+        } else {
+          setError(response.error || "Error al actualizar vehículo");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al actualizar vehículo";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
+
+  // Eliminar vehículo
+  const deleteVehiculo = useCallback(
+    async (id: number) => {
+      setError(null);
+
+      try {
+        const response = await crud.remove(id);
+        if (response.success) {
+          // Remover el vehículo del estado sin recargar toda la lista
+          setVehiculos((prev) => prev.filter((v) => v.id !== id));
+          return { success: true };
+        } else {
+          setError(response.error || "Error al eliminar vehículo");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al eliminar vehículo";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
+
+  // Obtener vehículo por ID
+  const getVehiculoById = useCallback(
+    async (id: number) => {
+      setError(null);
+
+      try {
+        const response = await crud.getById(id);
+        if (response.success) {
+          return { success: true, data: response.data };
+        } else {
+          setError(response.error || "Error al obtener vehículo");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al obtener vehículo";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
+
+  // Cambiar estado del vehículo
+  const toggleVehiculoEstado = useCallback(
+    async (id: number, currentEstado: string) => {
+      const newEstado = currentEstado === "Activo" ? "Inactivo" : "Activo";
+      return await updateVehiculo(id, { estado: newEstado });
+    },
+    [updateVehiculo],
+  );
+
+  // Obtener vehículos por estado
+  const getVehiculosByEstado = useCallback(
+    (estado: string) => {
+      return vehiculos.filter((vehiculo) => vehiculo.estado === estado);
+    },
+    [vehiculos],
+  );
+
+  // Buscar vehículos por placa
+  const searchByPlaca = useCallback(
+    (placa: string) => {
+      return vehiculos.filter((vehiculo) =>
+        vehiculo.placa.toLowerCase().includes(placa.toLowerCase()),
+      );
+    },
+    [vehiculos],
+  );
+
+  // Efecto para cargar vehículos al montar el componente
+  useEffect(() => {
+    fetchVehiculos();
+  }, [fetchVehiculos]);
 
   return {
     vehiculos,
-    editingVehiculo,
-    addVehiculo,
+    isLoading: isLoading || crud.loading,
+    error: error || crud.error,
+    fetchVehiculos,
+    createVehiculo,
     updateVehiculo,
     deleteVehiculo,
-    startEdit,
-    cancelEdit,
-  }
-}
+    getVehiculoById,
+    toggleVehiculoEstado,
+    getVehiculosByEstado,
+    searchByPlaca,
+    refetch: fetchVehiculos,
+  };
+};
+
+export default useVehiculos;

@@ -1,8 +1,14 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -10,43 +16,63 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Plus, ArrowLeft, Users } from "lucide-react"
-import Link from "next/link"
-import { DataTable, type Column } from "@/components/ui/data-table"
-import { ClienteForm } from "@/components/forms/cliente-form"
-import { useClientes, type Cliente } from "@/hooks/use-clientes"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+} from "@/components/ui/dialog";
+import { Plus, ArrowLeft, Users } from "lucide-react";
+import Link from "next/link";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { ClienteForm } from "@/components/forms/cliente-form";
+import { useClientes, type Cliente } from "@/hooks/use-clientes";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function ClientesPage() {
-  const { clientes, editingCliente, addCliente, updateCliente, deleteCliente, startEdit, cancelEdit } = useClientes()
+  const {
+    clientes,
+    createCliente,
+    updateCliente,
+    deleteCliente,
+    isLoading,
+    error,
+  } = useClientes();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
 
-  const handleSubmit = (clienteData: Omit<Cliente, "id" | "fecha_registro">) => {
-    if (editingCliente) {
-      updateCliente(editingCliente.id, clienteData)
-    } else {
-      addCliente(clienteData)
+  const handleSubmit = async (clienteData: Omit<Cliente, "id">) => {
+    try {
+      if (editingCliente && editingCliente.id) {
+        await updateCliente(editingCliente.id, clienteData);
+      } else {
+        await createCliente(clienteData);
+      }
+      setIsDialogOpen(false);
+      setEditingCliente(null);
+    } catch (error) {
+      console.error("Error al guardar cliente:", error);
     }
-    setIsDialogOpen(false)
-  }
+  };
 
   const handleEdit = (cliente: Cliente) => {
-    startEdit(cliente)
-    setIsDialogOpen(true)
-  }
+    setEditingCliente(cliente);
+    setIsDialogOpen(true);
+  };
 
-  const handleDelete = (cliente: Cliente) => {
+  const handleDelete = async (cliente: Cliente) => {
     if (confirm(`¿Está seguro de eliminar el cliente ${cliente.nombre}?`)) {
-      deleteCliente(cliente.id)
+      if (cliente.id) {
+        await deleteCliente(cliente.id);
+      }
     }
-  }
+  };
 
   const handleCancel = () => {
-    cancelEdit()
-    setIsDialogOpen(false)
-  }
+    setEditingCliente(null);
+    setIsDialogOpen(false);
+  };
+
+  const handleNewCliente = () => {
+    setEditingCliente(null);
+    setIsDialogOpen(true);
+  };
 
   const columns: Column<Cliente>[] = [
     {
@@ -59,7 +85,9 @@ export default function ClientesPage() {
       key: "codigo",
       header: "Código",
       sortable: true,
-      render: (cliente) => <span className="font-semibold">{cliente.codigo}</span>,
+      render: (cliente) => (
+        <span className="font-semibold">{cliente.codigo}</span>
+      ),
     },
     {
       key: "nombre",
@@ -75,7 +103,7 @@ export default function ClientesPage() {
       key: "ciudad",
       header: "Ciudad",
       sortable: true,
-      render: (cliente) => `${cliente.ciudad}, ${cliente.departamento}`,
+      render: (cliente) => cliente.ciudad,
     },
     {
       key: "telefono",
@@ -93,14 +121,16 @@ export default function ClientesPage() {
       render: (cliente) => (
         <div className="text-sm">
           <div className="font-medium">{cliente.contacto_nombre}</div>
-          <div className="text-gray-500 dark:text-gray-400">{cliente.contacto_telefono}</div>
+          <div className="text-gray-500 dark:text-gray-400">
+            {cliente.telefono}
+          </div>
         </div>
       ),
     },
     {
-      key: "abre",
+      key: "horario",
       header: "Horario",
-      render: (cliente) => `${cliente.abre} - ${cliente.cierra}`,
+      render: (cliente) => cliente.horario,
     },
     {
       key: "estado",
@@ -120,7 +150,7 @@ export default function ClientesPage() {
         </span>
       ),
     },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -142,8 +172,12 @@ export default function ClientesPage() {
                 <Users className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Gestión de Clientes</h1>
-                <p className="text-gray-600 dark:text-gray-300">Administra la base de datos de clientes</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Gestión de Clientes
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Administra la base de datos de clientes
+                </p>
               </div>
             </div>
           </div>
@@ -152,7 +186,7 @@ export default function ClientesPage() {
             <ThemeToggle />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => cancelEdit()}>
+                <Button onClick={handleNewCliente}>
                   <Plus className="w-4 h-4 mr-2" />
                   Nuevo Cliente
                 </Button>
@@ -160,7 +194,9 @@ export default function ClientesPage() {
               <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto dark:bg-gray-800 dark:border-gray-700">
                 <DialogHeader>
                   <DialogTitle className="dark:text-gray-100">
-                    {editingCliente ? "Editar Cliente" : "Registrar Nuevo Cliente"}
+                    {editingCliente
+                      ? "Editar Cliente"
+                      : "Registrar Nuevo Cliente"}
                   </DialogTitle>
                   <DialogDescription className="dark:text-gray-300">
                     {editingCliente
@@ -181,9 +217,12 @@ export default function ClientesPage() {
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Lista de Clientes</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Lista de Clientes
+            </CardTitle>
             <CardDescription className="dark:text-gray-300">
-              Gestiona todos los clientes con funciones de búsqueda, filtrado y ordenamiento
+              Gestiona todos los clientes con funciones de búsqueda, filtrado y
+              ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -194,12 +233,19 @@ export default function ClientesPage() {
               onEdit={handleEdit}
               onDelete={handleDelete}
               showDateFilter={true}
-              dateFilterKey="fecha_registro"
-              searchKeys={["nombre", "codigo", "ruc", "ciudad", "email", "contacto_nombre"]}
+              dateFilterKey="created_at"
+              searchKeys={[
+                "nombre",
+                "codigo",
+                "ruc",
+                "ciudad",
+                "email",
+                "contacto_nombre",
+              ]}
             />
           </CardContent>
         </Card>
       </div>
     </div>
-  )
+  );
 }

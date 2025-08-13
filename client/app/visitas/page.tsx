@@ -1,8 +1,14 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -10,43 +16,67 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Plus, ArrowLeft, FileText } from "lucide-react"
-import Link from "next/link"
-import { DataTable, type Column } from "@/components/ui/data-table"
-import { VisitaForm } from "@/components/forms/visita-form"
-import { useVisitas, type Visita } from "@/hooks/use-visitas"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+} from "@/components/ui/dialog";
+import { Plus, ArrowLeft, FileText } from "lucide-react";
+import Link from "next/link";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { VisitaForm } from "@/components/forms/visita-form";
+import { useVisitas, type Visita } from "@/hooks/use-visitas";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function VisitasPage() {
-  const { visitas, editingVisita, addVisita, updateVisita, deleteVisita, startEdit, cancelEdit } = useVisitas()
+  const {
+    visitas,
+    createVisita,
+    updateVisita,
+    deleteVisita,
+    isLoading,
+    error,
+  } = useVisitas();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingVisita, setEditingVisita] = useState<Visita | null>(null);
 
-  const handleSubmit = (visitaData: Omit<Visita, "id" | "cliente_nombre" | "viaje_info">) => {
-    if (editingVisita) {
-      updateVisita(editingVisita.id, visitaData)
-    } else {
-      addVisita(visitaData)
+  const handleSubmit = async (visitaData: Omit<Visita, "id">) => {
+    try {
+      if (editingVisita && editingVisita.id) {
+        await updateVisita(editingVisita.id, visitaData);
+      } else {
+        await createVisita(visitaData);
+      }
+      setIsDialogOpen(false);
+      setEditingVisita(null);
+    } catch (error) {
+      console.error("Error al guardar visita:", error);
     }
-    setIsDialogOpen(false)
-  }
+  };
 
   const handleEdit = (visita: Visita) => {
-    startEdit(visita)
-    setIsDialogOpen(true)
-  }
+    setEditingVisita(visita);
+    setIsDialogOpen(true);
+  };
 
-  const handleDelete = (visita: Visita) => {
-    if (confirm(`¿Está seguro de eliminar la visita al cliente ${visita.cliente_nombre}?`)) {
-      deleteVisita(visita.id)
+  const handleDelete = async (visita: Visita) => {
+    if (
+      confirm(
+        `¿Está seguro de eliminar la visita al cliente ${visita.cliente_nombre}?`,
+      )
+    ) {
+      if (visita.id) {
+        await deleteVisita(visita.id);
+      }
     }
-  }
+  };
 
   const handleCancel = () => {
-    cancelEdit()
-    setIsDialogOpen(false)
-  }
+    setEditingVisita(null);
+    setIsDialogOpen(false);
+  };
+
+  const handleNewVisita = () => {
+    setEditingVisita(null);
+    setIsDialogOpen(true);
+  };
 
   const columns: Column<Visita>[] = [
     {
@@ -62,7 +92,9 @@ export default function VisitasPage() {
       render: (visita) => (
         <div className="text-sm">
           <div className="font-medium">ID: {visita.id_viaje}</div>
-          <div className="text-gray-500 dark:text-gray-400">{visita.viaje_info}</div>
+          <div className="text-gray-500 dark:text-gray-400">
+            {visita.viaje_info}
+          </div>
         </div>
       ),
     },
@@ -73,7 +105,9 @@ export default function VisitasPage() {
       render: (visita) => (
         <div className="text-sm">
           <div className="font-medium">ID: {visita.id_cliente}</div>
-          <div className="text-gray-500 dark:text-gray-400">{visita.cliente_nombre}</div>
+          <div className="text-gray-500 dark:text-gray-400">
+            {visita.cliente_nombre}
+          </div>
         </div>
       ),
     },
@@ -82,7 +116,9 @@ export default function VisitasPage() {
       header: "Entrega",
       sortable: true,
       render: (visita) => (
-        <span className="text-green-600 dark:text-green-400 font-medium">{visita.entrega.toLocaleString()}</span>
+        <span className="text-green-600 dark:text-green-400 font-medium">
+          {visita.entrega.toLocaleString()}
+        </span>
       ),
     },
     {
@@ -90,7 +126,9 @@ export default function VisitasPage() {
       header: "Recojo",
       sortable: true,
       render: (visita) => (
-        <span className="text-blue-600 dark:text-blue-400 font-medium">{visita.recojo.toLocaleString()}</span>
+        <span className="text-blue-600 dark:text-blue-400 font-medium">
+          {visita.recojo.toLocaleString()}
+        </span>
       ),
     },
     {
@@ -106,19 +144,23 @@ export default function VisitasPage() {
     {
       key: "sec1",
       header: "Sec1",
-      render: (visita) => <span className="font-mono text-xs">{visita.sec1}</span>,
+      render: (visita) => (
+        <span className="font-mono text-xs">{visita.sec1}</span>
+      ),
     },
     {
       key: "sec2",
       header: "Sec2",
-      render: (visita) => <span className="font-mono text-xs">{visita.sec2}</span>,
+      render: (visita) => (
+        <span className="font-mono text-xs">{visita.sec2}</span>
+      ),
     },
     {
       key: "distancia_km",
       header: "Distancia",
       render: (visita) => visita.distancia_km || "-",
     },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -140,7 +182,9 @@ export default function VisitasPage() {
                 <FileText className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Gestión de Visitas</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Gestión de Visitas
+                </h1>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
                   Registra las visitas a clientes durante los viajes
                 </p>
@@ -152,7 +196,10 @@ export default function VisitasPage() {
             <ThemeToggle />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => cancelEdit()} className="w-full sm:w-auto mobile-button">
+                <Button
+                  onClick={handleNewVisita}
+                  className="w-full sm:w-auto mobile-button"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Nueva Visita
                 </Button>
@@ -181,9 +228,12 @@ export default function VisitasPage() {
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Lista de Visitas</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Lista de Visitas
+            </CardTitle>
             <CardDescription className="dark:text-gray-300">
-              Gestiona todas las visitas con funciones de búsqueda, filtrado y ordenamiento
+              Gestiona todas las visitas con funciones de búsqueda, filtrado y
+              ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -199,5 +249,5 @@ export default function VisitasPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

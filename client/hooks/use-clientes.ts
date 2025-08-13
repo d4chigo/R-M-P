@@ -1,110 +1,231 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react";
+import { useCrud } from "./use-api";
 
 export interface Cliente {
-  id: number
-  nombre: string
-  codigo: string
-  id_tipo_cliente: number
-  ruc: string
-  direccion: string
-  ciudad: string
-  departamento: string
-  pais: string
-  telefono: string
-  email: string
-  contacto_nombre: string
-  contacto_telefono: string
-  abre: string
-  cierra: string
-  estado: string
-  fecha_registro: string
-  longitud: number
-  latitud: number
+  id?: number;
+  nombre: string;
+  codigo: string;
+  id_tipo_cliente: number;
+  id_zona_pvta?: number;
+  id_zona_tvta?: number;
+  ruc: string;
+  ciudad: string;
+  telefono: string;
+  email: string;
+  contacto_nombre: string;
+  horario: string;
+  estado: string;
+  latitud: number;
+  longitud: number;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+  updated_by?: string;
 }
 
-export function useClientes() {
-  const [clientes, setClientes] = useState<Cliente[]>([
-    {
-      id: 1,
-      nombre: "Distribuidora Central S.A.",
-      codigo: "CLI001",
-      id_tipo_cliente: 1,
-      ruc: "20123456789",
-      direccion: "Av. Principal 123",
-      ciudad: "Lima",
-      departamento: "Lima",
-      pais: "Perú",
-      telefono: "+51-1-2345678",
-      email: "contacto@distribuidora.com",
-      contacto_nombre: "Juan Pérez",
-      contacto_telefono: "+51-987654321",
-      abre: "08:00",
-      cierra: "18:00",
-      estado: "Activo",
-      fecha_registro: "2024-01-15T10:30:00",
-      longitud: -77.0428,
-      latitud: -12.0464,
-    },
-    {
-      id: 2,
-      nombre: "Comercial Norte EIRL",
-      codigo: "CLI002",
-      id_tipo_cliente: 2,
-      ruc: "20987654321",
-      direccion: "Jr. Comercio 456",
-      ciudad: "Trujillo",
-      departamento: "La Libertad",
-      pais: "Perú",
-      telefono: "+51-44-123456",
-      email: "ventas@comercialnorte.com",
-      contacto_nombre: "María García",
-      contacto_telefono: "+51-987123456",
-      abre: "09:00",
-      cierra: "17:00",
-      estado: "Activo",
-      fecha_registro: "2024-02-01T14:20:00",
-      longitud: -79.0292,
-      latitud: -8.1116,
-    },
-  ])
+export const useClientes = () => {
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null)
+  const crud = useCrud<Cliente>("/clientes");
 
-  const addCliente = (clienteData: Omit<Cliente, "id" | "fecha_registro">) => {
-    const newCliente: Cliente = {
-      id: Math.max(...clientes.map((c) => c.id), 0) + 1,
-      ...clienteData,
-      fecha_registro: new Date().toISOString(),
+  // Cargar todos los clientes
+  const fetchClientes = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await crud.getAll();
+      if (response.success && response.data) {
+        setClientes(response.data);
+      } else {
+        setError(response.error || "Error al cargar clientes");
+      }
+    } catch (err) {
+      setError("Error de conexión");
+    } finally {
+      setIsLoading(false);
     }
-    setClientes([...clientes, newCliente])
-  }
+  }, [crud]);
 
-  const updateCliente = (id: number, clienteData: Omit<Cliente, "id" | "fecha_registro">) => {
-    setClientes(clientes.map((c) => (c.id === id ? { ...clienteData, id, fecha_registro: c.fecha_registro } : c)))
-    setEditingCliente(null)
-  }
+  // Crear cliente
+  const createCliente = useCallback(
+    async (cliente: Omit<Cliente, "id">) => {
+      setError(null);
 
-  const deleteCliente = (id: number) => {
-    setClientes(clientes.filter((c) => c.id !== id))
-  }
+      try {
+        const response = await crud.create(cliente);
+        if (response.success) {
+          // Agregar el nuevo cliente al estado sin recargar toda la lista
+          if (response.data) {
+            setClientes((prev) => [...prev, response.data]);
+          }
+          return { success: true, data: response.data };
+        } else {
+          setError(response.error || "Error al crear cliente");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al crear cliente";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
 
-  const startEdit = (cliente: Cliente) => {
-    setEditingCliente(cliente)
-  }
+  // Actualizar cliente
+  const updateCliente = useCallback(
+    async (id: number, cliente: Partial<Cliente>) => {
+      setError(null);
 
-  const cancelEdit = () => {
-    setEditingCliente(null)
-  }
+      try {
+        const response = await crud.update(id, cliente);
+        if (response.success) {
+          // Actualizar solo el cliente modificado en el estado
+          setClientes((prev) =>
+            prev.map((c) => (c.id === id ? { ...c, ...cliente } : c)),
+          );
+          return { success: true, data: response.data };
+        } else {
+          setError(response.error || "Error al actualizar cliente");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al actualizar cliente";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
+
+  // Eliminar cliente
+  const deleteCliente = useCallback(
+    async (id: number) => {
+      setError(null);
+
+      try {
+        const response = await crud.remove(id);
+        if (response.success) {
+          // Remover el cliente del estado sin recargar toda la lista
+          setClientes((prev) => prev.filter((c) => c.id !== id));
+          return { success: true };
+        } else {
+          setError(response.error || "Error al eliminar cliente");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al eliminar cliente";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
+
+  // Obtener cliente por ID
+  const getClienteById = useCallback(
+    async (id: number) => {
+      setError(null);
+
+      try {
+        const response = await crud.getById(id);
+        if (response.success) {
+          return { success: true, data: response.data };
+        } else {
+          setError(response.error || "Error al obtener cliente");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al obtener cliente";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
+
+  // Cambiar estado del cliente
+  const toggleClienteEstado = useCallback(
+    async (id: number, currentEstado: string) => {
+      const newEstado = currentEstado === "Activo" ? "Inactivo" : "Activo";
+      return await updateCliente(id, { estado: newEstado });
+    },
+    [updateCliente],
+  );
+
+  // Obtener clientes por estado
+  const getClientesByEstado = useCallback(
+    (estado: string) => {
+      return clientes.filter((cliente) => cliente.estado === estado);
+    },
+    [clientes],
+  );
+
+  // Buscar clientes por RUC
+  const searchByRuc = useCallback(
+    (ruc: string) => {
+      return clientes.filter((cliente) => cliente.ruc.includes(ruc));
+    },
+    [clientes],
+  );
+
+  // Buscar clientes por nombre
+  const searchByNombre = useCallback(
+    (nombre: string) => {
+      return clientes.filter((cliente) =>
+        cliente.nombre.toLowerCase().includes(nombre.toLowerCase()),
+      );
+    },
+    [clientes],
+  );
+
+  // Obtener clientes por tipo
+  const getClientesByTipo = useCallback(
+    (tipoId: number) => {
+      return clientes.filter((cliente) => cliente.id_tipo_cliente === tipoId);
+    },
+    [clientes],
+  );
+
+  // Obtener clientes por zona
+  const getClientesByZona = useCallback(
+    (zonaId: number, tipoZona: "pvta" | "tvta" = "pvta") => {
+      return clientes.filter((cliente) =>
+        tipoZona === "pvta"
+          ? cliente.id_zona_pvta === zonaId
+          : cliente.id_zona_tvta === zonaId,
+      );
+    },
+    [clientes],
+  );
+
+  // Efecto para cargar clientes al montar el componente
+  useEffect(() => {
+    fetchClientes();
+  }, [fetchClientes]);
 
   return {
     clientes,
-    editingCliente,
-    addCliente,
+    isLoading: isLoading || crud.loading,
+    error: error || crud.error,
+    fetchClientes,
+    createCliente,
     updateCliente,
     deleteCliente,
-    startEdit,
-    cancelEdit,
-  }
-}
+    getClienteById,
+    toggleClienteEstado,
+    getClientesByEstado,
+    getClientesByTipo,
+    getClientesByZona,
+    searchByRuc,
+    searchByNombre,
+    refetch: fetchClientes,
+  };
+};
+
+export default useClientes;

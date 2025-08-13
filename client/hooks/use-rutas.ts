@@ -1,95 +1,169 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useState, useCallback, useEffect } from "react";
+import { useCrud } from "./use-api";
 
 export interface Ruta {
-  id: number
-  codigo: string
-  nombre: string
-  origen: string
-  destino: string
-  distancia_km: number
-  duracion_aproximada: string
-  tipo_ruta: string
-  estado: string
-  fecha_creacion: string
-  ultima_actualizacion?: string
+  id?: number;
+  codigo: string;
+  nombre: string;
+  origen: string;
+  destino: string;
+  distancia_km: number;
+  duracion_aproximada: string; // TIME format: "HH:MM:SS"
+  tipo_ruta: string;
+  estado: string;
+  fecha_creacion: string;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+  updated_by?: string;
 }
 
-export function useRutas() {
-  const [rutas, setRutas] = useState<Ruta[]>([
-    {
-      id: 1,
-      codigo: "RUT001",
-      nombre: "Lima - Arequipa",
-      origen: "Lima",
-      destino: "Arequipa",
-      distancia_km: 1009,
-      duracion_aproximada: "14:30",
-      tipo_ruta: "Nacional",
-      estado: "Activo",
-      fecha_creacion: "2024-01-15T10:30:00",
-    },
-    {
-      id: 2,
-      codigo: "RUT002",
-      nombre: "Lima - Cusco",
-      origen: "Lima",
-      destino: "Cusco",
-      distancia_km: 1165,
-      duracion_aproximada: "16:00",
-      tipo_ruta: "Nacional",
-      estado: "Activo",
-      fecha_creacion: "2024-01-20T09:15:00",
-    },
-  ])
+export const useRutas = () => {
+  const [rutas, setRutas] = useState<Ruta[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [editingRuta, setEditingRuta] = useState<Ruta | null>(null)
+  const crud = useCrud<Ruta>("/rutas");
 
-  const addRuta = (rutaData: Omit<Ruta, "id" | "fecha_creacion" | "ultima_actualizacion">) => {
-    const newRuta: Ruta = {
-      id: Math.max(...rutas.map((r) => r.id), 0) + 1,
-      ...rutaData,
-      fecha_creacion: new Date().toISOString(),
+  // Cargar todas las rutas
+  const fetchRutas = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await crud.getAll();
+      if (response.success && response.data) {
+        setRutas(response.data);
+      } else {
+        setError(response.error || "Error al cargar rutas");
+      }
+    } catch (err) {
+      setError("Error de conexión");
+    } finally {
+      setIsLoading(false);
     }
-    setRutas([...rutas, newRuta])
-  }
+  }, [crud]);
 
-  const updateRuta = (id: number, rutaData: Omit<Ruta, "id" | "fecha_creacion" | "ultima_actualizacion">) => {
-    setRutas(
-      rutas.map((r) =>
-        r.id === id
-          ? {
-              ...rutaData,
-              id,
-              fecha_creacion: r.fecha_creacion,
-              ultima_actualizacion: new Date().toISOString(),
-            }
-          : r,
-      ),
-    )
-    setEditingRuta(null)
-  }
+  // Crear ruta
+  const createRuta = useCallback(
+    async (ruta: Omit<Ruta, "id">) => {
+      setError(null);
 
-  const deleteRuta = (id: number) => {
-    setRutas(rutas.filter((r) => r.id !== id))
-  }
+      try {
+        const response = await crud.create(ruta);
+        if (response.success) {
+          // Agregar la nueva ruta al estado sin recargar toda la lista
+          if (response.data) {
+            setRutas((prev) => [...prev, response.data]);
+          }
+          return { success: true, data: response.data };
+        } else {
+          setError(response.error || "Error al crear ruta");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al crear ruta";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
 
-  const startEdit = (ruta: Ruta) => {
-    setEditingRuta(ruta)
-  }
+  // Actualizar ruta
+  const updateRuta = useCallback(
+    async (id: number, ruta: Partial<Ruta>) => {
+      setError(null);
 
-  const cancelEdit = () => {
-    setEditingRuta(null)
-  }
+      try {
+        const response = await crud.update(id, ruta);
+        if (response.success) {
+          // Actualizar solo la ruta modificada en el estado
+          setRutas((prev) =>
+            prev.map((r) => (r.id === id ? { ...r, ...ruta } : r)),
+          );
+          return { success: true, data: response.data };
+        } else {
+          setError(response.error || "Error al actualizar ruta");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al actualizar ruta";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
+
+  // Eliminar ruta
+  const deleteRuta = useCallback(
+    async (id: number) => {
+      setError(null);
+
+      try {
+        const response = await crud.remove(id);
+        if (response.success) {
+          // Remover la ruta del estado sin recargar toda la lista
+          setRutas((prev) => prev.filter((r) => r.id !== id));
+          return { success: true };
+        } else {
+          setError(response.error || "Error al eliminar ruta");
+          return { success: false, error: response.error };
+        }
+      } catch (err) {
+        const errorMessage = "Error de conexión al eliminar ruta";
+        setError(errorMessage);
+        return { success: false, error: errorMessage };
+      }
+    },
+    [crud],
+  );
+
+  // Obtener rutas activas
+  const getRutasActivas = useCallback(() => {
+    return rutas.filter((ruta) => ruta.estado === "Activo");
+  }, [rutas]);
+
+  // Buscar rutas por origen o destino
+  const searchByOrigenDestino = useCallback(
+    (searchTerm: string) => {
+      return rutas.filter(
+        (ruta) =>
+          ruta.origen.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          ruta.destino.toLowerCase().includes(searchTerm.toLowerCase()),
+      );
+    },
+    [rutas],
+  );
+
+  // Obtener rutas por tipo
+  const getRutasByTipo = useCallback(
+    (tipo: string) => {
+      return rutas.filter((ruta) => ruta.tipo_ruta === tipo);
+    },
+    [rutas],
+  );
+
+  useEffect(() => {
+    fetchRutas();
+  }, [fetchRutas]);
 
   return {
     rutas,
-    editingRuta,
-    addRuta,
+    isLoading: isLoading || crud.loading,
+    error: error || crud.error,
+    fetchRutas,
+    createRuta,
     updateRuta,
     deleteRuta,
-    startEdit,
-    cancelEdit,
-  }
-}
+    getRutasActivas,
+    searchByOrigenDestino,
+    getRutasByTipo,
+    refetch: fetchRutas,
+  };
+};
+
+export default useRutas;

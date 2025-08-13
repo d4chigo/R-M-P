@@ -1,8 +1,14 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -10,43 +16,63 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Plus, ArrowLeft, Package } from "lucide-react"
-import Link from "next/link"
-import { DataTable, type Column } from "@/components/ui/data-table"
-import { CarretaForm } from "@/components/forms/carreta-form"
-import { useCarretas, type Carreta } from "@/hooks/use-carretas"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+} from "@/components/ui/dialog";
+import { Plus, ArrowLeft, Package } from "lucide-react";
+import Link from "next/link";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { CarretaForm } from "@/components/forms/carreta-form";
+import { useCarretas, type Carreta } from "@/hooks/use-carretas";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function CarretasPage() {
-  const { carretas, editingCarreta, addCarreta, updateCarreta, deleteCarreta, startEdit, cancelEdit } = useCarretas()
+  const {
+    carretas,
+    createCarreta,
+    updateCarreta,
+    deleteCarreta,
+    isLoading,
+    error,
+  } = useCarretas();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingCarreta, setEditingCarreta] = useState<Carreta | null>(null);
 
-  const handleSubmit = (carretaData: Omit<Carreta, "id">) => {
-    if (editingCarreta) {
-      updateCarreta(editingCarreta.id, carretaData)
-    } else {
-      addCarreta(carretaData)
+  const handleSubmit = async (carretaData: Omit<Carreta, "id">) => {
+    try {
+      if (editingCarreta && editingCarreta.id) {
+        await updateCarreta(editingCarreta.id, carretaData);
+      } else {
+        await createCarreta(carretaData);
+      }
+      setIsDialogOpen(false);
+      setEditingCarreta(null);
+    } catch (error) {
+      console.error("Error al guardar carreta:", error);
     }
-    setIsDialogOpen(false)
-  }
+  };
 
   const handleEdit = (carreta: Carreta) => {
-    startEdit(carreta)
-    setIsDialogOpen(true)
-  }
+    setEditingCarreta(carreta);
+    setIsDialogOpen(true);
+  };
 
-  const handleDelete = (carreta: Carreta) => {
+  const handleDelete = async (carreta: Carreta) => {
     if (confirm(`¿Está seguro de eliminar la carreta ${carreta.placa}?`)) {
-      deleteCarreta(carreta.id)
+      if (carreta.id) {
+        await deleteCarreta(carreta.id);
+      }
     }
-  }
+  };
 
   const handleCancel = () => {
-    cancelEdit()
-    setIsDialogOpen(false)
-  }
+    setEditingCarreta(null);
+    setIsDialogOpen(false);
+  };
+
+  const handleNewCarreta = () => {
+    setEditingCarreta(null);
+    setIsDialogOpen(true);
+  };
 
   const columns: Column<Carreta>[] = [
     {
@@ -59,7 +85,9 @@ export default function CarretasPage() {
       key: "placa",
       header: "Placa",
       sortable: true,
-      render: (carreta) => <span className="font-semibold">{carreta.placa}</span>,
+      render: (carreta) => (
+        <span className="font-semibold">{carreta.placa}</span>
+      ),
     },
     {
       key: "tipo",
@@ -92,7 +120,7 @@ export default function CarretasPage() {
         </span>
       ),
     },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -114,7 +142,9 @@ export default function CarretasPage() {
                 <Package className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Gestión de Carretas</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Gestión de Carretas
+                </h1>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
                   Administra las carretas y remolques
                 </p>
@@ -126,7 +156,10 @@ export default function CarretasPage() {
             <ThemeToggle />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => cancelEdit()} className="w-full sm:w-auto mobile-button">
+                <Button
+                  onClick={handleNewCarreta}
+                  className="w-full sm:w-auto mobile-button"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Nueva Carreta
                 </Button>
@@ -134,7 +167,9 @@ export default function CarretasPage() {
               <DialogContent className="max-w-md mx-4 sm:mx-auto dark:bg-gray-800 dark:border-gray-700">
                 <DialogHeader>
                   <DialogTitle className="dark:text-gray-100">
-                    {editingCarreta ? "Editar Carreta" : "Registrar Nueva Carreta"}
+                    {editingCarreta
+                      ? "Editar Carreta"
+                      : "Registrar Nueva Carreta"}
                   </DialogTitle>
                   <DialogDescription className="dark:text-gray-300">
                     {editingCarreta
@@ -155,9 +190,12 @@ export default function CarretasPage() {
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Lista de Carretas</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Lista de Carretas
+            </CardTitle>
             <CardDescription className="dark:text-gray-300">
-              Gestiona todas las carretas con funciones de búsqueda, filtrado y ordenamiento
+              Gestiona todas las carretas con funciones de búsqueda, filtrado y
+              ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -173,5 +211,5 @@ export default function CarretasPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

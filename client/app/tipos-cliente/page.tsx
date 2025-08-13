@@ -1,8 +1,14 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -10,51 +16,68 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Plus, ArrowLeft, UserCheck } from "lucide-react"
-import Link from "next/link"
-import { DataTable, type Column } from "@/components/ui/data-table"
-import { TipoClienteForm } from "@/components/forms/tipo-cliente-form"
-import { useTiposCliente, type TipoCliente } from "@/hooks/use-tipos-cliente"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+} from "@/components/ui/dialog";
+import { Plus, ArrowLeft, UserCheck } from "lucide-react";
+import Link from "next/link";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { TipoClienteForm } from "@/components/forms/tipo-cliente-form";
+import { useTiposCliente, type TipoCliente } from "@/hooks/use-tipos-cliente";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function TiposClientePage() {
   const {
     tiposCliente,
-    editingTipoCliente,
-    addTipoCliente,
+    createTipoCliente,
     updateTipoCliente,
     deleteTipoCliente,
-    startEdit,
-    cancelEdit,
-  } = useTiposCliente()
+    isLoading,
+    error,
+  } = useTiposCliente();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTipoCliente, setEditingTipoCliente] =
+    useState<TipoCliente | null>(null);
 
-  const handleSubmit = (tipoClienteData: Omit<TipoCliente, "id">) => {
-    if (editingTipoCliente) {
-      updateTipoCliente(editingTipoCliente.id, tipoClienteData)
-    } else {
-      addTipoCliente(tipoClienteData)
+  const handleSubmit = async (tipoClienteData: Omit<TipoCliente, "id">) => {
+    try {
+      if (editingTipoCliente && editingTipoCliente.id) {
+        await updateTipoCliente(editingTipoCliente.id, tipoClienteData);
+      } else {
+        await createTipoCliente(tipoClienteData);
+      }
+      setIsDialogOpen(false);
+      setEditingTipoCliente(null);
+    } catch (error) {
+      console.error("Error al guardar tipo de cliente:", error);
     }
-    setIsDialogOpen(false)
-  }
+  };
 
   const handleEdit = (tipoCliente: TipoCliente) => {
-    startEdit(tipoCliente)
-    setIsDialogOpen(true)
-  }
+    setEditingTipoCliente(tipoCliente);
+    setIsDialogOpen(true);
+  };
 
-  const handleDelete = (tipoCliente: TipoCliente) => {
-    if (confirm(`¿Está seguro de eliminar el tipo de cliente ${tipoCliente.nombre}?`)) {
-      deleteTipoCliente(tipoCliente.id)
+  const handleDelete = async (tipoCliente: TipoCliente) => {
+    if (
+      confirm(
+        `¿Está seguro de eliminar el tipo de cliente ${tipoCliente.nombre}?`,
+      )
+    ) {
+      if (tipoCliente.id) {
+        await deleteTipoCliente(tipoCliente.id);
+      }
     }
-  }
+  };
 
   const handleCancel = () => {
-    cancelEdit()
-    setIsDialogOpen(false)
-  }
+    setEditingTipoCliente(null);
+    setIsDialogOpen(false);
+  };
+
+  const handleNewTipoCliente = () => {
+    setEditingTipoCliente(null);
+    setIsDialogOpen(true);
+  };
 
   const columns: Column<TipoCliente>[] = [
     {
@@ -69,7 +92,7 @@ export default function TiposClientePage() {
       sortable: true,
       render: (tipo) => <span className="font-semibold">{tipo.nombre}</span>,
     },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -91,7 +114,9 @@ export default function TiposClientePage() {
                 <UserCheck className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Tipos de Cliente</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Tipos de Cliente
+                </h1>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
                   Configura los tipos de cliente del sistema
                 </p>
@@ -103,7 +128,10 @@ export default function TiposClientePage() {
             <ThemeToggle />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => cancelEdit()} className="w-full sm:w-auto mobile-button">
+                <Button
+                  onClick={handleNewTipoCliente}
+                  className="w-full sm:w-auto mobile-button"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Nuevo Tipo
                 </Button>
@@ -111,7 +139,9 @@ export default function TiposClientePage() {
               <DialogContent className="max-w-md mx-4 sm:mx-auto dark:bg-gray-800 dark:border-gray-700">
                 <DialogHeader>
                   <DialogTitle className="dark:text-gray-100">
-                    {editingTipoCliente ? "Editar Tipo de Cliente" : "Crear Nuevo Tipo de Cliente"}
+                    {editingTipoCliente
+                      ? "Editar Tipo de Cliente"
+                      : "Crear Nuevo Tipo de Cliente"}
                   </DialogTitle>
                   <DialogDescription className="dark:text-gray-300">
                     {editingTipoCliente
@@ -132,9 +162,12 @@ export default function TiposClientePage() {
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Lista de Tipos de Cliente</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Lista de Tipos de Cliente
+            </CardTitle>
             <CardDescription className="dark:text-gray-300">
-              Gestiona todos los tipos de cliente con funciones de búsqueda, filtrado y ordenamiento
+              Gestiona todos los tipos de cliente con funciones de búsqueda,
+              filtrado y ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -150,5 +183,5 @@ export default function TiposClientePage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

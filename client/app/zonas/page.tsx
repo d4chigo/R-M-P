@@ -1,8 +1,14 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -10,43 +16,57 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { Plus, ArrowLeft, MapPin } from "lucide-react"
-import Link from "next/link"
-import { DataTable, type Column } from "@/components/ui/data-table"
-import { ZonaForm } from "@/components/forms/zona-form"
-import { useZonas, type Zona } from "@/hooks/use-zonas"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+} from "@/components/ui/dialog";
+import { Plus, ArrowLeft, MapPin } from "lucide-react";
+import Link from "next/link";
+import { DataTable, type Column } from "@/components/ui/data-table";
+import { ZonaForm } from "@/components/forms/zona-form";
+import { useZonas, type Zona } from "@/hooks/use-zonas";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function ZonasPage() {
-  const { zonas, editingZona, addZona, updateZona, deleteZona, startEdit, cancelEdit } = useZonas()
+  const { zonas, createZona, updateZona, deleteZona, isLoading, error } =
+    useZonas();
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingZona, setEditingZona] = useState<Zona | null>(null);
 
-  const handleSubmit = (zonaData: Omit<Zona, "id">) => {
-    if (editingZona) {
-      updateZona(editingZona.id, zonaData)
-    } else {
-      addZona(zonaData)
+  const handleSubmit = async (zonaData: Omit<Zona, "id">) => {
+    try {
+      if (editingZona && editingZona.id) {
+        await updateZona(editingZona.id, zonaData);
+      } else {
+        await createZona(zonaData);
+      }
+      setIsDialogOpen(false);
+      setEditingZona(null);
+    } catch (error) {
+      console.error("Error al guardar zona:", error);
     }
-    setIsDialogOpen(false)
-  }
+  };
 
   const handleEdit = (zona: Zona) => {
-    startEdit(zona)
-    setIsDialogOpen(true)
-  }
+    setEditingZona(zona);
+    setIsDialogOpen(true);
+  };
 
-  const handleDelete = (zona: Zona) => {
+  const handleDelete = async (zona: Zona) => {
     if (confirm(`¿Está seguro de eliminar la zona ${zona.nombre}?`)) {
-      deleteZona(zona.id)
+      if (zona.id) {
+        await deleteZona(zona.id);
+      }
     }
-  }
+  };
 
   const handleCancel = () => {
-    cancelEdit()
-    setIsDialogOpen(false)
-  }
+    setEditingZona(null);
+    setIsDialogOpen(false);
+  };
+
+  const handleNewZona = () => {
+    setEditingZona(null);
+    setIsDialogOpen(true);
+  };
 
   const columns: Column<Zona>[] = [
     {
@@ -66,11 +86,13 @@ export default function ZonasPage() {
       header: "Descripción",
       render: (zona) => (
         <div className="max-w-md">
-          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3">{zona.descripcion}</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3">
+            {zona.descripcion}
+          </p>
         </div>
       ),
     },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -92,7 +114,9 @@ export default function ZonasPage() {
                 <MapPin className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Gestión de Zonas</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Gestión de Zonas
+                </h1>
                 <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
                   Administra las zonas geográficas de operación
                 </p>
@@ -104,7 +128,10 @@ export default function ZonasPage() {
             <ThemeToggle />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button onClick={() => cancelEdit()} className="w-full sm:w-auto mobile-button">
+                <Button
+                  onClick={handleNewZona}
+                  className="w-full sm:w-auto mobile-button"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Nueva Zona
                 </Button>
@@ -135,7 +162,8 @@ export default function ZonasPage() {
           <CardHeader>
             <CardTitle className="dark:text-gray-100">Lista de Zonas</CardTitle>
             <CardDescription className="dark:text-gray-300">
-              Gestiona todas las zonas geográficas con funciones de búsqueda, filtrado y ordenamiento
+              Gestiona todas las zonas geográficas con funciones de búsqueda,
+              filtrado y ordenamiento
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -151,5 +179,5 @@ export default function ZonasPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }
