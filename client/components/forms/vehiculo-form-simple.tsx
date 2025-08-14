@@ -38,7 +38,6 @@ export function VehiculoFormSimple({
     estado: "",
     fecha_adquisicion: "",
     vin: "",
-    id_carreta: "",
   });
 
   useEffect(() => {
@@ -58,7 +57,6 @@ export function VehiculoFormSimple({
         estado: vehiculo.estado || "",
         fecha_adquisicion: formattedDate,
         vin: vehiculo.vin || "",
-        id_carreta: vehiculo.id_carreta?.toString() || "",
       });
     }
   }, [vehiculo]);
@@ -78,9 +76,6 @@ export function VehiculoFormSimple({
       estado: formData.estado,
       fecha_adquisicion: formData.fecha_adquisicion,
       vin: formData.vin,
-      id_carreta: formData.id_carreta
-        ? Number.parseInt(formData.id_carreta)
-        : undefined,
     });
   };
 
@@ -233,18 +228,6 @@ export function VehiculoFormSimple({
             required
           />
         </div>
-      </div>
-
-      <div>
-        <Label htmlFor="id_carreta">ID Carreta (Opcional)</Label>
-        <Input
-          id="id_carreta"
-          type="number"
-          value={formData.id_carreta}
-          onChange={(e) => handleInputChange("id_carreta", e.target.value)}
-          placeholder="1"
-          min="1"
-        />
       </div>
 
       <div className="flex justify-end gap-2 pt-4">
