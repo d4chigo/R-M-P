@@ -8,8 +8,8 @@ export interface Cliente {
   nombre: string;
   codigo: string;
   id_tipo_cliente: number;
-  id_zona_pvta?: number;
-  id_zona_tvta?: number;
+  codigo_zona_pvta_manual?: string;
+  codigo_zona_tvta_manual?: string;
   ruc: string;
   ciudad: string;
   telefono: string;
@@ -25,8 +25,6 @@ export interface Cliente {
   updated_by?: string;
   // Campos relacionados desde joins
   tipo_cliente_nombre?: string;
-  zona_pvta_nombre?: string;
-  zona_tvta_nombre?: string;
 }
 
 export const useClientes = () => {
@@ -203,11 +201,11 @@ export const useClientes = () => {
 
   // Obtener clientes por zona
   const getClientesByZona = useCallback(
-    (zonaId: number, tipoZona: "pvta" | "tvta" = "pvta") => {
+    (codigoZona: string, tipoZona: "pvta" | "tvta" = "pvta") => {
       return clientes.filter((cliente) =>
         tipoZona === "pvta"
-          ? cliente.id_zona_pvta === zonaId
-          : cliente.id_zona_tvta === zonaId,
+          ? cliente.codigo_zona_pvta_manual === codigoZona
+          : cliente.codigo_zona_tvta_manual === codigoZona,
       );
     },
     [clientes],

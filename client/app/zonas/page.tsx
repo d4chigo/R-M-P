@@ -70,10 +70,14 @@ export default function ZonasPage() {
 
   const columns: Column<Zona>[] = [
     {
-      key: "id",
-      header: "ID",
+      key: "codigo",
+      header: "Código",
       sortable: true,
-      render: (zona) => <span className="font-medium">{zona.id}</span>,
+      render: (zona) => (
+        <span className="font-bold text-blue-600 dark:text-blue-400">
+          {zona.codigo}
+        </span>
+      ),
     },
     {
       key: "nombre",
@@ -199,7 +203,7 @@ export default function ZonasPage() {
               searchPlaceholder="Buscar por nombre, descripción..."
               onEdit={handleEdit}
               onDelete={handleDelete}
-              searchKeys={["nombre", "descripcion", "region"]}
+              searchKeys={["codigo", "nombre", "descripcion", "region"]}
             />
           </CardContent>
         </Card>

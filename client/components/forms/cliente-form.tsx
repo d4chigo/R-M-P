@@ -43,8 +43,8 @@ export function ClienteForm({
     nombre: "",
     codigo: "",
     id_tipo_cliente: "",
-    id_zona_pvta: "",
-    id_zona_tvta: "",
+    codigo_zona_pvta: "",
+    codigo_zona_tvta: "",
     ruc: "",
     ciudad: "",
     telefono: "",
@@ -70,8 +70,8 @@ export function ClienteForm({
         id_tipo_cliente: cliente.id_tipo_cliente
           ? cliente.id_tipo_cliente.toString()
           : "",
-        id_zona_pvta: cliente.id_zona_pvta?.toString() || "",
-        id_zona_tvta: cliente.id_zona_tvta?.toString() || "",
+        codigo_zona_pvta: cliente.codigo_zona_pvta_manual || "",
+        codigo_zona_tvta: cliente.codigo_zona_tvta_manual || "",
         ruc: cliente.ruc || "",
         ciudad: cliente.ciudad || "",
         telefono: cliente.telefono || "",
@@ -95,8 +95,8 @@ export function ClienteForm({
         nombre: "",
         codigo: "",
         id_tipo_cliente: "",
-        id_zona_pvta: "",
-        id_zona_tvta: "",
+        codigo_zona_pvta: "",
+        codigo_zona_tvta: "",
         ruc: "",
         ciudad: "",
         telefono: "",
@@ -111,10 +111,10 @@ export function ClienteForm({
     }
   }, [cliente]);
 
-  // Preparar opciones para react-select de zonas
-  const zonasOptions: OptionType[] = zonas.map((zona) => ({
-    value: zona.id!,
-    label: `${zona.nombre} - ${zona.region || "Sin región"} ${zona.latitud && zona.longitud ? `(${Number(zona.latitud).toFixed(2)}, ${Number(zona.longitud).toFixed(2)})` : ""}`,
+  // Preparar opciones para dropdown de zonas
+  const zonasOptions = zonas.map((zona) => ({
+    codigo: zona.codigo,
+    label: `${zona.codigo} - ${zona.nombre} - ${zona.region || "Sin región"}`,
   }));
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -136,12 +136,8 @@ export function ClienteForm({
       nombre: formData.nombre,
       codigo: formData.codigo,
       id_tipo_cliente: Number.parseInt(formData.id_tipo_cliente),
-      id_zona_pvta: formData.id_zona_pvta
-        ? Number.parseInt(formData.id_zona_pvta)
-        : undefined,
-      id_zona_tvta: formData.id_zona_tvta
-        ? Number.parseInt(formData.id_zona_tvta)
-        : undefined,
+      codigo_zona_pvta_manual: formData.codigo_zona_pvta || undefined,
+      codigo_zona_tvta_manual: formData.codigo_zona_tvta || undefined,
       ruc: formData.ruc,
       ciudad: formData.ciudad,
       telefono: formData.telefono,
@@ -158,38 +154,27 @@ export function ClienteForm({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Encontrar la opción seleccionada para react-select
-  const getSelectedZonaOption = (value: string): OptionType | null => {
-    if (!value) return null;
-    return (
-      zonasOptions.find((option) => option.value.toString() === value) || null
-    );
-  };
-
   // Función para manejar selección de zona y autocompletar coordenadas
-  const handleZonaSelect = (selectedOption: any, tipo: "pvta" | "tvta") => {
-    const value = selectedOption ? selectedOption.value.toString() : "";
-    const field = tipo === "pvta" ? "id_zona_pvta" : "id_zona_tvta";
-    handleInputChange(field, value);
+  const handleZonaSelect = (codigoZona: string, tipo: "pvta" | "tvta") => {
+    const field = tipo === "pvta" ? "codigo_zona_pvta" : "codigo_zona_tvta";
+    handleInputChange(field, codigoZona);
 
     // Auto-completar coordenadas si la zona tiene coordenadas
-    if (selectedOption) {
-      const zona = zonas.find((z) => z.id === selectedOption.value);
-      if (zona && zona.latitud && zona.longitud) {
-        const shouldUpdate =
-          !formData.latitud ||
-          !formData.longitud ||
-          confirm(
-            `¿Desea actualizar las coordenadas con las de la zona ${zona.nombre}?`,
-          );
+    const zona = zonas.find((z) => z.codigo === codigoZona);
+    if (zona && zona.latitud && zona.longitud) {
+      const shouldUpdate =
+        !formData.latitud ||
+        !formData.longitud ||
+        confirm(
+          `¿Desea actualizar las coordenadas con las de la zona ${zona.nombre}?`,
+        );
 
-        if (shouldUpdate) {
-          setFormData((prev) => ({
-            ...prev,
-            latitud: zona.latitud!.toString(),
-            longitud: zona.longitud!.toString(),
-          }));
-        }
+      if (shouldUpdate) {
+        setFormData((prev) => ({
+          ...prev,
+          latitud: zona.latitud!.toString(),
+          longitud: zona.longitud!.toString(),
+        }));
       }
     }
   };
@@ -330,44 +315,68 @@ export function ClienteForm({
           />
         </div>
         <div>
-          <Label htmlFor="id_zona_pvta">Zona PVTA</Label>
-          <ReactSelect
-            id="id_zona_pvta"
-            value={getSelectedZonaOption(formData.id_zona_pvta)}
-            onChange={(selectedOption: any) => {
-              handleZonaSelect(selectedOption, "pvta");
-            }}
-            options={zonasOptions}
-            placeholder="Seleccionar zona PVTA..."
-            isClearable
-            isSearchable
-            isLoading={zonasLoading}
-            noOptionsMessage={() => "No hay zonas disponibles"}
-            loadingMessage={() => "Cargando zonas..."}
-            styles={selectStyles}
-            className="react-select-container"
-            classNamePrefix="react-select"
-          />
+          <Label htmlFor="codigo_zona_pvta">Código Zona PVTA</Label>
+          <div className="relative">
+            <Input
+              id="codigo_zona_pvta"
+              value={formData.codigo_zona_pvta}
+              onChange={(e) =>
+                handleInputChange("codigo_zona_pvta", e.target.value)
+              }
+              placeholder="Escribir código de zona PVTA..."
+              className="pr-10"
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center">
+              <select
+                className="h-full rounded-r-md border-0 bg-transparent py-0 pl-2 pr-8 text-gray-500 dark:text-gray-400 focus:ring-2 focus:ring-indigo-500 sm:text-sm"
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleZonaSelect(e.target.value, "pvta");
+                  }
+                }}
+                value=""
+              >
+                <option value="">⌄</option>
+                {zonasOptions.map((zona) => (
+                  <option key={zona.codigo} value={zona.codigo}>
+                    {zona.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
         <div>
-          <Label htmlFor="id_zona_tvta">Zona TVTA</Label>
-          <ReactSelect
-            id="id_zona_tvta"
-            value={getSelectedZonaOption(formData.id_zona_tvta)}
-            onChange={(selectedOption: any) => {
-              handleZonaSelect(selectedOption, "tvta");
-            }}
-            options={zonasOptions}
-            placeholder="Seleccionar zona TVTA..."
-            isClearable
-            isSearchable
-            isLoading={zonasLoading}
-            noOptionsMessage={() => "No hay zonas disponibles"}
-            loadingMessage={() => "Cargando zonas..."}
-            styles={selectStyles}
-            className="react-select-container"
-            classNamePrefix="react-select"
-          />
+          <Label htmlFor="codigo_zona_tvta">Código Zona TVTA</Label>
+          <div className="relative">
+            <Input
+              id="codigo_zona_tvta"
+              value={formData.codigo_zona_tvta}
+              onChange={(e) =>
+                handleInputChange("codigo_zona_tvta", e.target.value)
+              }
+              placeholder="Escribir código de zona TVTA..."
+              className="pr-10"
+            />
+            <div className="absolute inset-y-0 right-0 flex items-center">
+              <select
+                className="h-full rounded-r-md border-0 bg-transparent py-0 pl-2 pr-8 text-gray-500 dark:text-gray-400 focus:ring-2 focus:ring-indigo-500 sm:text-sm"
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleZonaSelect(e.target.value, "tvta");
+                  }
+                }}
+                value=""
+              >
+                <option value="">⌄</option>
+                {zonasOptions.map((zona) => (
+                  <option key={zona.codigo} value={zona.codigo}>
+                    {zona.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 

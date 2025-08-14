@@ -117,20 +117,20 @@ export default function ClientesPage() {
       sortable: true,
     },
     {
-      key: "zona_pvta_nombre",
+      key: "codigo_zona_pvta_manual",
       header: "Zona PVTA",
       render: (cliente) => (
         <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 px-2 py-1 rounded">
-          {(cliente as any).zona_pvta_nombre || "Sin zona"}
+          {(cliente as any).codigo_zona_pvta_manual || "Sin zona"}
         </span>
       ),
     },
     {
-      key: "zona_tvta_nombre",
+      key: "codigo_zona_tvta_manual",
       header: "Zona TVTA",
       render: (cliente) => (
         <span className="text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 px-2 py-1 rounded">
-          {(cliente as any).zona_tvta_nombre || "Sin zona"}
+          {(cliente as any).codigo_zona_tvta_manual || "Sin zona"}
         </span>
       ),
     },
