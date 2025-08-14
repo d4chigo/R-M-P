@@ -1,47 +1,65 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import type { Zona } from "@/hooks/use-zonas"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import type { Zona } from "@/hooks/use-zonas";
 
 interface ZonaFormProps {
-  zona?: Zona | null
-  onSubmit: (zona: Omit<Zona, "id">) => void
-  onCancel: () => void
-  isEditing?: boolean
+  zona?: Zona | null;
+  onSubmit: (zona: Omit<Zona, "id">) => void;
+  onCancel: () => void;
+  isEditing?: boolean;
 }
 
-export function ZonaForm({ zona, onSubmit, onCancel, isEditing = false }: ZonaFormProps) {
+export function ZonaForm({
+  zona,
+  onSubmit,
+  onCancel,
+  isEditing = false,
+}: ZonaFormProps) {
   const [formData, setFormData] = useState({
     nombre: "",
     descripcion: "",
-  })
+    region: "",
+    latitud: "",
+    longitud: "",
+  });
 
   useEffect(() => {
     if (zona) {
       setFormData({
         nombre: zona.nombre,
         descripcion: zona.descripcion,
-      })
+        region: zona.region || "",
+        latitud: zona.latitud ? zona.latitud.toString() : "",
+        longitud: zona.longitud ? zona.longitud.toString() : "",
+      });
     }
-  }, [zona])
+  }, [zona]);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     onSubmit({
       nombre: formData.nombre,
       descripcion: formData.descripcion,
-    })
-  }
+      region: formData.region,
+      latitud: formData.latitud
+        ? Number.parseFloat(formData.latitud)
+        : undefined,
+      longitud: formData.longitud
+        ? Number.parseFloat(formData.longitud)
+        : undefined,
+    });
+  };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
-  }
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -63,13 +81,53 @@ export function ZonaForm({ zona, onSubmit, onCancel, isEditing = false }: ZonaFo
           value={formData.descripcion}
           onChange={(e) => handleInputChange("descripcion", e.target.value)}
           placeholder="Descripción detallada de la zona geográfica..."
-          rows={4}
+          rows={3}
           required
         />
       </div>
 
+      <div>
+        <Label htmlFor="region">Región</Label>
+        <Input
+          id="region"
+          value={formData.region}
+          onChange={(e) => handleInputChange("region", e.target.value)}
+          placeholder="Lima, Callao, Arequipa, etc."
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="latitud">Latitud</Label>
+          <Input
+            id="latitud"
+            type="number"
+            step="any"
+            value={formData.latitud}
+            onChange={(e) => handleInputChange("latitud", e.target.value)}
+            placeholder="-12.0464"
+          />
+        </div>
+        <div>
+          <Label htmlFor="longitud">Longitud</Label>
+          <Input
+            id="longitud"
+            type="number"
+            step="any"
+            value={formData.longitud}
+            onChange={(e) => handleInputChange("longitud", e.target.value)}
+            placeholder="-77.0428"
+          />
+        </div>
+      </div>
+
       <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto bg-transparent">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          className="w-full sm:w-auto bg-transparent"
+        >
           Cancelar
         </Button>
         <Button type="submit" className="w-full sm:w-auto">
@@ -77,5 +135,5 @@ export function ZonaForm({ zona, onSubmit, onCancel, isEditing = false }: ZonaFo
         </Button>
       </div>
     </form>
-  )
+  );
 }

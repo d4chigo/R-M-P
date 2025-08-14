@@ -42,7 +42,7 @@ export default function RutasPage() {
   // Manual fetch on component mount
   useEffect(() => {
     fetchRutas();
-  }, []);
+  }, [fetchRutas]);
 
   const handleSubmit = async (
     rutaData: Omit<

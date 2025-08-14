@@ -1,31 +1,37 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect } from 'react'
-import { useAuth } from '@/contexts/AuthContext'
-import { useRouter } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Eye, EyeOff, Truck, AlertCircle } from 'lucide-react'
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Eye, EyeOff, Truck, AlertCircle } from "lucide-react";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login, isAuthenticated, isLoading } = useAuth()
-  const router = useRouter()
+  const { login, isAuthenticated, isLoading } = useAuth();
+  const router = useRouter();
 
   // Redirigir si ya está autenticado
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.push('/')
+      router.push("/");
     }
-  }, [isAuthenticated, isLoading, router])
+  }, [isAuthenticated, isLoading, router]);
 
   // Mostrar loading mientras verifica autenticación
   if (isLoading) {
@@ -36,41 +42,41 @@ export default function LoginPage() {
           <p className="text-gray-600 dark:text-gray-300">Cargando...</p>
         </div>
       </div>
-    )
+    );
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setIsSubmitting(true)
+    e.preventDefault();
+    setError("");
+    setIsSubmitting(true);
 
     // Validaciones básicas
     if (!email || !password) {
-      setError('Por favor, complete todos los campos')
-      setIsSubmitting(false)
-      return
+      setError("Por favor, complete todos los campos");
+      setIsSubmitting(false);
+      return;
     }
 
-    if (!email.includes('@')) {
-      setError('Por favor, ingrese un email válido')
-      setIsSubmitting(false)
-      return
+    if (!email.includes("@")) {
+      setError("Por favor, ingrese un email válido");
+      setIsSubmitting(false);
+      return;
     }
 
     try {
-      const result = await login(email, password)
+      const result = await login(email, password);
 
       if (result.success) {
-        router.push('/')
+        router.push("/");
       } else {
-        setError(result.message || 'Error en el login')
+        setError(result.message || "Error en el login");
       }
     } catch (error) {
-      setError('Error de conexión con el servidor')
+      setError("Error de conexión con el servidor");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
@@ -155,25 +161,21 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isSubmitting}
-              >
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Iniciando sesión...
                   </>
                 ) : (
-                  'Iniciar Sesión'
+                  "Iniciar Sesión"
                 )}
               </Button>
             </form>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                ¿Problemas para acceder?{' '}
+                ¿Problemas para acceder?{" "}
                 <span className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">
                   Contacte al administrador
                 </span>
@@ -189,5 +191,5 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

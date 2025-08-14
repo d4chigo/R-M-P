@@ -143,7 +143,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.success) {
+
+        if (data.success && data.data && data.data.usuario) {
           setUsuario(data.data.usuario);
           setToken(savedToken);
           setIsLoading(false);
@@ -153,11 +154,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Si llegamos aquí, el token no es válido
       Cookies.remove("auth_token");
+      setUsuario(null);
+      setToken(null);
       setIsLoading(false);
       return false;
     } catch (error) {
       console.error("Error verificando autenticación:", error);
       Cookies.remove("auth_token");
+      setUsuario(null);
+      setToken(null);
       setIsLoading(false);
       return false;
     }
@@ -165,16 +170,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Verificar autenticación al cargar
   useEffect(() => {
-    checkAuth();
-  }, []);
+    let mounted = true;
 
-  // Interceptor para requests automáticos con token
-  useEffect(() => {
-    if (token) {
-      // Configurar axios interceptor si lo usas, o manejar fetch global
-      // Por ahora usaremos fetch manual en cada request
-    }
-  }, [token]);
+    const initAuth = async () => {
+      if (mounted) {
+        await checkAuth();
+      }
+    };
+
+    initAuth();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const value: AuthContextType = {
     usuario,

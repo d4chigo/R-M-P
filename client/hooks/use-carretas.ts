@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useCrud } from "./use-api";
+import { useSimpleCrud } from "./use-simple-api";
 
 export interface Carreta {
   id?: number;
@@ -20,10 +20,12 @@ export const useCarretas = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const crud = useCrud<Carreta>("/carretas");
+  const crud = useSimpleCrud<Carreta>("/carretas");
 
   // Cargar todas las carretas
   const fetchCarretas = useCallback(async () => {
+    if (isLoading) return; // Prevenir múltiples llamadas simultáneas
+
     setIsLoading(true);
     setError(null);
 
@@ -36,10 +38,11 @@ export const useCarretas = () => {
       }
     } catch (err) {
       setError("Error de conexión");
+      console.error("Error fetching carretas:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [crud]);
+  }, [crud.getAll, isLoading]);
 
   // Crear carreta
   const createCarreta = useCallback(
@@ -64,7 +67,7 @@ export const useCarretas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.create],
   );
 
   // Actualizar carreta
@@ -90,7 +93,7 @@ export const useCarretas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.update],
   );
 
   // Eliminar carreta
@@ -114,7 +117,7 @@ export const useCarretas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.remove],
   );
 
   // Obtener carretas disponibles (sin asignar a vehículos)
@@ -133,8 +136,20 @@ export const useCarretas = () => {
   );
 
   useEffect(() => {
-    fetchCarretas();
-  }, [fetchCarretas]);
+    let mounted = true;
+
+    const loadCarretas = async () => {
+      if (carretas.length === 0 && mounted && !isLoading) {
+        await fetchCarretas();
+      }
+    };
+
+    loadCarretas();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return {
     carretas,

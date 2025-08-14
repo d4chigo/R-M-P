@@ -22,6 +22,8 @@ import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ClienteForm } from "@/components/forms/cliente-form";
 import { useClientes, type Cliente } from "@/hooks/use-clientes";
+import { useTiposCliente } from "@/hooks/use-tipos-cliente";
+import { useZonas } from "@/hooks/use-zonas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function ClientesPage() {
@@ -33,6 +35,9 @@ export default function ClientesPage() {
     isLoading,
     error,
   } = useClientes();
+
+  const { fetchTiposCliente } = useTiposCliente();
+  const { fetchZonas } = useZonas();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
@@ -69,8 +74,10 @@ export default function ClientesPage() {
     setIsDialogOpen(false);
   };
 
-  const handleNewCliente = () => {
+  const handleNewCliente = async () => {
     setEditingCliente(null);
+    // Recargar tipos de cliente y zonas antes de abrir el diálogo
+    await Promise.all([fetchTiposCliente(), fetchZonas()]);
     setIsDialogOpen(true);
   };
 
@@ -95,9 +102,37 @@ export default function ClientesPage() {
       sortable: true,
     },
     {
+      key: "tipo_cliente_nombre",
+      header: "Tipo de Cliente",
+      sortable: true,
+      render: (cliente) => (
+        <span className="text-sm bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded">
+          {(cliente as any).tipo_cliente_nombre || "Sin tipo"}
+        </span>
+      ),
+    },
+    {
       key: "ruc",
       header: "RUC",
       sortable: true,
+    },
+    {
+      key: "zona_pvta_nombre",
+      header: "Zona PVTA",
+      render: (cliente) => (
+        <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 px-2 py-1 rounded">
+          {(cliente as any).zona_pvta_nombre || "Sin zona"}
+        </span>
+      ),
+    },
+    {
+      key: "zona_tvta_nombre",
+      header: "Zona TVTA",
+      render: (cliente) => (
+        <span className="text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 px-2 py-1 rounded">
+          {(cliente as any).zona_tvta_nombre || "Sin zona"}
+        </span>
+      ),
     },
     {
       key: "ciudad",

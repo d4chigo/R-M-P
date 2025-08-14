@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useCrud } from "./use-api";
+import { useSimpleCrud } from "./use-simple-api";
 
 export interface Visita {
   id?: number;
@@ -33,10 +33,12 @@ export const useVisitas = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const crud = useCrud<Visita>("/visitas");
+  const crud = useSimpleCrud<Visita>("/visitas");
 
   // Cargar todas las visitas
   const fetchVisitas = useCallback(async () => {
+    if (isLoading) return; // Prevenir múltiples llamadas simultáneas
+
     setIsLoading(true);
     setError(null);
 
@@ -49,10 +51,11 @@ export const useVisitas = () => {
       }
     } catch (err) {
       setError("Error de conexión");
+      console.error("Error fetching visitas:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [crud]);
+  }, [crud.getAll, isLoading]);
 
   // Crear visita
   const createVisita = useCallback(
@@ -77,7 +80,7 @@ export const useVisitas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.create],
   );
 
   // Actualizar visita
@@ -103,7 +106,7 @@ export const useVisitas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.update],
   );
 
   // Eliminar visita
@@ -127,7 +130,7 @@ export const useVisitas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.remove],
   );
 
   // Obtener visita por ID
@@ -149,7 +152,7 @@ export const useVisitas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.getById],
   );
 
   // Obtener visitas por viaje
@@ -361,8 +364,20 @@ export const useVisitas = () => {
 
   // Efecto para cargar visitas al montar el componente
   useEffect(() => {
-    fetchVisitas();
-  }, [fetchVisitas]);
+    let mounted = true;
+
+    const loadVisitas = async () => {
+      if (visitas.length === 0 && mounted && !isLoading) {
+        await fetchVisitas();
+      }
+    };
+
+    loadVisitas();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return {
     visitas,

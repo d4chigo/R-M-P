@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useCrud } from "./use-api";
+import { useSimpleCrud } from "./use-simple-api";
 
 export interface Vehiculo {
   id?: number;
@@ -27,10 +27,12 @@ export const useVehiculos = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const crud = useCrud<Vehiculo>("/vehiculos");
+  const crud = useSimpleCrud<Vehiculo>("/vehiculos");
 
   // Cargar todos los vehículos
   const fetchVehiculos = useCallback(async () => {
+    if (isLoading) return; // Prevenir múltiples llamadas simultáneas
+
     setIsLoading(true);
     setError(null);
 
@@ -43,10 +45,11 @@ export const useVehiculos = () => {
       }
     } catch (err) {
       setError("Error de conexión");
+      console.error("Error fetching vehiculos:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [crud]);
+  }, [crud.getAll, isLoading]);
 
   // Crear vehículo
   const createVehiculo = useCallback(
@@ -71,7 +74,7 @@ export const useVehiculos = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.create],
   );
 
   // Actualizar vehículo
@@ -97,7 +100,7 @@ export const useVehiculos = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.update],
   );
 
   // Eliminar vehículo
@@ -132,7 +135,7 @@ export const useVehiculos = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.remove],
   );
 
   // Obtener vehículo por ID
@@ -154,7 +157,7 @@ export const useVehiculos = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.getById],
   );
 
   // Cambiar estado del vehículo
@@ -186,8 +189,20 @@ export const useVehiculos = () => {
 
   // Efecto para cargar vehículos al montar el componente
   useEffect(() => {
-    fetchVehiculos();
-  }, [fetchVehiculos]);
+    let mounted = true;
+
+    const loadVehiculos = async () => {
+      if (vehiculos.length === 0 && mounted && !isLoading) {
+        await fetchVehiculos();
+      }
+    };
+
+    loadVehiculos();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return {
     vehiculos,

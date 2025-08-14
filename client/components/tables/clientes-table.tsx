@@ -1,29 +1,36 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface Cliente {
-  id: number
-  nombre: string
-  codigo: string
-  id_tipo_cliente: number
-  ruc: string
-  direccion: string
-  ciudad: string
-  departamento: string
-  pais: string
-  telefono: string
-  email: string
-  contacto_nombre: string
-  contacto_telefono: string
-  abre: string
-  cierra: string
-  estado: string
-  fecha_registro: string
-  longitud: number
-  latitud: number
+  id: number;
+  nombre: string;
+  codigo: string;
+  id_tipo_cliente: number;
+  id_ruta_pvta?: number;
+  id_ruta_tvta?: number;
+  ruc: string;
+  ciudad: string;
+  telefono: string;
+  email: string;
+  contacto_nombre: string;
+  horario: string;
+  estado: string;
+  longitud: number;
+  latitud: number;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+  updated_by?: string;
 }
 
 interface ClientesTableProps {
-  clientes: Cliente[]
+  clientes: Cliente[];
 }
 
 export function ClientesTable({ clientes }: ClientesTableProps) {
@@ -51,22 +58,21 @@ export function ClientesTable({ clientes }: ClientesTableProps) {
               <TableCell className="font-semibold">{cliente.codigo}</TableCell>
               <TableCell>{cliente.nombre}</TableCell>
               <TableCell>{cliente.ruc}</TableCell>
-              <TableCell>{cliente.ciudad}, {cliente.departamento}</TableCell>
+              <TableCell>{cliente.ciudad}</TableCell>
               <TableCell>{cliente.telefono}</TableCell>
               <TableCell>{cliente.email}</TableCell>
+              <TableCell>{cliente.contacto_nombre}</TableCell>
+              <TableCell>{cliente.horario}</TableCell>
               <TableCell>
-                <div className="text-sm">
-                  <div className="font-medium">{cliente.contacto_nombre}</div>
-                  <div className="text-gray-500">{cliente.contacto_telefono}</div>
-                </div>
-              </TableCell>
-              <TableCell>{cliente.abre} - {cliente.cierra}</TableCell>
-              <TableCell>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  cliente.estado === 'Activo' ? 'bg-green-100 text-green-800' :
-                  cliente.estado === 'Suspendido' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    cliente.estado === "Activo"
+                      ? "bg-green-100 text-green-800"
+                      : cliente.estado === "Suspendido"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-red-100 text-red-800"
+                  }`}
+                >
                   {cliente.estado}
                 </span>
               </TableCell>
@@ -75,5 +81,5 @@ export function ClientesTable({ clientes }: ClientesTableProps) {
         </TableBody>
       </Table>
     </div>
-  )
+  );
 }
