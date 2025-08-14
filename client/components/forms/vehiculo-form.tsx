@@ -16,7 +16,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import type { Vehiculo } from "@/hooks/use-vehiculos";
-import { useCarretas } from "@/hooks/use-carretas";
 import { formatDateForInput } from "@/lib/utils/date";
 
 interface VehiculoFormProps {
@@ -32,36 +31,20 @@ export function VehiculoForm({
   onCancel,
   isEditing = false,
 }: VehiculoFormProps) {
-  const {
-    carretas,
-    isLoading: carretasLoading,
-    error: carretasError,
-  } = useCarretas();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-
-  // Debug logging
-  useEffect(() => {
-    console.log("🚛 VehiculoForm - Props:", { vehiculo, isEditing });
-    console.log("🚛 VehiculoForm - Carretas:", {
-      carretas,
-      carretasLoading,
-      carretasError,
-    });
-  }, [vehiculo, isEditing, carretas, carretasLoading, carretasError]);
 
   const [formData, setFormData] = useState({
     placa: "",
     marca: "",
     modelo: "",
     anio: "",
-    tipo: "Tractocamión",
+    tipo: "",
     capacidad_carga_kg: "",
-    tipo_carga: "General",
+    tipo_carga: "",
     estado: "Activo",
     fecha_adquisicion: "",
     vin: "",
-    id_carreta: "",
   });
 
   useEffect(() => {
@@ -80,7 +63,6 @@ export function VehiculoForm({
         estado: vehiculo.estado || "",
         fecha_adquisicion: formattedDate,
         vin: vehiculo.vin || "",
-        id_carreta: vehiculo.id_carreta?.toString() || "",
       });
     }
   }, [vehiculo]);
@@ -102,10 +84,6 @@ export function VehiculoForm({
         estado: formData.estado,
         fecha_adquisicion: formData.fecha_adquisicion,
         vin: formData.vin,
-        id_carreta:
-          formData.id_carreta && formData.id_carreta !== ""
-            ? Number.parseInt(formData.id_carreta)
-            : undefined,
       });
     } catch (error) {
       console.error("Error submitting form:", error);
@@ -118,19 +96,11 @@ export function VehiculoForm({
   };
 
   const handleInputChange = (field: string, value: string) => {
-    console.log("🚛 VehiculoForm - Input change:", { field, value });
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
     <div className="mobile-form-spacing">
-      {carretasError && (
-        <Alert variant="destructive">
-          <AlertDescription>
-            Error cargando carretas: {carretasError}
-          </AlertDescription>
-        </Alert>
-      )}
       {formError && (
         <Alert variant="destructive">
           <AlertDescription>{formError}</AlertDescription>
@@ -295,38 +265,6 @@ export function VehiculoForm({
           </div>
         </div>
 
-        <div>
-          <Label htmlFor="id_carreta">Carreta Asociada (Opcional)</Label>
-          <Select
-            value={formData.id_carreta || undefined}
-            onValueChange={(value) =>
-              handleInputChange("id_carreta", value || "")
-            }
-          >
-            <SelectTrigger className="mobile-input">
-              <SelectValue
-                placeholder={
-                  carretasLoading
-                    ? "Cargando carretas..."
-                    : "Seleccionar carreta"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="">Sin carreta</SelectItem>
-              {!carretasLoading &&
-                carretas.map((carreta) => (
-                  <SelectItem
-                    key={carreta.id}
-                    value={carreta.id?.toString() || ""}
-                  >
-                    {carreta.id} - {carreta.placa} ({carreta.tipo})
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-        </div>
-
         <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-2 pt-4">
           <Button
             type="button"
@@ -339,7 +277,7 @@ export function VehiculoForm({
           <Button
             type="submit"
             className="mobile-button"
-            disabled={isSubmitting || carretasLoading}
+            disabled={isSubmitting}
           >
             {isSubmitting ? (
               <>

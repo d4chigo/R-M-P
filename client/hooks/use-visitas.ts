@@ -67,7 +67,7 @@ export const useVisitas = () => {
         if (response.success) {
           // Agregar la nueva visita al estado sin recargar toda la lista
           if (response.data) {
-            setVisitas((prev) => [...prev, response.data]);
+            setVisitas((prev) => [...prev, response.data as Visita]);
           }
           return { success: true, data: response.data };
         } else {

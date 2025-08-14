@@ -71,15 +71,12 @@ export default function VehiculosPage() {
       try {
         const result = await deleteVehiculo(vehiculo.id);
         if (result.success) {
-          console.log(`✅ Vehículo ${vehiculo.placa} eliminado correctamente`);
         } else {
-          console.error(`❌ Error al eliminar vehículo:`, result.error);
           alert(
             `Error al eliminar el vehículo: ${result.error || "Error desconocido"}`,
           );
         }
       } catch (error) {
-        console.error(`❌ Error inesperado:`, error);
         alert(
           `Error inesperado al eliminar el vehículo: ${error instanceof Error ? error.message : "Error desconocido"}`,
         );

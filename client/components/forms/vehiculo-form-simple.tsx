@@ -41,7 +41,6 @@ export function VehiculoFormSimple({
   });
 
   useEffect(() => {
-    console.log("🚛 Simple Form - vehiculo prop:", vehiculo);
     if (vehiculo) {
       // Format date for HTML date input (YYYY-MM-DD)
       const formattedDate = formatDateForInput(vehiculo.fecha_adquisicion);
@@ -63,7 +62,6 @@ export function VehiculoFormSimple({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("🚛 Simple Form - submitting:", formData);
 
     onSubmit({
       placa: formData.placa,
@@ -80,7 +78,6 @@ export function VehiculoFormSimple({
   };
 
   const handleInputChange = (field: string, value: string) => {
-    console.log("🚛 Simple Form - change:", field, "->", value);
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 

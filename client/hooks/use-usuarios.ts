@@ -55,7 +55,7 @@ export const useUsuarios = () => {
         if (response.success) {
           // Agregar el nuevo usuario al estado sin recargar toda la lista
           if (response.data) {
-            setUsuarios((prev) => [...prev, response.data]);
+            setUsuarios((prev) => [...prev, response.data as Usuario]);
           }
           return { success: true, data: response.data };
         } else {

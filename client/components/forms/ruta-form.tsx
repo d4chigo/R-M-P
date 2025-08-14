@@ -35,7 +35,6 @@ export function RutaForm({
   });
 
   useEffect(() => {
-    console.log("🔄 RutaForm useEffect triggered - ruta:", ruta);
     if (ruta && ruta.id) {
       // Convert duration from HH:MM:SS to HH:MM for time input
       const formattedDuration = formatTimeForInput(ruta.duracion_aproximada);
@@ -51,23 +50,8 @@ export function RutaForm({
         estado: ruta.estado || "",
       };
 
-      console.log("📝 Setting formData:", newFormData);
-      console.log(
-        "🎯 tipo_ruta:",
-        ruta.tipo_ruta,
-        "-> formData.tipo_ruta:",
-        newFormData.tipo_ruta,
-      );
-      console.log(
-        "🎯 estado:",
-        ruta.estado,
-        "-> formData.estado:",
-        newFormData.estado,
-      );
-
       setFormData(newFormData);
     } else if (!ruta) {
-      console.log("🆕 Resetting form for new ruta");
       setFormData({
         codigo: "",
         nombre: "",
@@ -128,7 +112,6 @@ export function RutaForm({
       fecha_creacion: new Date().toISOString(),
     };
 
-    console.log("🚛 RutaForm - final submit data:", submitData);
     onSubmit(submitData);
   };
 

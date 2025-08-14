@@ -180,15 +180,3 @@ export function formatTimeForDatabase(timeString: string): string {
  * @param value - New value
  * @param formData - Current form data
  */
-export function debugFormChange(
-  componentName: string,
-  field: string,
-  value: string,
-  formData?: any,
-): void {
-  console.log(`🔧 ${componentName} - Field changed:`, {
-    field,
-    newValue: value,
-    currentFormData: formData,
-  });
-}
