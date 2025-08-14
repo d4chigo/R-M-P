@@ -54,7 +54,7 @@ CREATE TABLE `RUTA` (
     `distancia_km` INTEGER NOT NULL,
     `duracion_aproximada` TIME NOT NULL,
     `tipo_ruta` VARCHAR(20) NOT NULL,
-    `estado` VARCHAR(10) NOT NULL,
+    `estado` VARCHAR(20) NOT NULL,
     `fecha_creacion` DATETIME NOT NULL,
     -- Auditoría
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

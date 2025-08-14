@@ -29,6 +29,20 @@ exports.create = async (req, res) => {
       r.fecha_creacion ||
       new Date().toISOString().slice(0, 19).replace("T", " ");
 
+    // Log the data being inserted for debugging
+    console.log("🚛 Creating ruta with data:", {
+      codigo: r.codigo,
+      nombre: r.nombre,
+      origen: r.origen,
+      destino: r.destino,
+      distancia_km: r.distancia_km,
+      duracion_aproximada: r.duracion_aproximada,
+      tipo_ruta: r.tipo_ruta,
+      estado: r.estado,
+      fecha_creacion,
+      created_by,
+    });
+
     const [result] = await db.query(
       `INSERT INTO RUTA (codigo, nombre, origen, destino, distancia_km, duracion_aproximada, tipo_ruta, estado, fecha_creacion, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -51,8 +65,33 @@ exports.create = async (req, res) => {
     ]);
     res.json({ success: true, id: result.insertId, data: newRoute[0] });
   } catch (error) {
-    console.error("Error creating ruta:", error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error("❌ Error creating ruta:", error);
+
+    // Handle specific MySQL errors
+    if (error.code === "ER_DATA_TOO_LONG") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Uno o más campos exceden el tamaño máximo permitido. Verifique que los valores no sean demasiado largos.",
+        details: error.message,
+      });
+    }
+
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Ya existe una ruta con este código. Por favor use un código diferente.",
+        details: error.message,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor al crear la ruta",
+      details:
+        process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 };
 
