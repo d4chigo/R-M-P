@@ -36,7 +36,7 @@ export function ClienteForm({
   onCancel,
   isEditing = false,
 }: ClienteFormProps) {
-  const { tiposCliente } = useTiposCliente();
+  const { tiposCliente, isLoading: tiposLoading } = useTiposCliente();
   const { zonas, fetchZonas, isLoading: zonasLoading } = useZonas();
 
   const [formData, setFormData] = useState({
@@ -63,7 +63,8 @@ export function ClienteForm({
   }, [fetchZonas]);
 
   useEffect(() => {
-    if (cliente) {
+    // Solo establecer valores si los tipos de cliente ya están cargados
+    if (cliente && !tiposLoading && tiposCliente.length > 0) {
       setFormData({
         nombre: cliente.nombre || "",
         codigo: cliente.codigo || "",
@@ -89,7 +90,7 @@ export function ClienteForm({
         longitud: cliente.longitud ? cliente.longitud.toString() : "",
         latitud: cliente.latitud ? cliente.latitud.toString() : "",
       });
-    } else {
+    } else if (!cliente) {
       // Reset form when no client is selected
       setFormData({
         nombre: "",
@@ -109,7 +110,7 @@ export function ClienteForm({
         latitud: "",
       });
     }
-  }, [cliente]);
+  }, [cliente, tiposLoading, tiposCliente.length]);
 
   // Preparar opciones para dropdown de zonas
   const zonasOptions = zonas.map((zona) => ({
@@ -272,9 +273,14 @@ export function ClienteForm({
             onValueChange={(value) =>
               handleInputChange("id_tipo_cliente", value)
             }
+            disabled={tiposLoading}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Seleccionar tipo" />
+              <SelectValue
+                placeholder={
+                  tiposLoading ? "Cargando tipos..." : "Seleccionar tipo"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {tiposCliente.map((tipo) => (

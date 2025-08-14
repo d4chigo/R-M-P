@@ -56,8 +56,10 @@ export default function ClientesPage() {
     }
   };
 
-  const handleEdit = (cliente: Cliente) => {
+  const handleEdit = async (cliente: Cliente) => {
     setEditingCliente(cliente);
+    // Recargar tipos de cliente y zonas antes de abrir el diálogo de edición
+    await Promise.all([fetchTiposCliente(), fetchZonas()]);
     setIsDialogOpen(true);
   };
 
