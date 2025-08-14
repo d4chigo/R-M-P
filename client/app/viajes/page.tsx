@@ -22,11 +22,15 @@ import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ViajeForm } from "@/components/forms/viaje-form";
 import { useViajes, type Viaje } from "@/hooks/use-viajes";
+import { useRutas } from "@/hooks/use-rutas";
+import { useVehiculos } from "@/hooks/use-vehiculos";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function ViajesPage() {
   const { viajes, createViaje, updateViaje, deleteViaje, isLoading, error } =
     useViajes();
+  const { fetchRutas } = useRutas();
+  const { fetchVehiculos } = useVehiculos();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingViaje, setEditingViaje] = useState<Viaje | null>(null);
@@ -45,8 +49,10 @@ export default function ViajesPage() {
     }
   };
 
-  const handleEdit = (viaje: Viaje) => {
+  const handleEdit = async (viaje: Viaje) => {
     setEditingViaje(viaje);
+    // Recargar rutas y vehículos antes de abrir el diálogo de edición
+    await Promise.all([fetchRutas(), fetchVehiculos()]);
     setIsDialogOpen(true);
   };
 
@@ -67,8 +73,10 @@ export default function ViajesPage() {
     setIsDialogOpen(false);
   };
 
-  const handleNewViaje = () => {
+  const handleNewViaje = async () => {
     setEditingViaje(null);
+    // Recargar rutas y vehículos antes de abrir el diálogo
+    await Promise.all([fetchRutas(), fetchVehiculos()]);
     setIsDialogOpen(true);
   };
 
@@ -87,7 +95,10 @@ export default function ViajesPage() {
         <div className="text-sm">
           <div className="font-medium">ID: {viaje.id_ruta}</div>
           <div className="text-gray-500 dark:text-gray-400">
-            {viaje.ruta_nombre}
+            {viaje.ruta_nombre || viaje.ruta}
+          </div>
+          <div className="text-xs text-blue-600 dark:text-blue-400">
+            {viaje.origen} → {viaje.destino}
           </div>
         </div>
       ),
@@ -100,7 +111,10 @@ export default function ViajesPage() {
         <div className="text-sm">
           <div className="font-medium">ID: {viaje.id_vehiculo}</div>
           <div className="text-gray-500 dark:text-gray-400 font-semibold">
-            {viaje.vehiculo_placa}
+            {viaje.vehiculo_placa || viaje.vehiculo}
+          </div>
+          <div className="text-xs text-gray-400">
+            {viaje.vehiculo_marca} {viaje.vehiculo_modelo}
           </div>
         </div>
       ),
@@ -113,6 +127,49 @@ export default function ViajesPage() {
         new Date(viaje.fecha).toLocaleDateString("es-PE", {
           timeZone: "America/Lima",
         }),
+    },
+    {
+      key: "repartidor",
+      header: "Repartidor",
+      sortable: true,
+      render: (viaje) => (
+        <span className="text-sm bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded">
+          {viaje.repartidor}
+        </span>
+      ),
+    },
+    {
+      key: "estado",
+      header: "Estado",
+      sortable: true,
+      render: (viaje) => {
+        const hoy = new Date().toISOString().split("T")[0];
+        const fechaViaje = viaje.fecha;
+        let estado = "";
+        let colorClass = "";
+
+        if (fechaViaje > hoy) {
+          estado = "Programado";
+          colorClass =
+            "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300";
+        } else if (fechaViaje === hoy) {
+          estado = "En Curso";
+          colorClass =
+            "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+        } else {
+          estado = "Completado";
+          colorClass =
+            "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+        }
+
+        return (
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-medium ${colorClass}`}
+          >
+            {estado}
+          </span>
+        );
+      },
     },
   ];
 
@@ -199,7 +256,13 @@ export default function ViajesPage() {
               onDelete={handleDelete}
               showDateFilter={true}
               dateFilterKey="fecha"
-              searchKeys={["ruta_nombre", "vehiculo_placa"]}
+              searchKeys={[
+                "ruta_nombre",
+                "ruta",
+                "vehiculo_placa",
+                "vehiculo",
+                "repartidor",
+              ]}
             />
           </CardContent>
         </Card>

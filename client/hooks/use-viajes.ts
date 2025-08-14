@@ -10,19 +10,18 @@ export interface Viaje {
   id_vehiculo: number;
   vehiculo: string;
   fecha: string;
-  id_repartidor: number;
+  repartidor: string;
   created_at?: string;
   updated_at?: string;
   created_by?: string;
   updated_by?: string;
   // Campos relacionados (pueden venir del backend con joins)
   ruta_nombre?: string;
-  ruta_origen?: string;
-  ruta_destino?: string;
+  origen?: string;
+  destino?: string;
   vehiculo_placa?: string;
   vehiculo_marca?: string;
   vehiculo_modelo?: string;
-  repartidor_nombre?: string;
 }
 
 export const useViajes = () => {
