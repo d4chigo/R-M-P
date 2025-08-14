@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useCrud } from "./use-api";
+import { useSimpleCrud } from "./use-simple-api";
 
 export interface Usuario {
   id?: number;
@@ -21,10 +21,12 @@ export const useUsuarios = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const crud = useCrud<Usuario>("/usuarios");
+  const crud = useSimpleCrud<Usuario>("/usuarios");
 
   // Cargar todos los usuarios
   const fetchUsuarios = useCallback(async () => {
+    if (isLoading) return; // Prevenir múltiples llamadas simultáneas
+
     setIsLoading(true);
     setError(null);
 
@@ -37,10 +39,11 @@ export const useUsuarios = () => {
       }
     } catch (err) {
       setError("Error de conexión");
+      console.error("Error fetching usuarios:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [crud]);
+  }, [crud.getAll, isLoading]);
 
   // Crear usuario
   const createUsuario = useCallback(
@@ -65,7 +68,7 @@ export const useUsuarios = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.create],
   );
 
   // Actualizar usuario
@@ -91,7 +94,7 @@ export const useUsuarios = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.update],
   );
 
   // Eliminar usuario
@@ -115,7 +118,7 @@ export const useUsuarios = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.remove],
   );
 
   // Obtener usuario por ID
@@ -137,7 +140,7 @@ export const useUsuarios = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.getById],
   );
 
   // Cambiar estado del usuario (activar/desactivar)
@@ -151,8 +154,20 @@ export const useUsuarios = () => {
 
   // Efecto para cargar usuarios al montar el componente
   useEffect(() => {
-    fetchUsuarios();
-  }, [fetchUsuarios]);
+    let mounted = true;
+
+    const loadUsuarios = async () => {
+      if (usuarios.length === 0 && mounted && !isLoading) {
+        await fetchUsuarios();
+      }
+    };
+
+    loadUsuarios();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return {
     usuarios,

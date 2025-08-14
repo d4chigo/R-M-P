@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useCrud } from "./use-api";
+import { useSimpleCrud } from "./use-simple-api";
 
 export interface Viaje {
   id?: number;
@@ -30,10 +30,12 @@ export const useViajes = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const crud = useCrud<Viaje>("/viajes");
+  const crud = useSimpleCrud<Viaje>("/viajes");
 
   // Cargar todos los viajes
   const fetchViajes = useCallback(async () => {
+    if (isLoading) return; // Prevenir múltiples llamadas simultáneas
+
     setIsLoading(true);
     setError(null);
 
@@ -46,10 +48,11 @@ export const useViajes = () => {
       }
     } catch (err) {
       setError("Error de conexión");
+      console.error("Error fetching viajes:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [crud]);
+  }, [crud.getAll, isLoading]);
 
   // Crear viaje
   const createViaje = useCallback(
@@ -74,7 +77,7 @@ export const useViajes = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.create],
   );
 
   // Actualizar viaje
@@ -100,7 +103,7 @@ export const useViajes = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.update],
   );
 
   // Eliminar viaje
@@ -124,7 +127,7 @@ export const useViajes = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.remove],
   );
 
   // Obtener viaje por ID
@@ -146,7 +149,7 @@ export const useViajes = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.getById],
   );
 
   // Obtener viajes por estado (simulado con fechas)
@@ -259,8 +262,20 @@ export const useViajes = () => {
 
   // Efecto para cargar viajes al montar el componente
   useEffect(() => {
-    fetchViajes();
-  }, [fetchViajes]);
+    let mounted = true;
+
+    const loadViajes = async () => {
+      if (viajes.length === 0 && mounted && !isLoading) {
+        await fetchViajes();
+      }
+    };
+
+    loadViajes();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return {
     viajes,

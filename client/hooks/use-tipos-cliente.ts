@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useCrud } from "./use-api";
+import { useSimpleCrud } from "./use-simple-api";
 
 export interface TipoCliente {
   id?: number;
@@ -18,10 +18,12 @@ export const useTiposCliente = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const crud = useCrud<TipoCliente>("/tipos-cliente");
+  const crud = useSimpleCrud<TipoCliente>("/tipos-cliente");
 
   // Cargar todos los tipos de cliente
   const fetchTiposCliente = useCallback(async () => {
+    if (isLoading) return;
+
     setIsLoading(true);
     setError(null);
 
@@ -34,6 +36,7 @@ export const useTiposCliente = () => {
       }
     } catch (err) {
       setError("Error de conexión");
+      console.error("Error fetching tipos cliente:", err);
     } finally {
       setIsLoading(false);
     }
@@ -47,9 +50,10 @@ export const useTiposCliente = () => {
       try {
         const response = await crud.create(tipoCliente);
         if (response.success) {
-          // Agregar el nuevo tipo de cliente al estado sin recargar toda la lista
           if (response.data) {
-            setTiposCliente((prev) => [...prev, response.data]);
+            setTiposCliente((prev) => [response.data as TipoCliente, ...prev]);
+          } else {
+            await fetchTiposCliente();
           }
           return { success: true, data: response.data };
         } else {
@@ -62,7 +66,7 @@ export const useTiposCliente = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud, fetchTiposCliente],
   );
 
   // Actualizar tipo de cliente
@@ -73,7 +77,6 @@ export const useTiposCliente = () => {
       try {
         const response = await crud.update(id, tipoCliente);
         if (response.success) {
-          // Actualizar solo el tipo de cliente modificado en el estado
           setTiposCliente((prev) =>
             prev.map((t) => (t.id === id ? { ...t, ...tipoCliente } : t)),
           );
@@ -99,7 +102,6 @@ export const useTiposCliente = () => {
       try {
         const response = await crud.remove(id);
         if (response.success) {
-          // Remover el tipo de cliente del estado sin recargar toda la lista
           setTiposCliente((prev) => prev.filter((t) => t.id !== id));
           return { success: true };
         } else {
@@ -149,20 +151,18 @@ export const useTiposCliente = () => {
 
   // Verificar si un tipo de cliente puede ser eliminado
   const canDelete = useCallback(async (id: number) => {
-    // Aquí podrías agregar lógica para verificar si hay clientes asociados
-    // Por ahora retornamos true
     return true;
   }, []);
 
   // Efecto para cargar tipos de cliente al montar el componente
   useEffect(() => {
     fetchTiposCliente();
-  }, [fetchTiposCliente]);
+  }, []);
 
   return {
     tiposCliente,
-    isLoading: isLoading || crud.loading,
-    error: error || crud.error,
+    isLoading,
+    error,
     fetchTiposCliente,
     createTipoCliente,
     updateTipoCliente,

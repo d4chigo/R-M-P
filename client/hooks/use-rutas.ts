@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useCrud } from "./use-api";
+import { useSimpleCrud } from "./use-simple-api";
 
 export interface Ruta {
   id?: number;
@@ -25,10 +25,12 @@ export const useRutas = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const crud = useCrud<Ruta>("/rutas");
+  const crud = useSimpleCrud<Ruta>("/rutas");
 
   // Cargar todas las rutas
   const fetchRutas = useCallback(async () => {
+    if (isLoading) return; // Prevenir múltiples llamadas simultáneas
+
     setIsLoading(true);
     setError(null);
 
@@ -41,10 +43,11 @@ export const useRutas = () => {
       }
     } catch (err) {
       setError("Error de conexión");
+      console.error("Error fetching rutas:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [crud]);
+  }, [crud.getAll]);
 
   // Crear ruta
   const createRuta = useCallback(
@@ -56,7 +59,7 @@ export const useRutas = () => {
         if (response.success) {
           // Agregar la nueva ruta al estado sin recargar toda la lista
           if (response.data) {
-            setRutas((prev) => [...prev, response.data]);
+            setRutas((prev) => [...prev, response.data as Ruta]);
           }
           return { success: true, data: response.data };
         } else {
@@ -69,7 +72,7 @@ export const useRutas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.create],
   );
 
   // Actualizar ruta
@@ -82,7 +85,7 @@ export const useRutas = () => {
         if (response.success) {
           // Actualizar solo la ruta modificada en el estado
           setRutas((prev) =>
-            prev.map((r) => (r.id === id ? { ...r, ...ruta } : r)),
+            prev.map((r) => (r.id === id ? ({ ...r, ...ruta } as Ruta) : r)),
           );
           return { success: true, data: response.data };
         } else {
@@ -95,7 +98,7 @@ export const useRutas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.update],
   );
 
   // Eliminar ruta
@@ -119,7 +122,7 @@ export const useRutas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.remove],
   );
 
   // Obtener rutas activas
@@ -147,10 +150,22 @@ export const useRutas = () => {
     [rutas],
   );
 
-  // Temporarily disabled to fix infinite loop
-  // useEffect(() => {
-  //   fetchRutas();
-  // }, [fetchRutas]);
+  // Load routes on component mount only once
+  useEffect(() => {
+    let mounted = true;
+
+    const loadRutas = async () => {
+      if (rutas.length === 0 && mounted && !isLoading) {
+        await fetchRutas();
+      }
+    };
+
+    loadRutas();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return {
     rutas,

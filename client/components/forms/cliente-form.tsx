@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import ReactSelect from "react-select";
 import type { Cliente } from "@/hooks/use-clientes";
 import { useTiposCliente } from "@/hooks/use-tipos-cliente";
 import { useZonas } from "@/hooks/use-zonas";
@@ -24,6 +25,11 @@ interface ClienteFormProps {
   isEditing?: boolean;
 }
 
+interface OptionType {
+  value: number;
+  label: string;
+}
+
 export function ClienteForm({
   cliente,
   onSubmit,
@@ -31,7 +37,7 @@ export function ClienteForm({
   isEditing = false,
 }: ClienteFormProps) {
   const { tiposCliente } = useTiposCliente();
-  const { zonas } = useZonas();
+  const { zonas, fetchZonas, isLoading: zonasLoading } = useZonas();
 
   const [formData, setFormData] = useState({
     nombre: "",
@@ -51,34 +57,74 @@ export function ClienteForm({
     latitud: "",
   });
 
+  // Cargar zonas al montar el componente
+  useEffect(() => {
+    fetchZonas();
+  }, [fetchZonas]);
+
   useEffect(() => {
     if (cliente) {
       setFormData({
-        nombre: cliente.nombre,
-        codigo: cliente.codigo,
-        id_tipo_cliente: cliente.id_tipo_cliente.toString(),
+        nombre: cliente.nombre || "",
+        codigo: cliente.codigo || "",
+        id_tipo_cliente: cliente.id_tipo_cliente
+          ? cliente.id_tipo_cliente.toString()
+          : "",
         id_zona_pvta: cliente.id_zona_pvta?.toString() || "",
         id_zona_tvta: cliente.id_zona_tvta?.toString() || "",
-        ruc: cliente.ruc,
-        ciudad: cliente.ciudad,
-        telefono: cliente.telefono,
-        email: cliente.email,
-        contacto_nombre: cliente.contacto_nombre,
-        hora_apertura: cliente.horario
-          ? cliente.horario.split(" - ")[0] || ""
-          : "",
-        hora_cierre: cliente.horario
-          ? cliente.horario.split(" - ")[1] || ""
-          : "",
-        estado: cliente.estado,
-        longitud: cliente.longitud.toString(),
-        latitud: cliente.latitud.toString(),
+        ruc: cliente.ruc || "",
+        ciudad: cliente.ciudad || "",
+        telefono: cliente.telefono || "",
+        email: cliente.email || "",
+        contacto_nombre: cliente.contacto_nombre || "",
+        hora_apertura:
+          cliente.horario && cliente.horario.includes(" - ")
+            ? cliente.horario.split(" - ")[0]?.trim() || ""
+            : "",
+        hora_cierre:
+          cliente.horario && cliente.horario.includes(" - ")
+            ? cliente.horario.split(" - ")[1]?.trim() || ""
+            : "",
+        estado: cliente.estado || "Activo",
+        longitud: cliente.longitud ? cliente.longitud.toString() : "",
+        latitud: cliente.latitud ? cliente.latitud.toString() : "",
+      });
+    } else {
+      // Reset form when no client is selected
+      setFormData({
+        nombre: "",
+        codigo: "",
+        id_tipo_cliente: "",
+        id_zona_pvta: "",
+        id_zona_tvta: "",
+        ruc: "",
+        ciudad: "",
+        telefono: "",
+        email: "",
+        contacto_nombre: "",
+        hora_apertura: "",
+        hora_cierre: "",
+        estado: "Activo",
+        longitud: "",
+        latitud: "",
       });
     }
   }, [cliente]);
 
+  // Preparar opciones para react-select de zonas
+  const zonasOptions: OptionType[] = zonas.map((zona) => ({
+    value: zona.id!,
+    label: `${zona.nombre} - ${zona.region || "Sin región"} ${zona.latitud && zona.longitud ? `(${Number(zona.latitud).toFixed(2)}, ${Number(zona.longitud).toFixed(2)})` : ""}`,
+  }));
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validar que se haya seleccionado un tipo de cliente
+    if (!formData.id_tipo_cliente) {
+      alert("Debe seleccionar un tipo de cliente");
+      return;
+    }
 
     // Validar RUC
     if (formData.ruc.length !== 11 || !/^\d{11}$/.test(formData.ruc)) {
@@ -110,6 +156,89 @@ export function ClienteForm({
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Encontrar la opción seleccionada para react-select
+  const getSelectedZonaOption = (value: string): OptionType | null => {
+    if (!value) return null;
+    return (
+      zonasOptions.find((option) => option.value.toString() === value) || null
+    );
+  };
+
+  // Función para manejar selección de zona y autocompletar coordenadas
+  const handleZonaSelect = (selectedOption: any, tipo: "pvta" | "tvta") => {
+    const value = selectedOption ? selectedOption.value.toString() : "";
+    const field = tipo === "pvta" ? "id_zona_pvta" : "id_zona_tvta";
+    handleInputChange(field, value);
+
+    // Auto-completar coordenadas si la zona tiene coordenadas
+    if (selectedOption) {
+      const zona = zonas.find((z) => z.id === selectedOption.value);
+      if (zona && zona.latitud && zona.longitud) {
+        const shouldUpdate =
+          !formData.latitud ||
+          !formData.longitud ||
+          confirm(
+            `¿Desea actualizar las coordenadas con las de la zona ${zona.nombre}?`,
+          );
+
+        if (shouldUpdate) {
+          setFormData((prev) => ({
+            ...prev,
+            latitud: zona.latitud!.toString(),
+            longitud: zona.longitud!.toString(),
+          }));
+        }
+      }
+    }
+  };
+
+  // Estilos personalizados para react-select que coincidan con shadcn/ui
+  const selectStyles = {
+    control: (provided: any, state: any) => ({
+      ...provided,
+      minHeight: "40px",
+      borderColor: state.isFocused ? "hsl(var(--ring))" : "hsl(var(--border))",
+      borderRadius: "6px",
+      backgroundColor: "hsl(var(--background))",
+      boxShadow: state.isFocused ? "0 0 0 2px hsl(var(--ring))" : "none",
+      "&:hover": {
+        borderColor: "hsl(var(--border))",
+      },
+    }),
+    menu: (provided: any) => ({
+      ...provided,
+      backgroundColor: "hsl(var(--popover))",
+      border: "1px solid hsl(var(--border))",
+      borderRadius: "6px",
+      zIndex: 50,
+    }),
+    option: (provided: any, state: any) => ({
+      ...provided,
+      backgroundColor: state.isSelected
+        ? "hsl(var(--accent))"
+        : state.isFocused
+          ? "hsl(var(--accent) / 0.8)"
+          : "transparent",
+      color: "hsl(var(--foreground))",
+      padding: "8px 12px",
+      "&:active": {
+        backgroundColor: "hsl(var(--accent))",
+      },
+    }),
+    singleValue: (provided: any) => ({
+      ...provided,
+      color: "hsl(var(--foreground))",
+    }),
+    placeholder: (provided: any) => ({
+      ...provided,
+      color: "hsl(var(--muted-foreground))",
+    }),
+    input: (provided: any) => ({
+      ...provided,
+      color: "hsl(var(--foreground))",
+    }),
   };
 
   return (
@@ -202,39 +331,43 @@ export function ClienteForm({
         </div>
         <div>
           <Label htmlFor="id_zona_pvta">Zona PVTA</Label>
-          <Select
-            value={formData.id_zona_pvta || ""}
-            onValueChange={(value) => handleInputChange("id_zona_pvta", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar zona PVTA" />
-            </SelectTrigger>
-            <SelectContent>
-              {zonas.map((zona) => (
-                <SelectItem key={zona.id} value={zona.id?.toString() || ""}>
-                  {zona.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ReactSelect
+            id="id_zona_pvta"
+            value={getSelectedZonaOption(formData.id_zona_pvta)}
+            onChange={(selectedOption: any) => {
+              handleZonaSelect(selectedOption, "pvta");
+            }}
+            options={zonasOptions}
+            placeholder="Seleccionar zona PVTA..."
+            isClearable
+            isSearchable
+            isLoading={zonasLoading}
+            noOptionsMessage={() => "No hay zonas disponibles"}
+            loadingMessage={() => "Cargando zonas..."}
+            styles={selectStyles}
+            className="react-select-container"
+            classNamePrefix="react-select"
+          />
         </div>
         <div>
           <Label htmlFor="id_zona_tvta">Zona TVTA</Label>
-          <Select
-            value={formData.id_zona_tvta || ""}
-            onValueChange={(value) => handleInputChange("id_zona_tvta", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar zona TVTA" />
-            </SelectTrigger>
-            <SelectContent>
-              {zonas.map((zona) => (
-                <SelectItem key={zona.id} value={zona.id?.toString() || ""}>
-                  {zona.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ReactSelect
+            id="id_zona_tvta"
+            value={getSelectedZonaOption(formData.id_zona_tvta)}
+            onChange={(selectedOption: any) => {
+              handleZonaSelect(selectedOption, "tvta");
+            }}
+            options={zonasOptions}
+            placeholder="Seleccionar zona TVTA..."
+            isClearable
+            isSearchable
+            isLoading={zonasLoading}
+            noOptionsMessage={() => "No hay zonas disponibles"}
+            loadingMessage={() => "Cargando zonas..."}
+            styles={selectStyles}
+            className="react-select-container"
+            classNamePrefix="react-select"
+          />
         </div>
       </div>
 

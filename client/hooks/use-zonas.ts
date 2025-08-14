@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useCrud } from "./use-api";
+import { useSimpleCrud } from "./use-simple-api";
 
 export interface Zona {
   id?: number;
@@ -21,10 +21,12 @@ export const useZonas = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const crud = useCrud<Zona>("/zonas");
+  const crud = useSimpleCrud<Zona>("/zonas");
 
   // Cargar todas las zonas
   const fetchZonas = useCallback(async () => {
+    if (isLoading) return;
+
     setIsLoading(true);
     setError(null);
 
@@ -37,6 +39,7 @@ export const useZonas = () => {
       }
     } catch (err) {
       setError("Error de conexión");
+      console.error("Error fetching zonas:", err);
     } finally {
       setIsLoading(false);
     }
@@ -50,9 +53,10 @@ export const useZonas = () => {
       try {
         const response = await crud.create(zona);
         if (response.success) {
-          // Agregar la nueva zona al estado sin recargar toda la lista
           if (response.data) {
-            setZonas((prev) => [...prev, response.data]);
+            setZonas((prev) => [response.data as Zona, ...prev]);
+          } else {
+            await fetchZonas();
           }
           return { success: true, data: response.data };
         } else {
@@ -65,7 +69,7 @@ export const useZonas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud, fetchZonas],
   );
 
   // Actualizar zona
@@ -76,9 +80,8 @@ export const useZonas = () => {
       try {
         const response = await crud.update(id, zona);
         if (response.success) {
-          // Actualizar solo la zona modificada en el estado
           setZonas((prev) =>
-            prev.map((z) => (z.id === id ? { ...z, ...zona } : z)),
+            prev.map((z) => (z.id === id ? ({ ...z, ...zona } as Zona) : z)),
           );
           return { success: true, data: response.data };
         } else {
@@ -102,7 +105,6 @@ export const useZonas = () => {
       try {
         const response = await crud.remove(id);
         if (response.success) {
-          // Remover la zona del estado sin recargar toda la lista
           setZonas((prev) => prev.filter((z) => z.id !== id));
           return { success: true };
         } else {
@@ -161,12 +163,12 @@ export const useZonas = () => {
   // Efecto para cargar zonas al montar el componente
   useEffect(() => {
     fetchZonas();
-  }, [fetchZonas]);
+  }, []);
 
   return {
     zonas,
-    isLoading: isLoading || crud.loading,
-    error: error || crud.error,
+    isLoading,
+    error,
     fetchZonas,
     createZona,
     updateZona,

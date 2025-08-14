@@ -92,6 +92,32 @@ export default function ZonasPage() {
         </div>
       ),
     },
+    {
+      key: "region",
+      header: "Región",
+      sortable: true,
+      render: (zona) => (
+        <span className="text-sm bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded">
+          {zona.region || "Sin región"}
+        </span>
+      ),
+    },
+    {
+      key: "coordenadas",
+      header: "Coordenadas",
+      render: (zona) => (
+        <div className="text-xs text-gray-600 dark:text-gray-400">
+          {zona.latitud && zona.longitud ? (
+            <>
+              <div>Lat: {Number(zona.latitud).toFixed(4)}</div>
+              <div>Lng: {Number(zona.longitud).toFixed(4)}</div>
+            </>
+          ) : (
+            <span className="text-gray-400">Sin coordenadas</span>
+          )}
+        </div>
+      ),
+    },
   ];
 
   return (
@@ -173,7 +199,7 @@ export default function ZonasPage() {
               searchPlaceholder="Buscar por nombre, descripción..."
               onEdit={handleEdit}
               onDelete={handleDelete}
-              searchKeys={["nombre", "descripcion"]}
+              searchKeys={["nombre", "descripcion", "region"]}
             />
           </CardContent>
         </Card>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useCrud } from "./use-api";
+import { useSimpleCrud } from "./use-simple-api";
 
 export interface Cliente {
   id?: number;
@@ -23,6 +23,10 @@ export interface Cliente {
   updated_at?: string;
   created_by?: string;
   updated_by?: string;
+  // Campos relacionados desde joins
+  tipo_cliente_nombre?: string;
+  zona_pvta_nombre?: string;
+  zona_tvta_nombre?: string;
 }
 
 export const useClientes = () => {
@@ -30,10 +34,12 @@ export const useClientes = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const crud = useCrud<Cliente>("/clientes");
+  const crud = useSimpleCrud<Cliente>("/clientes");
 
   // Cargar todos los clientes
   const fetchClientes = useCallback(async () => {
+    if (isLoading) return; // Prevenir múltiples llamadas simultáneas
+
     setIsLoading(true);
     setError(null);
 
@@ -46,10 +52,11 @@ export const useClientes = () => {
       }
     } catch (err) {
       setError("Error de conexión");
+      console.error("Error fetching clientes:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [crud]);
+  }, [crud.getAll]);
 
   // Crear cliente
   const createCliente = useCallback(
@@ -61,7 +68,7 @@ export const useClientes = () => {
         if (response.success) {
           // Agregar el nuevo cliente al estado sin recargar toda la lista
           if (response.data) {
-            setClientes((prev) => [...prev, response.data]);
+            setClientes((prev) => [...prev, response.data as Cliente]);
           }
           return { success: true, data: response.data };
         } else {
@@ -74,7 +81,7 @@ export const useClientes = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.create],
   );
 
   // Actualizar cliente
@@ -87,7 +94,9 @@ export const useClientes = () => {
         if (response.success) {
           // Actualizar solo el cliente modificado en el estado
           setClientes((prev) =>
-            prev.map((c) => (c.id === id ? { ...c, ...cliente } : c)),
+            prev.map((c) =>
+              c.id === id ? ({ ...c, ...cliente } as Cliente) : c,
+            ),
           );
           return { success: true, data: response.data };
         } else {
@@ -100,7 +109,7 @@ export const useClientes = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.update],
   );
 
   // Eliminar cliente
@@ -124,7 +133,7 @@ export const useClientes = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.remove],
   );
 
   // Obtener cliente por ID
@@ -146,7 +155,7 @@ export const useClientes = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [crud.getById],
   );
 
   // Cambiar estado del cliente
@@ -206,8 +215,20 @@ export const useClientes = () => {
 
   // Efecto para cargar clientes al montar el componente
   useEffect(() => {
-    fetchClientes();
-  }, [fetchClientes]);
+    let mounted = true;
+
+    const loadClientes = async () => {
+      if (clientes.length === 0 && mounted && !isLoading) {
+        await fetchClientes();
+      }
+    };
+
+    loadClientes();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return {
     clientes,
