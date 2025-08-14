@@ -16,15 +16,11 @@ import {
 import type { Viaje } from "@/hooks/use-viajes";
 import { useRutas } from "@/hooks/use-rutas";
 import { useVehiculos } from "@/hooks/use-vehiculos";
-import { useUsuarios } from "@/hooks/use-usuarios";
 
 interface ViajeFormProps {
   viaje?: Viaje | null;
   onSubmit: (
-    viaje: Omit<
-      Viaje,
-      "id" | "ruta_nombre" | "vehiculo_placa" | "repartidor_nombre"
-    >,
+    viaje: Omit<Viaje, "id" | "ruta_nombre" | "vehiculo_placa">,
   ) => void;
   onCancel: () => void;
   isEditing?: boolean;
@@ -36,9 +32,8 @@ export function ViajeForm({
   onCancel,
   isEditing = false,
 }: ViajeFormProps) {
-  const { rutas } = useRutas();
-  const { vehiculos } = useVehiculos();
-  const { usuarios } = useUsuarios();
+  const { rutas, isLoading: rutasLoading } = useRutas();
+  const { vehiculos, isLoading: vehiculosLoading } = useVehiculos();
 
   const [formData, setFormData] = useState({
     id_ruta: "",
@@ -46,21 +41,38 @@ export function ViajeForm({
     id_vehiculo: "",
     vehiculo: "",
     fecha: "",
-    id_repartidor: "",
+    repartidor: "",
   });
 
   useEffect(() => {
-    if (viaje) {
+    // Solo establecer valores si los datos necesarios ya están cargados
+    if (
+      viaje &&
+      !rutasLoading &&
+      !vehiculosLoading &&
+      rutas.length > 0 &&
+      vehiculos.length > 0
+    ) {
       setFormData({
-        id_ruta: viaje.id_ruta.toString(),
-        ruta: viaje.ruta,
-        id_vehiculo: viaje.id_vehiculo.toString(),
-        vehiculo: viaje.vehiculo,
-        fecha: viaje.fecha,
-        id_repartidor: viaje.id_repartidor.toString(),
+        id_ruta: viaje.id_ruta?.toString() || "",
+        ruta: viaje.ruta || "",
+        id_vehiculo: viaje.id_vehiculo?.toString() || "",
+        vehiculo: viaje.vehiculo || "",
+        fecha: viaje.fecha || "",
+        repartidor: viaje.repartidor || "",
+      });
+    } else if (!viaje) {
+      // Reset form when no viaje is selected
+      setFormData({
+        id_ruta: "",
+        ruta: "",
+        id_vehiculo: "",
+        vehiculo: "",
+        fecha: "",
+        repartidor: "",
       });
     }
-  }, [viaje]);
+  }, [viaje, rutasLoading, vehiculosLoading, rutas.length, vehiculos.length]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,7 +82,7 @@ export function ViajeForm({
       id_vehiculo: Number.parseInt(formData.id_vehiculo),
       vehiculo: formData.vehiculo,
       fecha: formData.fecha,
-      id_repartidor: Number.parseInt(formData.id_repartidor),
+      repartidor: formData.repartidor,
     });
   };
 
@@ -84,7 +96,7 @@ export function ViajeForm({
         <div>
           <Label htmlFor="id_ruta">ID Ruta *</Label>
           <Select
-            value={formData.id_ruta || ""}
+            value={formData.id_ruta}
             onValueChange={(value) => {
               handleInputChange("id_ruta", value);
               const selectedRuta = rutas.find(
@@ -94,9 +106,14 @@ export function ViajeForm({
                 handleInputChange("ruta", selectedRuta.nombre);
               }
             }}
+            disabled={rutasLoading}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Seleccionar ruta" />
+              <SelectValue
+                placeholder={
+                  rutasLoading ? "Cargando rutas..." : "Seleccionar ruta"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {rutas.map((ruta) => (
@@ -123,7 +140,7 @@ export function ViajeForm({
         <div>
           <Label htmlFor="id_vehiculo">ID Vehículo *</Label>
           <Select
-            value={formData.id_vehiculo || ""}
+            value={formData.id_vehiculo}
             onValueChange={(value) => {
               handleInputChange("id_vehiculo", value);
               const selectedVehiculo = vehiculos.find(
@@ -133,9 +150,16 @@ export function ViajeForm({
                 handleInputChange("vehiculo", selectedVehiculo.placa);
               }
             }}
+            disabled={vehiculosLoading}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Seleccionar vehículo" />
+              <SelectValue
+                placeholder={
+                  vehiculosLoading
+                    ? "Cargando vehículos..."
+                    : "Seleccionar vehículo"
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               {vehiculos.map((vehiculo) => (
@@ -173,25 +197,14 @@ export function ViajeForm({
           />
         </div>
         <div>
-          <Label htmlFor="id_repartidor">Repartidor *</Label>
-          <Select
-            value={formData.id_repartidor || ""}
-            onValueChange={(value) => handleInputChange("id_repartidor", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar repartidor" />
-            </SelectTrigger>
-            <SelectContent>
-              {usuarios.map((usuario) => (
-                <SelectItem
-                  key={usuario.id}
-                  value={usuario.id?.toString() || ""}
-                >
-                  {usuario.id} - {usuario.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="repartidor">Repartidor *</Label>
+          <Input
+            id="repartidor"
+            value={formData.repartidor}
+            onChange={(e) => handleInputChange("repartidor", e.target.value)}
+            placeholder="Nombre del repartidor"
+            required
+          />
         </div>
       </div>
 
