@@ -23,6 +23,7 @@ export function ZonaForm({
   isEditing = false,
 }: ZonaFormProps) {
   const [formData, setFormData] = useState({
+    codigo: "",
     nombre: "",
     descripcion: "",
     region: "",
@@ -33,6 +34,7 @@ export function ZonaForm({
   useEffect(() => {
     if (zona) {
       setFormData({
+        codigo: zona.codigo || "",
         nombre: zona.nombre,
         descripcion: zona.descripcion,
         region: zona.region || "",
@@ -45,6 +47,7 @@ export function ZonaForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit({
+      codigo: formData.codigo,
       nombre: formData.nombre,
       descripcion: formData.descripcion,
       region: formData.region,
@@ -63,6 +66,17 @@ export function ZonaForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Label htmlFor="codigo">Código de la Zona *</Label>
+        <Input
+          id="codigo"
+          value={formData.codigo}
+          onChange={(e) => handleInputChange("codigo", e.target.value)}
+          placeholder="ZN001, ZS001, ZC001, etc."
+          required
+        />
+      </div>
+
       <div>
         <Label htmlFor="nombre">Nombre de la Zona *</Label>
         <Input

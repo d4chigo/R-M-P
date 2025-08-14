@@ -5,6 +5,7 @@ import { useSimpleCrud } from "./use-simple-api";
 
 export interface Zona {
   id?: number;
+  codigo: string;
   nombre: string;
   descripcion: string;
   region?: string;
@@ -142,11 +143,41 @@ export const useZonas = () => {
     [crud],
   );
 
+  // Obtener zona por código
+  const getZonaByCodigo = useCallback(async (codigo: string) => {
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/zonas/codigo/${codigo}`);
+      const data = await response.json();
+      if (data.success) {
+        return { success: true, data: data.data };
+      } else {
+        setError(data.message || "Error al obtener zona");
+        return { success: false, error: data.message };
+      }
+    } catch (err) {
+      const errorMessage = "Error de conexión al obtener zona";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
   // Buscar zonas por nombre
   const searchByNombre = useCallback(
     (nombre: string) => {
       return zonas.filter((zona) =>
         zona.nombre.toLowerCase().includes(nombre.toLowerCase()),
+      );
+    },
+    [zonas],
+  );
+
+  // Buscar zonas por código
+  const searchByCodigo = useCallback(
+    (codigo: string) => {
+      return zonas.filter((zona) =>
+        zona.codigo.toLowerCase().includes(codigo.toLowerCase()),
       );
     },
     [zonas],
@@ -174,7 +205,9 @@ export const useZonas = () => {
     updateZona,
     deleteZona,
     getZonaById,
+    getZonaByCodigo,
     searchByNombre,
+    searchByCodigo,
     getZonasByRegion,
     refetch: fetchZonas,
   };
