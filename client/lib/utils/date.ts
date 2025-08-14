@@ -9,21 +9,20 @@
  * @param locale - Locale for formatting (default: 'es-PE')
  * @returns Formatted date string
  */
-export function formatDateForDisplay(dateString: string, locale: string = 'es-PE'): string {
-  if (!dateString) return '';
+export function formatDateForDisplay(
+  dateString: string,
+  locale: string = "es-PE",
+): string {
+  if (!dateString) return "";
 
   try {
     // Parse the date as local date to avoid timezone issues
-    const [year, month, day] = dateString.split('T')[0].split('-');
-    const date = new Date(
-      parseInt(year),
-      parseInt(month) - 1,
-      parseInt(day)
-    );
+    const [year, month, day] = dateString.split("T")[0].split("-");
+    const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
 
     return date.toLocaleDateString(locale);
   } catch (error) {
-    console.error('Error formatting date:', error);
+    console.error("Error formatting date:", error);
     return dateString;
   }
 }
@@ -34,7 +33,7 @@ export function formatDateForDisplay(dateString: string, locale: string = 'es-PE
  * @returns Date string in YYYY-MM-DD format
  */
 export function formatDateForInput(dateString: string): string {
-  if (!dateString) return '';
+  if (!dateString) return "";
 
   try {
     // If the date is already in YYYY-MM-DD format, return it
@@ -43,20 +42,20 @@ export function formatDateForInput(dateString: string): string {
     }
 
     // If it includes time (ISO string), extract just the date part
-    if (dateString.includes('T')) {
-      return dateString.split('T')[0];
+    if (dateString.includes("T")) {
+      return dateString.split("T")[0];
     }
 
     // Otherwise, try to parse and format
     const date = new Date(dateString);
     if (!isNaN(date.getTime())) {
-      return date.toISOString().split('T')[0];
+      return date.toISOString().split("T")[0];
     }
 
-    return '';
+    return "";
   } catch (error) {
-    console.error('Error formatting date for input:', error);
-    return '';
+    console.error("Error formatting date for input:", error);
+    return "";
   }
 }
 
@@ -69,14 +68,10 @@ export function parseLocalDate(dateString: string): Date | null {
   if (!dateString) return null;
 
   try {
-    const [year, month, day] = dateString.split('T')[0].split('-');
-    return new Date(
-      parseInt(year),
-      parseInt(month) - 1,
-      parseInt(day)
-    );
+    const [year, month, day] = dateString.split("T")[0].split("-");
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
   } catch (error) {
-    console.error('Error parsing local date:', error);
+    console.error("Error parsing local date:", error);
     return null;
   }
 }
@@ -120,5 +115,80 @@ export function compareDates(date1: string, date2: string): number {
  */
 export function getTodayString(): string {
   const today = new Date();
-  return today.toISOString().split('T')[0];
+  return today.toISOString().split("T")[0];
+}
+
+/**
+ * Converts TIME format from MySQL (HH:MM:SS) to HTML time input format (HH:MM)
+ * @param timeString - Time string in HH:MM:SS format
+ * @returns Time string in HH:MM format
+ */
+export function formatTimeForInput(timeString: string): string {
+  if (!timeString) return "";
+
+  try {
+    // If already in HH:MM format, return as is
+    if (timeString.match(/^\d{2}:\d{2}$/)) {
+      return timeString;
+    }
+
+    // If in HH:MM:SS format, extract HH:MM
+    if (timeString.includes(":")) {
+      const parts = timeString.split(":");
+      if (parts.length >= 2) {
+        return `${parts[0]}:${parts[1]}`;
+      }
+    }
+
+    return timeString;
+  } catch (error) {
+    console.error("Error formatting time for input:", error);
+    return timeString;
+  }
+}
+
+/**
+ * Converts HTML time input format (HH:MM) to MySQL TIME format (HH:MM:SS)
+ * @param timeString - Time string in HH:MM format
+ * @returns Time string in HH:MM:SS format
+ */
+export function formatTimeForDatabase(timeString: string): string {
+  if (!timeString) return "";
+
+  try {
+    // If already in HH:MM:SS format, return as is
+    if (timeString.match(/^\d{2}:\d{2}:\d{2}$/)) {
+      return timeString;
+    }
+
+    // If in HH:MM format, add :00 seconds
+    if (timeString.match(/^\d{2}:\d{2}$/)) {
+      return `${timeString}:00`;
+    }
+
+    return timeString;
+  } catch (error) {
+    console.error("Error formatting time for database:", error);
+    return timeString;
+  }
+}
+
+/**
+ * Debug function to log form data changes
+ * @param componentName - Name of the component for logging
+ * @param field - Field that changed
+ * @param value - New value
+ * @param formData - Current form data
+ */
+export function debugFormChange(
+  componentName: string,
+  field: string,
+  value: string,
+  formData?: any,
+): void {
+  console.log(`🔧 ${componentName} - Field changed:`, {
+    field,
+    newValue: value,
+    currentFormData: formData,
+  });
 }

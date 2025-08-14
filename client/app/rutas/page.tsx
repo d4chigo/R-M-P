@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,13 +23,26 @@ import { DataTable, type Column } from "@/components/ui/data-table";
 import { RutaForm } from "@/components/forms/ruta-form";
 import { useRutas, type Ruta } from "@/hooks/use-rutas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { formatDateForDisplay } from "@/lib/utils/date";
 
 export default function RutasPage() {
-  const { rutas, createRuta, updateRuta, deleteRuta, isLoading, error } =
-    useRutas();
+  const {
+    rutas,
+    createRuta,
+    updateRuta,
+    deleteRuta,
+    isLoading,
+    error,
+    fetchRutas,
+  } = useRutas();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRuta, setEditingRuta] = useState<Ruta | null>(null);
+
+  // Manual fetch on component mount
+  useEffect(() => {
+    fetchRutas();
+  }, []);
 
   const handleSubmit = async (
     rutaData: Omit<
@@ -44,19 +57,36 @@ export default function RutasPage() {
   ) => {
     try {
       if (editingRuta && editingRuta.id) {
-        await updateRuta(editingRuta.id, rutaData);
+        const result = await updateRuta(editingRuta.id, rutaData);
+        if (result.success) {
+          setIsDialogOpen(false);
+          setEditingRuta(null);
+        } else {
+          alert(
+            `Error al actualizar la ruta: ${result.error || "Error desconocido"}`,
+          );
+        }
       } else {
         // Agregar fecha_creacion automáticamente para nuevas rutas
         const rutaConFecha = {
           ...rutaData,
           fecha_creacion: new Date().toISOString().split("T")[0], // YYYY-MM-DD
         };
-        await createRuta(rutaConFecha);
+        const result = await createRuta(rutaConFecha);
+        if (result.success) {
+          setIsDialogOpen(false);
+          setEditingRuta(null);
+        } else {
+          alert(
+            `Error al crear la ruta: ${result.error || "Error desconocido"}`,
+          );
+        }
       }
-      setIsDialogOpen(false);
-      setEditingRuta(null);
     } catch (error) {
       console.error("Error al guardar ruta:", error);
+      alert(
+        `Error inesperado: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      );
     }
   };
 
@@ -68,7 +98,19 @@ export default function RutasPage() {
   const handleDelete = async (ruta: Ruta) => {
     if (confirm(`¿Está seguro de eliminar la ruta ${ruta.nombre}?`)) {
       if (ruta.id) {
-        await deleteRuta(ruta.id);
+        try {
+          const result = await deleteRuta(ruta.id);
+          if (!result.success) {
+            alert(
+              `Error al eliminar la ruta: ${result.error || "Error desconocido"}`,
+            );
+          }
+        } catch (error) {
+          console.error("Error al eliminar ruta:", error);
+          alert(
+            `Error inesperado al eliminar: ${error instanceof Error ? error.message : "Error desconocido"}`,
+          );
+        }
       }
     }
   };
@@ -121,6 +163,16 @@ export default function RutasPage() {
       key: "duracion_aproximada",
       header: "Duración",
       sortable: true,
+      render: (ruta) => {
+        // Format duration from HH:MM:SS to HH:MM for display
+        if (ruta.duracion_aproximada) {
+          const parts = ruta.duracion_aproximada.split(":");
+          if (parts.length >= 2) {
+            return `${parts[0]}:${parts[1]} hrs`;
+          }
+        }
+        return ruta.duracion_aproximada;
+      },
     },
     {
       key: "tipo_ruta",
@@ -151,10 +203,7 @@ export default function RutasPage() {
       key: "fecha_creacion",
       header: "Fecha Creación",
       sortable: true,
-      render: (ruta) =>
-        new Date(ruta.fecha_creacion).toLocaleDateString("es-PE", {
-          timeZone: "America/Lima",
-        }),
+      render: (ruta) => formatDateForDisplay(ruta.fecha_creacion),
     },
   ];
 
@@ -212,6 +261,7 @@ export default function RutasPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <RutaForm
+                  key={editingRuta?.id || "new"}
                   ruta={editingRuta}
                   onSubmit={handleSubmit}
                   onCancel={handleCancel}

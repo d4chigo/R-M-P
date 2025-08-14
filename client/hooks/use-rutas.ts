@@ -147,9 +147,10 @@ export const useRutas = () => {
     [rutas],
   );
 
-  useEffect(() => {
-    fetchRutas();
-  }, [fetchRutas]);
+  // Temporarily disabled to fix infinite loop
+  // useEffect(() => {
+  //   fetchRutas();
+  // }, [fetchRutas]);
 
   return {
     rutas,
