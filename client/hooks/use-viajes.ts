@@ -63,7 +63,7 @@ export const useViajes = () => {
         if (response.success) {
           // Agregar el nuevo viaje al estado sin recargar toda la lista
           if (response.data) {
-            setViajes((prev) => [...prev, response.data]);
+            setViajes((prev) => [...prev, response.data as Viaje]);
           }
           return { success: true, data: response.data };
         } else {

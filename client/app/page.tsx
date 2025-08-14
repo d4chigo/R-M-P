@@ -30,13 +30,7 @@ export default function HomePage() {
       href: "/vehiculos",
       color: "bg-blue-500",
     },
-    {
-      title: "Carretas",
-      description: "Gestión de carretas y remolques",
-      icon: Package,
-      href: "/carretas",
-      color: "bg-green-500",
-    },
+
     {
       title: "Rutas",
       description: "Administración de rutas de transporte",

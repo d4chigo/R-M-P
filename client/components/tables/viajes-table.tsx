@@ -1,16 +1,24 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface Viaje {
-  id: number
-  id_ruta: number
-  id_vehiculo: number
-  fecha: string
-  ruta_nombre?: string
-  vehiculo_placa?: string
+  id: number;
+  id_ruta: number;
+  id_vehiculo: number;
+  fecha: string;
+  repartidor: string;
+  ruta_nombre?: string;
+  vehiculo_placa?: string;
 }
 
 interface ViajesTableProps {
-  viajes: Viaje[]
+  viajes: Viaje[];
 }
 
 export function ViajesTable({ viajes }: ViajesTableProps) {
@@ -24,6 +32,7 @@ export function ViajesTable({ viajes }: ViajesTableProps) {
           <TableHead>ID Vehículo</TableHead>
           <TableHead>Vehículo</TableHead>
           <TableHead>Fecha</TableHead>
+          <TableHead>Repartidor</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -33,11 +42,14 @@ export function ViajesTable({ viajes }: ViajesTableProps) {
             <TableCell>{viaje.id_ruta}</TableCell>
             <TableCell>{viaje.ruta_nombre}</TableCell>
             <TableCell>{viaje.id_vehiculo}</TableCell>
-            <TableCell className="font-semibold">{viaje.vehiculo_placa}</TableCell>
+            <TableCell className="font-semibold">
+              {viaje.vehiculo_placa}
+            </TableCell>
             <TableCell>{new Date(viaje.fecha).toLocaleDateString()}</TableCell>
+            <TableCell>{viaje.repartidor}</TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
-  )
+  );
 }

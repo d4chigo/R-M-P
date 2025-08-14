@@ -25,7 +25,7 @@ import Link from "next/link";
 
 // Importar todos los hooks
 import { useVehiculos } from "@/hooks/use-vehiculos";
-import { useCarretas } from "@/hooks/use-carretas";
+
 import { useClientes } from "@/hooks/use-clientes";
 import { useRutas } from "@/hooks/use-rutas";
 import { useUsuarios } from "@/hooks/use-usuarios";
@@ -51,7 +51,7 @@ export default function DiagnosticoPage() {
 
   // Hooks de todos los módulos
   const vehiculos = useVehiculos();
-  const carretas = useCarretas();
+
   const clientes = useClientes();
   const rutas = useRutas();
   const usuarios = useUsuarios();
@@ -73,18 +73,7 @@ export default function DiagnosticoPage() {
           ? "loading"
           : "success",
     },
-    {
-      name: "Carretas",
-      endpoint: "/api/carretas",
-      isLoading: carretas.isLoading,
-      error: carretas.error,
-      dataCount: carretas.carretas.length,
-      status: carretas.error
-        ? "error"
-        : carretas.isLoading
-          ? "loading"
-          : "success",
-    },
+
     {
       name: "Clientes",
       endpoint: "/api/clientes",
@@ -167,9 +156,7 @@ export default function DiagnosticoPage() {
       const response = await fetch(`${API_BASE_URL}/test`);
       const data = await response.json();
       setConnectivityTest(data);
-      console.log("🔍 Test de conectividad:", data);
     } catch (error) {
-      console.error("❌ Error en test de conectividad:", error);
       setConnectivityTest({
         success: false,
         error: error instanceof Error ? error.message : "Error desconocido",
@@ -183,7 +170,7 @@ export default function DiagnosticoPage() {
     setRefreshTime(new Date());
     // Refrescar todos los módulos
     vehiculos.refetch();
-    carretas.refetch();
+
     clientes.refetch();
     rutas.refetch();
     usuarios.refetch();
@@ -388,7 +375,7 @@ export default function DiagnosticoPage() {
                                 className="text-xs bg-gray-100 dark:bg-gray-700 p-2 rounded"
                               >
                                 <div className="font-medium">{table}</div>
-                                <div>{count.toString()}</div>
+                                <div>{(count as number).toString()}</div>
                               </div>
                             ),
                           )}

@@ -32,7 +32,7 @@ export function RutaTextInput({
   const [filteredRutas, setFilteredRutas] = useState<Ruta[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Obtener rutas activas de forma memoizada
   const rutasActivas = useCallback(() => {
@@ -72,8 +72,8 @@ export function RutaTextInput({
 
     // Enfocar input después de seleccionar
     setTimeout(() => {
-      if (textareaRef.current) {
-        textareaRef.current.focus();
+      if (inputRef.current) {
+        inputRef.current.focus();
       }
     }, 100);
   };
@@ -114,7 +114,7 @@ export function RutaTextInput({
         {/* Input Principal */}
         <div className="flex-1">
           <Input
-            ref={textareaRef}
+            ref={inputRef}
             id={id}
             value={value}
             onChange={handleInputChange}
