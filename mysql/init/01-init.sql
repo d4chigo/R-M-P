@@ -1,271 +1,236 @@
--- Script de inicialización de la base de datos R-M-P
--- Este archivo se ejecuta automáticamente cuando se crea el contenedor MySQL
--- Asegurar que existe la base de datos
-CREATE DATABASE IF NOT EXISTS rmp_db;
-USE rmp_db;
+-- ==============================
+-- SCRIPT SQL - RMP (Route Management Platform)
+-- Archivo: 02-init.sql
+-- Descripción: Inicialización completa del sistema con todas las tablas maestras,
+-- transaccionales y de soporte necesarias para alimentar RESUMEN DE RUTAS
+-- ==============================
 
-SET GLOBAL time_zone = 'America/Lima';
-SET time_zone = 'America/Lima';
+-- ==============================
+-- CREACIÓN DE TABLAS MAESTRAS
+-- ==============================
 
--- Tabla VEHICULO
-CREATE TABLE `VEHICULO` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
-    `placa` VARCHAR(10) NOT NULL UNIQUE,
-    `marca` VARCHAR(50) NOT NULL,
-    `modelo` VARCHAR(50) NOT NULL,
-    `anio` INTEGER NOT NULL,
-    `tipo` VARCHAR(20) NOT NULL,
-    `capacidad_carga_kg` INTEGER NOT NULL,
-    `tipo_carga` VARCHAR(30) NOT NULL,
-    `estado` VARCHAR(10) NOT NULL,
-    `fecha_adquisicion` DATE NOT NULL,
-    `vin` VARCHAR(17) NOT NULL UNIQUE,
-    -- Auditoría
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `created_by` VARCHAR(50),
-    `updated_by` VARCHAR(50),
-    PRIMARY KEY (`id`)
+-- Tabla USUARIO: gestiona los usuarios del sistema
+CREATE TABLE USUARIO (
+    id_usuario INT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    nombre_completo VARCHAR(150) NOT NULL,
+    email VARCHAR(100) UNIQUE,
+    telefono VARCHAR(20),
+    activo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Tabla CARRETA
-CREATE TABLE `CARRETA` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
-    `placa` VARCHAR(10) NOT NULL UNIQUE,
-    `tipo` VARCHAR(20) NOT NULL,
-    `capacidad_kg` INTEGER NOT NULL,
-    `estado` VARCHAR(10) NOT NULL,
-    -- Auditoría
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `created_by` VARCHAR(50),
-    `updated_by` VARCHAR(50),
-    PRIMARY KEY (`id`)
+-- Tabla ROL: define roles para control de acceso
+CREATE TABLE ROL (
+    id_rol INT PRIMARY KEY AUTO_INCREMENT,
+    nombre VARCHAR(50) NOT NULL UNIQUE,
+    descripcion TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Tabla RUTA
-CREATE TABLE `RUTA` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
-    `codigo` VARCHAR(10) NOT NULL UNIQUE,
-    `nombre` VARCHAR(50) NOT NULL,
-    `origen` VARCHAR(50) NOT NULL,
-    `destino` VARCHAR(50) NOT NULL,
-    `distancia_km` INTEGER NOT NULL,
-    `duracion_aproximada` TIME NOT NULL,
-    `tipo_ruta` VARCHAR(20) NOT NULL,
-    `estado` VARCHAR(20) NOT NULL,
-    `fecha_creacion` DATETIME NOT NULL,
-    -- Auditoría
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `created_by` VARCHAR(50),
-    `updated_by` VARCHAR(50),
-    PRIMARY KEY (`id`)
+-- Relación USUARIO-ROL (muchos a muchos)
+CREATE TABLE USUARIO_ROL (
+    id_usuario INT NOT NULL,
+    id_rol INT NOT NULL,
+    PRIMARY KEY (id_usuario, id_rol),
+    FOREIGN KEY (id_usuario) REFERENCES USUARIO(id_usuario),
+    FOREIGN KEY (id_rol) REFERENCES ROL(id_rol)
 );
 
--- Tabla TIPO_CLIENTE
-CREATE TABLE `TIPO_CLIENTE` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
-    `nombre` VARCHAR(50) NOT NULL UNIQUE,
-    `descripcion` VARCHAR(100),
-    -- Auditoría
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `created_by` VARCHAR(50),
-    `updated_by` VARCHAR(50),
-    PRIMARY KEY (`id`)
+-- Tabla ZONA: áreas geográficas
+CREATE TABLE ZONA (
+    id_zona INT PRIMARY KEY AUTO_INCREMENT,
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    descripcion TEXT NOT NULL,
+    latitud DECIMAL(10, 8),
+    longitud DECIMAL(11, 8),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Tabla ZONA
-CREATE TABLE `ZONA` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
-    `codigo` VARCHAR(20) NOT NULL UNIQUE,
-    `nombre` VARCHAR(50) NOT NULL UNIQUE,
-    `descripcion` TEXT NOT NULL,
-    `region` VARCHAR(50),
-    `latitud` DECIMAL(9,6),
-    `longitud` DECIMAL(9,6),
-    -- Auditoría
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `created_by` VARCHAR(50),
-    `updated_by` VARCHAR(50),
-    PRIMARY KEY (`id`)
+-- Tabla VEHICULO: unidades de transporte
+CREATE TABLE VEHICULO (
+    id_vehiculo INT PRIMARY KEY AUTO_INCREMENT,
+    placa VARCHAR(10) NOT NULL UNIQUE,
+    marca VARCHAR(50) NOT NULL,
+    modelo VARCHAR(50) NOT NULL,
+    anio INT,
+    capacidad_kg DECIMAL(10,2),
+    capacidad_cajas INT,
+    activo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Tabla CLIENTE
-CREATE TABLE `CLIENTE` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
-    `nombre` VARCHAR(50) NOT NULL,
-    `codigo` VARCHAR(10) NOT NULL UNIQUE,
-    `id_tipo_cliente` INTEGER NOT NULL,
-    `id_zona_pvta` INTEGER,
-    `id_zona_tvta` INTEGER,
-    `ruc` VARCHAR(11) NOT NULL UNIQUE,
-    `ciudad` VARCHAR(50) NOT NULL,
-    `telefono` VARCHAR(15) NOT NULL,
-    `email` VARCHAR(100) NOT NULL,
-    `contacto_nombre` VARCHAR(50) NOT NULL,
-    `horario` VARCHAR(20) NOT NULL,
-    `estado` VARCHAR(10) NOT NULL,
-    `latitud` DECIMAL(9,6) NOT NULL,
-    `longitud` DECIMAL(9,6) NOT NULL,
-    -- Auditoría
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `created_by` VARCHAR(50),
-    `updated_by` VARCHAR(50),
-    PRIMARY KEY (`id`)
+-- Tabla REPARTIDOR: conductores/operadores
+CREATE TABLE REPARTIDOR (
+    id_repartidor INT PRIMARY KEY AUTO_INCREMENT,
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    nombre VARCHAR(100) NOT NULL,
+    dni VARCHAR(15),
+    licencia_conducir VARCHAR(20),
+    telefono VARCHAR(20),
+    estado_disponibilidad ENUM('DISPONIBLE', 'OCUPADO', 'EN_DESCANSO', 'NO_DISPONIBLE') DEFAULT 'DISPONIBLE',
+    activo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Tabla USUARIO
-CREATE TABLE `USUARIO` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
-    `nombre` VARCHAR(50) NOT NULL,
-    `contrasena` VARCHAR(255) NOT NULL,
-    `email` VARCHAR(100) NOT NULL UNIQUE,
-    `estado` VARCHAR(10) DEFAULT 'Activo',
-    `last_login` DATETIME NULL COMMENT 'Última fecha de login',
-    -- Auditoría
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `created_by` VARCHAR(50),
-    `updated_by` VARCHAR(50),
-    PRIMARY KEY (`id`)
+-- Tabla CLIENTE: clientes atendidos
+CREATE TABLE CLIENTE (
+    id_cliente INT PRIMARY KEY AUTO_INCREMENT,
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    nombre VARCHAR(100) NOT NULL,
+    direccion TEXT,
+    id_zona INT,
+    activo BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_zona) REFERENCES ZONA(id_zona)
 );
 
--- Tabla VIAJE
-CREATE TABLE `VIAJE` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
-    `id_ruta` INTEGER NOT NULL COMMENT 'Código de ruta',
-    `ruta` VARCHAR(50) NOT NULL,
-    `id_vehiculo` INTEGER NOT NULL COMMENT 'Placa del vehículo',
-    `vehiculo` VARCHAR(10) NOT NULL,
-    `fecha` DATE NOT NULL,
-    `id_repartidor` INTEGER NOT NULL,
-    -- Auditoría
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `created_by` VARCHAR(50),
-    `updated_by` VARCHAR(50),
-    PRIMARY KEY (`id`)
+-- ==============================
+-- TABLAS TRANSACCIONALES
+-- ==============================
+
+-- Tabla VIAJE: viajes realizados por vehículo y repartidor
+CREATE TABLE VIAJE (
+    id_viaje INT PRIMARY KEY AUTO_INCREMENT,
+    fecha DATE NOT NULL,
+    id_vehiculo INT NOT NULL,
+    id_repartidor INT NOT NULL,
+    nro_viaje INT NOT NULL,
+    salida_cd DATETIME,
+    llegada_cd DATETIME,
+    distancia_km DECIMAL(10,2),
+    tiempo_manejo_min INT,
+    tiempo_servicio_min INT,
+    recarga_min INT,
+    refrigerio_min INT,
+    tipo_viaje VARCHAR(50),
+    created_by INT, -- referencia a USUARIO
+    updated_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_vehiculo) REFERENCES VEHICULO(id_vehiculo),
+    FOREIGN KEY (id_repartidor) REFERENCES REPARTIDOR(id_repartidor),
+    FOREIGN KEY (created_by) REFERENCES USUARIO(id_usuario),
+    FOREIGN KEY (updated_by) REFERENCES USUARIO(id_usuario)
 );
 
--- Tabla VISITA
-CREATE TABLE `VISITA` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
-    `id_viaje` INTEGER NOT NULL,
-    `id_cliente` INTEGER NOT NULL,
-    `entrega` DECIMAL(10,2) NOT NULL,
-    `recojo` DECIMAL(10,2) NOT NULL,
-    `llega` TIME NOT NULL,
-    `sale` TIME NOT NULL,
-    `sec1` VARCHAR(10) NOT NULL,
-    `sec2` VARCHAR(10) NOT NULL,
-    `distancia_km` DECIMAL(10,2),
-    -- Auditoría
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `created_by` VARCHAR(50),
-    `updated_by` VARCHAR(50),
-    PRIMARY KEY (`id`)
+-- Tabla VISITA: detalle de cada cliente atendido en un viaje
+CREATE TABLE VISITA (
+    id_visita INT PRIMARY KEY AUTO_INCREMENT,
+    id_viaje INT NOT NULL,
+    id_cliente INT NOT NULL,
+    pedidos INT DEFAULT 0,
+    entrega_cf DECIMAL(10,2) DEFAULT 0,
+    recojo_cf DECIMAL(10,2) DEFAULT 0,
+    peso_kg DECIMAL(10,2) DEFAULT 0,
+    distancia_km DECIMAL(10,2) DEFAULT 0,
+    created_by INT,
+    updated_by INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_viaje) REFERENCES VIAJE(id_viaje),
+    FOREIGN KEY (id_cliente) REFERENCES CLIENTE(id_cliente),
+    FOREIGN KEY (created_by) REFERENCES USUARIO(id_usuario),
+    FOREIGN KEY (updated_by) REFERENCES USUARIO(id_usuario)
 );
 
--- ======================================
--- FOREIGN KEYS (RELACIONES ENTRE TABLAS)
--- ======================================
+-- ==============================
+-- TABLAS DE SOPORTE
+-- ==============================
 
--- Relación: CLIENTE -> TIPO_CLIENTE
-ALTER TABLE `CLIENTE`
-ADD CONSTRAINT `fk_cliente_tipo`
-FOREIGN KEY (`id_tipo_cliente`) REFERENCES `TIPO_CLIENTE`(`id`)
-ON UPDATE CASCADE ON DELETE RESTRICT;
+-- Tabla para auditoría de cambios
+CREATE TABLE AUDITORIA (
+    id_auditoria INT PRIMARY KEY AUTO_INCREMENT,
+    tabla VARCHAR(100) NOT NULL,
+    id_registro INT NOT NULL,
+    accion VARCHAR(20) NOT NULL, -- INSERT, UPDATE, DELETE
+    datos_previos JSON,
+    datos_nuevos JSON,
+    realizado_por INT,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (realizado_por) REFERENCES USUARIO(id_usuario)
+);
 
--- Relación: CLIENTE -> ZONA (PVTA)
-ALTER TABLE `CLIENTE`
-ADD CONSTRAINT `fk_cliente_zona_pvta`
-FOREIGN KEY (`id_zona_pvta`) REFERENCES `ZONA`(`id`)
-ON UPDATE CASCADE ON DELETE SET NULL;
+-- ==============================
+-- CREACIÓN DE ÍNDICES
+-- ==============================
 
--- Relación: CLIENTE -> ZONA (TVTA)
-ALTER TABLE `CLIENTE`
-ADD CONSTRAINT `fk_cliente_zona_tvta`
-FOREIGN KEY (`id_zona_tvta`) REFERENCES `ZONA`(`id`)
-ON UPDATE CASCADE ON DELETE SET NULL;
+CREATE INDEX idx_viaje_fecha ON VIAJE(fecha);
+CREATE INDEX idx_viaje_vehiculo_fecha ON VIAJE(id_vehiculo, fecha);
+CREATE INDEX idx_viaje_repartidor ON VIAJE(id_repartidor);
+CREATE INDEX idx_visita_viaje ON VISITA(id_viaje);
+CREATE INDEX idx_visita_cliente ON VISITA(id_cliente);
+CREATE INDEX idx_cliente_zona ON CLIENTE(id_zona);
+CREATE INDEX idx_vehiculo_placa ON VEHICULO(placa);
+CREATE INDEX idx_repartidor_codigo ON REPARTIDOR(codigo);
+CREATE INDEX idx_cliente_codigo ON CLIENTE(codigo);
+CREATE INDEX idx_zona_codigo ON ZONA(codigo);
+CREATE INDEX idx_viaje_fecha_vehiculo_repartidor ON VIAJE(fecha, id_vehiculo, id_repartidor);
+CREATE INDEX idx_visita_viaje_cliente ON VISITA(id_viaje, id_cliente);
 
--- Relación: VIAJE -> RUTA
-ALTER TABLE `VIAJE`
-ADD CONSTRAINT `fk_viaje_ruta`
-FOREIGN KEY (`id_ruta`) REFERENCES `RUTA`(`id`)
-ON UPDATE CASCADE ON DELETE RESTRICT;
+-- ==============================
+-- VISTA PARA RESUMEN DE RUTAS
+-- ==============================
 
--- Relación: VIAJE -> VEHICULO
-ALTER TABLE `VIAJE`
-ADD CONSTRAINT `fk_viaje_vehiculo`
-FOREIGN KEY (`id_vehiculo`) REFERENCES `VEHICULO`(`id`)
-ON UPDATE CASCADE ON DELETE RESTRICT;
+CREATE VIEW v_resumen_rutas AS
+SELECT
+    v.fecha AS Fecha,
+    ve.placa AS Placa,
+    CONCAT(ve.marca, ' ', ve.modelo) AS Vehiculo,
+    CONCAT(r.codigo, ' - ', r.nombre) AS Repartidor,
+    r.estado_disponibilidad AS `Estado Repartidor`,
+    COUNT(DISTINCT v.id_viaje) AS `Nro de viajes`,
+    COUNT(DISTINCT c.id_zona) AS Zona,
+    GROUP_CONCAT(DISTINCT z.descripcion ORDER BY z.descripcion SEPARATOR ', ') AS `Zonas Visitadas`,
+    COALESCE(SUM(v.distancia_km), 0) AS Distancia,
+    MIN(v.salida_cd) AS `Salida del CD`,
+    MAX(v.llegada_cd) AS `Llegada al CD`,
+    CASE
+        WHEN MIN(v.salida_cd) IS NOT NULL AND MAX(v.llegada_cd) IS NOT NULL
+        THEN TIMEDIFF(MAX(v.llegada_cd), MIN(v.salida_cd))
+        ELSE NULL
+    END AS Tiempo,
+    COUNT(DISTINCT vis.id_cliente) AS `Nro de clientes`,
+    COALESCE(SUM(vis.pedidos), 0) AS `Nro de pedidos`,
+    COALESCE(SUM(vis.entrega_cf), 0) AS `Entrega (CF)`,
+    COALESCE(SUM(vis.recojo_cf), 0) AS `Recojo (CF)`,
+    COALESCE(SUM(vis.peso_kg), 0) AS `Peso (Kg)`
+FROM VIAJE v
+JOIN VEHICULO ve ON v.id_vehiculo = ve.id_vehiculo
+JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
+LEFT JOIN VISITA vis ON v.id_viaje = vis.id_viaje
+LEFT JOIN CLIENTE c ON vis.id_cliente = c.id_cliente
+LEFT JOIN ZONA z ON c.id_zona = z.id_zona
+GROUP BY
+    v.fecha,
+    ve.id_vehiculo,
+    ve.placa,
+    ve.marca,
+    ve.modelo,
+    r.id_repartidor,
+    r.codigo,
+    r.nombre,
+    r.estado_disponibilidad
+ORDER BY v.fecha DESC, ve.placa;
 
--- Relación: VIAJE -> USUARIO (Repartidor)
-ALTER TABLE `VIAJE`
-ADD CONSTRAINT `fk_viaje_repartidor`
-FOREIGN KEY (`id_repartidor`) REFERENCES `USUARIO`(`id`)
-ON UPDATE CASCADE ON DELETE RESTRICT;
+-- ==============================
+-- INSERT PARA USUARIO
+-- ==============================
 
--- Relación: VISITA -> VIAJE
-ALTER TABLE `VISITA`
-ADD CONSTRAINT `fk_visita_viaje`
-FOREIGN KEY (`id_viaje`) REFERENCES `VIAJE`(`id`)
-ON UPDATE CASCADE ON DELETE CASCADE;
-
--- Relación: VISITA -> CLIENTE
-ALTER TABLE `VISITA`
-ADD CONSTRAINT `fk_visita_cliente`
-FOREIGN KEY (`id_cliente`) REFERENCES `CLIENTE`(`id`)
-ON UPDATE CASCADE ON DELETE RESTRICT;
-
--- ======================================
--- ÍNDICES PARA MEJORAR RENDIMIENTO
--- ======================================
-
--- Índices en foreign keys
-CREATE INDEX `idx_cliente_tipo` ON `CLIENTE`(`id_tipo_cliente`);
-CREATE INDEX `idx_cliente_zona_pvta` ON `CLIENTE`(`id_zona_pvta`);
-CREATE INDEX `idx_cliente_zona_tvta` ON `CLIENTE`(`id_zona_tvta`);
-CREATE INDEX `idx_viaje_ruta` ON `VIAJE`(`id_ruta`);
-CREATE INDEX `idx_viaje_vehiculo` ON `VIAJE`(`id_vehiculo`);
-CREATE INDEX `idx_viaje_repartidor` ON `VIAJE`(`id_repartidor`);
-CREATE INDEX `idx_visita_viaje` ON `VISITA`(`id_viaje`);
-CREATE INDEX `idx_visita_cliente` ON `VISITA`(`id_cliente`);
-
--- Índices adicionales para búsquedas comunes
-CREATE INDEX `idx_vehiculo_placa` ON `VEHICULO`(`placa`);
-CREATE INDEX `idx_cliente_ruc` ON `CLIENTE`(`ruc`);
-CREATE INDEX `idx_ruta_codigo` ON `RUTA`(`codigo`);
-CREATE INDEX `idx_viaje_fecha` ON `VIAJE`(`fecha`);
-
--- Índices para autenticación
-CREATE INDEX `idx_usuario_email` ON `USUARIO`(`email`);
-CREATE INDEX `idx_usuario_estado` ON `USUARIO`(`estado`);
-
--- ======================================
--- DATOS INICIALES - SOLO USUARIOS
--- ======================================
-
--- Insertar usuarios de autenticación por defecto
-INSERT INTO USUARIO (nombre, contrasena, email, estado, created_by) VALUES
-('Administrador', '$2a$10$iUbSmL2uwaU5sIryjMYRVect6MhXSBNx85f5plAEF3p2GSwbxFXoa', 'admin@rmp.com', '1', 1),
-('Usuario Demo', '$2a$10$S16xtRVcad4th4ktbcUuY.RsU8rscIx02AXu17S1xBoKvhPSVRS6W', 'demo@rmp.com', '1', 1);
-
--- ======================================
--- VERIFICACIÓN DE INTEGRIDAD
--- ======================================
-
--- Verificar que todas las foreign keys funcionan
-SELECT 'Base de datos inicializada correctamente con relaciones establecidas' AS resultado;
-
--- Mostrar usuarios creados
-SELECT 'Usuarios creados:' AS info;
-SELECT id, nombre, email, estado, created_at FROM USUARIO;
-
--- Script completado exitosamente
-SELECT 'Script de inicialización completado exitosamente' AS resultado;
+INSERT INTO USUARIO (
+    username,
+    password_hash,
+    nombre_completo,
+    email,
+    telefono,
+    activo
+) VALUES
+('admin', '$2a$10$iUbSmL2uwaU5sIryjMYRVect6MhXSBNx85f5plAEF3p2GSwbxFXoa', 'Administrador del Sistema', 'admin@rmp.com', NULL, TRUE),
+('demo', '$2a$10$S16xtRVcad4th4ktbcUuY.RsU8rscIx02AXu17S1xBoKvhPSVRS6W', 'Usuario Demo', 'demo@rmp.com', NULL, TRUE);

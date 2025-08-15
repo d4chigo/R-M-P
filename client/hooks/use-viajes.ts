@@ -26,16 +26,15 @@ export interface Viaje {
   vehiculo_placa?: string;
   vehiculo_marca?: string;
   vehiculo_modelo?: string;
+  vehiculo_capacidad_kg?: number;
+  vehiculo_capacidad_cajas?: number;
   repartidor_codigo?: string;
   repartidor_nombre?: string;
-  // Legacy fields for compatibility with existing forms
-  id_ruta?: number;
-  ruta?: string;
-  vehiculo?: string;
-  repartidor?: string;
-  ruta_nombre?: string;
-  origen?: string;
-  destino?: string;
+  repartidor_dni?: string;
+  repartidor_telefono?: string;
+  repartidor_estado?: string;
+  created_by_username?: string;
+  updated_by_username?: string;
 }
 
 export const useViajes = () => {
@@ -69,7 +68,9 @@ export const useViajes = () => {
 
   // Crear viaje
   const createViaje = useCallback(
-    async (viaje: Omit<Viaje, "id">) => {
+    async (
+      viaje: Omit<Viaje, "id" | "id_viaje" | "created_at" | "updated_at">,
+    ) => {
       setError(null);
 
       try {
@@ -103,7 +104,9 @@ export const useViajes = () => {
         if (response.success) {
           // Actualizar solo el viaje modificado en el estado
           setViajes((prev) =>
-            prev.map((v) => (v.id === id ? { ...v, ...viaje } : v)),
+            prev.map((v) =>
+              v.id === id || v.id_viaje === id ? { ...v, ...viaje } : v,
+            ),
           );
           return { success: true, data: response.data };
         } else {
@@ -119,7 +122,7 @@ export const useViajes = () => {
     [crud.update],
   );
 
-  // Eliminar viaje
+  // Eliminar viaje con manejo de referencias
   const deleteViaje = useCallback(
     async (id: number) => {
       setError(null);
@@ -128,11 +131,22 @@ export const useViajes = () => {
         const response = await crud.remove(id);
         if (response.success) {
           // Remover el viaje del estado sin recargar toda la lista
-          setViajes((prev) => prev.filter((v) => v.id !== id));
-          return { success: true };
+          setViajes((prev) =>
+            prev.filter((v) => v.id !== id && v.id_viaje !== id),
+          );
+          return {
+            success: true,
+            message: response.message || "Viaje eliminado exitosamente",
+          };
         } else {
-          setError(response.error || "Error al eliminar viaje");
-          return { success: false, error: response.error };
+          // El error puede contener información sobre referencias
+          const errorMessage = response.error || "Error al eliminar viaje";
+          setError(errorMessage);
+          return {
+            success: false,
+            error: errorMessage,
+            hasReferences: errorMessage.includes("visitas asociadas"),
+          };
         }
       } catch (err) {
         const errorMessage = "Error de conexión al eliminar viaje";
@@ -165,12 +179,45 @@ export const useViajes = () => {
     [crud.getById],
   );
 
-  // Obtener viajes por estado (simulado con fechas)
+  // Obtener viajes por fecha
+  const getViajesByFecha = useCallback(async (fecha: string) => {
+    setError(null);
+    try {
+      const response = await fetch(`/api/viajes/fecha/${fecha}`);
+      const result = await response.json();
+      if (result.success) {
+        return { success: true, data: result.data };
+      } else {
+        setError(result.error || "Error al obtener viajes por fecha");
+        return { success: false, error: result.error };
+      }
+    } catch (err) {
+      const errorMessage = "Error de conexión al obtener viajes por fecha";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
+  // Obtener viajes por vehículo
+  const getViajesByVehiculo = useCallback(
+    (idVehiculo: number) => {
+      return viajes.filter((viaje) => viaje.id_vehiculo === idVehiculo);
+    },
+    [viajes],
+  );
+
+  // Obtener viajes por repartidor
+  const getViajesByRepartidor = useCallback(
+    (idRepartidor: number) => {
+      return viajes.filter((viaje) => viaje.id_repartidor === idRepartidor);
+    },
+    [viajes],
+  );
+
+  // Obtener viajes por estado (basado en fechas)
   const getViajesByEstado = useCallback(
     (estado: string) => {
-      // Como no tenemos campo estado en BD, simulamos estados basados en fechas
       const hoy = new Date().toISOString().split("T")[0];
-      const fechaViaje = new Date();
 
       switch (estado) {
         case "Programado":
@@ -186,14 +233,6 @@ export const useViajes = () => {
     [viajes],
   );
 
-  // Obtener viajes por fecha
-  const getViajesByFecha = useCallback(
-    (fecha: string) => {
-      return viajes.filter((viaje) => viaje.fecha === fecha);
-    },
-    [viajes],
-  );
-
   // Obtener viajes por rango de fechas
   const getViajesByRangoFechas = useCallback(
     (fechaInicio: string, fechaFin: string) => {
@@ -203,22 +242,6 @@ export const useViajes = () => {
         const fin = new Date(fechaFin);
         return fechaViaje >= inicio && fechaViaje <= fin;
       });
-    },
-    [viajes],
-  );
-
-  // Obtener viajes por vehículo
-  const getViajesByVehiculo = useCallback(
-    (idVehiculo: number) => {
-      return viajes.filter((viaje) => viaje.id_vehiculo === idVehiculo);
-    },
-    [viajes],
-  );
-
-  // Obtener viajes por ruta
-  const getViajesByRuta = useCallback(
-    (idRuta: number) => {
-      return viajes.filter((viaje) => viaje.id_ruta === idRuta);
     },
     [viajes],
   );
@@ -244,10 +267,18 @@ export const useViajes = () => {
   // Buscar viajes por placa de vehículo
   const searchByPlacaVehiculo = useCallback(
     (placa: string) => {
-      return viajes.filter(
-        (viaje) =>
-          viaje.vehiculo?.toLowerCase().includes(placa.toLowerCase()) ||
-          viaje.vehiculo_placa?.toLowerCase().includes(placa.toLowerCase()),
+      return viajes.filter((viaje) =>
+        viaje.vehiculo_placa?.toLowerCase().includes(placa.toLowerCase()),
+      );
+    },
+    [viajes],
+  );
+
+  // Buscar viajes por código de repartidor
+  const searchByCodigoRepartidor = useCallback(
+    (codigo: string) => {
+      return viajes.filter((viaje) =>
+        viaje.repartidor_codigo?.toLowerCase().includes(codigo.toLowerCase()),
       );
     },
     [viajes],
@@ -262,16 +293,71 @@ export const useViajes = () => {
     const enCurso = viajes.filter((v) => v.fecha === hoy).length;
     const completados = viajes.filter((v) => v.fecha < hoy).length;
 
+    const totalDistancia = viajes.reduce(
+      (sum, v) => sum + (v.distancia_km || 0),
+      0,
+    );
+    const totalTiempoManejo = viajes.reduce(
+      (sum, v) => sum + (v.tiempo_manejo_min || 0),
+      0,
+    );
+    const totalTiempoServicio = viajes.reduce(
+      (sum, v) => sum + (v.tiempo_servicio_min || 0),
+      0,
+    );
+
     return {
       total,
       programados,
       enCurso,
       completados,
-      cancelados: 0, // No hay campo cancelados en BD
       porcentajeCompletados:
         total > 0 ? Math.round((completados / total) * 100) : 0,
+      totalDistancia: Math.round(totalDistancia * 100) / 100,
+      totalTiempoManejo,
+      totalTiempoServicio,
+      promedioDistanciaPorViaje:
+        total > 0 ? Math.round((totalDistancia / total) * 100) / 100 : 0,
     };
   }, [viajes]);
+
+  // Validar disponibilidad de vehículo para una fecha
+  const validateVehiculoDisponibilidad = useCallback(
+    (idVehiculo: number, fecha: string, excludeViajeId?: number) => {
+      const viajesEnFecha = viajes.filter(
+        (v) =>
+          v.id_vehiculo === idVehiculo &&
+          v.fecha === fecha &&
+          (excludeViajeId
+            ? v.id !== excludeViajeId && v.id_viaje !== excludeViajeId
+            : true),
+      );
+      return {
+        disponible: viajesEnFecha.length === 0,
+        viajesConflicto: viajesEnFecha,
+      };
+    },
+    [viajes],
+  );
+
+  // Validar disponibilidad de repartidor para una fecha
+  const validateRepartidorDisponibilidad = useCallback(
+    (idRepartidor: number, fecha: string, excludeViajeId?: number) => {
+      const viajesEnFecha = viajes.filter(
+        (v) =>
+          v.id_repartidor === idRepartidor &&
+          v.fecha === fecha &&
+          (excludeViajeId
+            ? v.id !== excludeViajeId && v.id_viaje !== excludeViajeId
+            : true),
+      );
+      return {
+        disponible: viajesEnFecha.length === 0,
+        viajesConflicto: viajesEnFecha,
+      };
+    },
+    [viajes],
+  );
 
   // Efecto para cargar viajes al montar el componente
   useEffect(() => {
@@ -299,16 +385,19 @@ export const useViajes = () => {
     updateViaje,
     deleteViaje,
     getViajeById,
-    getViajesByEstado,
     getViajesByFecha,
-    getViajesByRangoFechas,
     getViajesByVehiculo,
-    getViajesByRuta,
+    getViajesByRepartidor,
+    getViajesByEstado,
+    getViajesByRangoFechas,
     getViajesActivos,
     getViajesProgramados,
     getViajesCompletados,
     searchByPlacaVehiculo,
+    searchByCodigoRepartidor,
     getEstadisticasViajes,
+    validateVehiculoDisponibilidad,
+    validateRepartidorDisponibilidad,
     refetch: fetchViajes,
   };
 };

@@ -2,8 +2,13 @@ const express = require("express");
 const router = express.Router();
 const controller = require("../controllers/zona.controller");
 
-router.get("/", controller.getAll);
+// Rutas específicas ANTES de rutas con parámetros dinámicos
+router.get("/estadisticas", controller.getZonasConEstadisticas);
+router.get("/search", controller.searchZonas);
 router.get("/codigo/:codigo", controller.getByCodigo);
+
+// Rutas generales
+router.get("/", controller.getAll);
 router.get("/:id", controller.getById);
 router.post("/", controller.create);
 router.put("/:id", controller.update);

@@ -1,82 +1,79 @@
-const db = require('../config/db');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const db = require("../config/db");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = process.env.JWT_SECRET || 'REMOVED_SECRET';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+const JWT_SECRET = process.env.JWT_SECRET || "REMOVED_SECRET";
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "24h";
 
 // Login de usuario
 exports.login = async (req, res) => {
   try {
-    const { email, contrasena } = req.body;
+    const { email, password } = req.body;
 
     // Validar que se proporcionen email y contraseña
-    if (!email || !contrasena) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Email y contraseña son requeridos'
+        message: "Email y contraseña son requeridos",
       });
     }
 
     // Buscar usuario por email
     const [rows] = await db.query(
-      'SELECT * FROM USUARIO WHERE email = ? AND estado = 1',
-      [email]
+      "SELECT * FROM USUARIO WHERE email = ? AND activo = TRUE",
+      [email],
     );
 
     if (!rows.length) {
       return res.status(401).json({
         success: false,
-        message: 'Credenciales inválidas'
+        message: "Credenciales inválidas",
       });
     }
 
     const usuario = rows[0];
 
     // Verificar contraseña
-    const isValidPassword = await bcrypt.compare(contrasena, usuario.contrasena);
+    const isValidPassword = await bcrypt.compare(
+      password,
+      usuario.password_hash,
+    );
 
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
-        message: 'Credenciales inválidas'
+        message: "Credenciales inválidas",
       });
     }
 
     // Generar token JWT
     const token = jwt.sign(
       {
-        id: usuario.id,
+        id_usuario: usuario.id_usuario,
+        username: usuario.username,
+        nombre_completo: usuario.nombre_completo,
         email: usuario.email,
-        nombre: usuario.nombre
       },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
-
-    // Actualizar última fecha de acceso
-    await db.query(
-      'UPDATE USUARIO SET last_login = NOW() WHERE id = ?',
-      [usuario.id]
+      { expiresIn: JWT_EXPIRES_IN },
     );
 
     // Respuesta exitosa (no incluir contraseña)
-    const { contrasena: _, ...usuarioSinPassword } = usuario;
+    const { password_hash: _, ...usuarioSinPassword } = usuario;
 
     res.json({
       success: true,
-      message: 'Login exitoso',
+      message: "Login exitoso",
       data: {
         usuario: usuarioSinPassword,
-        token
-      }
+        token,
+      },
     });
-
   } catch (error) {
-    console.error('Error en login:', error);
+    console.error("Error en login:", error);
     res.status(500).json({
       success: false,
-      message: 'Error interno del servidor'
+      message: "Error interno del servidor",
     });
   }
 };
@@ -87,13 +84,13 @@ exports.logout = async (req, res) => {
     // En una implementación más robusta, se podría mantener una blacklist de tokens
     res.json({
       success: true,
-      message: 'Logout exitoso'
+      message: "Logout exitoso",
     });
   } catch (error) {
-    console.error('Error en logout:', error);
+    console.error("Error en logout:", error);
     res.status(500).json({
       success: false,
-      message: 'Error interno del servidor'
+      message: "Error interno del servidor",
     });
   }
 };
@@ -101,12 +98,12 @@ exports.logout = async (req, res) => {
 // Verificar token y obtener información del usuario
 exports.verifyToken = async (req, res) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
+    const token = req.headers.authorization?.split(" ")[1];
 
     if (!token) {
       return res.status(401).json({
         success: false,
-        message: 'Token no proporcionado'
+        message: "Token no proporcionado",
       });
     }
 
@@ -115,14 +112,14 @@ exports.verifyToken = async (req, res) => {
 
     // Buscar usuario actual
     const [rows] = await db.query(
-      'SELECT id, nombre, email, estado, created_at, updated_at FROM USUARIO WHERE id = ? AND estado = 1',
-      [decoded.id]
+      "SELECT id_usuario, username, nombre_completo, email, telefono, activo, created_at, updated_at FROM USUARIO WHERE id_usuario = ? AND activo = TRUE",
+      [decoded.id_usuario],
     );
 
     if (!rows.length) {
       return res.status(401).json({
         success: false,
-        message: 'Usuario no encontrado o inactivo'
+        message: "Usuario no encontrado o inactivo",
       });
     }
 
@@ -130,29 +127,28 @@ exports.verifyToken = async (req, res) => {
       success: true,
       data: {
         usuario: rows[0],
-        token
-      }
+        token,
+      },
     });
-
   } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
+    if (error.name === "JsonWebTokenError") {
       return res.status(401).json({
         success: false,
-        message: 'Token inválido'
+        message: "Token inválido",
       });
     }
 
-    if (error.name === 'TokenExpiredError') {
+    if (error.name === "TokenExpiredError") {
       return res.status(401).json({
         success: false,
-        message: 'Token expirado'
+        message: "Token expirado",
       });
     }
 
-    console.error('Error en verificación de token:', error);
+    console.error("Error en verificación de token:", error);
     res.status(500).json({
       success: false,
-      message: 'Error interno del servidor'
+      message: "Error interno del servidor",
     });
   }
 };
@@ -161,42 +157,45 @@ exports.verifyToken = async (req, res) => {
 exports.changePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    const userId = req.usuario.id;
+    const userId = req.usuario.id_usuario;
 
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: 'Contraseña actual y nueva contraseña son requeridas'
+        message: "Contraseña actual y nueva contraseña son requeridas",
       });
     }
 
     if (newPassword.length < 6) {
       return res.status(400).json({
         success: false,
-        message: 'La nueva contraseña debe tener al menos 6 caracteres'
+        message: "La nueva contraseña debe tener al menos 6 caracteres",
       });
     }
 
     // Obtener usuario actual
     const [rows] = await db.query(
-      'SELECT contrasena FROM USUARIO WHERE id = ?',
-      [userId]
+      "SELECT password_hash FROM USUARIO WHERE id_usuario = ?",
+      [userId],
     );
 
     if (!rows.length) {
       return res.status(404).json({
         success: false,
-        message: 'Usuario no encontrado'
+        message: "Usuario no encontrado",
       });
     }
 
     // Verificar contraseña actual
-    const isValidPassword = await bcrypt.compare(currentPassword, rows[0].contrasena);
+    const isValidPassword = await bcrypt.compare(
+      currentPassword,
+      rows[0].password_hash,
+    );
 
     if (!isValidPassword) {
       return res.status(401).json({
         success: false,
-        message: 'Contraseña actual incorrecta'
+        message: "Contraseña actual incorrecta",
       });
     }
 
@@ -206,20 +205,192 @@ exports.changePassword = async (req, res) => {
 
     // Actualizar contraseña
     await db.query(
-      'UPDATE USUARIO SET contrasena = ?, updated_at = NOW() WHERE id = ?',
-      [hashedNewPassword, userId]
+      "UPDATE USUARIO SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id_usuario = ?",
+      [hashedNewPassword, userId],
     );
 
     res.json({
       success: true,
-      message: 'Contraseña actualizada exitosamente'
+      message: "Contraseña actualizada exitosamente",
     });
-
   } catch (error) {
-    console.error('Error al cambiar contraseña:', error);
+    console.error("Error al cambiar contraseña:", error);
     res.status(500).json({
       success: false,
-      message: 'Error interno del servidor'
+      message: "Error interno del servidor",
+    });
+  }
+};
+
+// Registrar nuevo usuario (solo para administradores)
+exports.register = async (req, res) => {
+  try {
+    const { username, password, nombre_completo, email, telefono } = req.body;
+
+    // Validaciones básicas
+    if (!username || !password || !nombre_completo) {
+      return res.status(400).json({
+        success: false,
+        message: "Username, contraseña y nombre completo son requeridos",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "La contraseña debe tener al menos 6 caracteres",
+      });
+    }
+
+    // Verificar que el username no exista
+    const [existingUsername] = await db.query(
+      "SELECT id_usuario FROM USUARIO WHERE username = ?",
+      [username],
+    );
+
+    if (existingUsername.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Ya existe un usuario con ese username",
+      });
+    }
+
+    // Verificar que el email no exista (si se proporciona)
+    if (email) {
+      const [existingEmail] = await db.query(
+        "SELECT id_usuario FROM USUARIO WHERE email = ?",
+        [email],
+      );
+
+      if (existingEmail.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Ya existe un usuario con ese email",
+        });
+      }
+    }
+
+    // Hash de la contraseña
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Crear usuario
+    const [result] = await db.query(
+      `INSERT INTO USUARIO (username, password_hash, nombre_completo, email, telefono, activo)
+       VALUES (?, ?, ?, ?, ?, TRUE)`,
+      [
+        username,
+        hashedPassword,
+        nombre_completo,
+        email || null,
+        telefono || null,
+      ],
+    );
+
+    console.log(`✅ Usuario creado con ID: ${result.insertId}`);
+
+    // Obtener el usuario creado (sin contraseña)
+    const [newUser] = await db.query(
+      `SELECT id_usuario, username, nombre_completo, email, telefono, activo, created_at, updated_at
+       FROM USUARIO WHERE id_usuario = ?`,
+      [result.insertId],
+    );
+
+    res.status(201).json({
+      success: true,
+      data: newUser[0],
+      message: "Usuario creado exitosamente",
+    });
+  } catch (error) {
+    console.error("Error al registrar usuario:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+    });
+  }
+};
+
+// Obtener perfil del usuario actual
+exports.getProfile = async (req, res) => {
+  try {
+    const userId = req.usuario.id_usuario;
+
+    const [rows] = await db.query(
+      `SELECT id_usuario, username, nombre_completo, email, telefono, activo, created_at, updated_at
+       FROM USUARIO WHERE id_usuario = ?`,
+      [userId],
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado",
+      });
+    }
+
+    res.json({
+      success: true,
+      data: rows[0],
+      message: "Perfil obtenido exitosamente",
+    });
+  } catch (error) {
+    console.error("Error al obtener perfil:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+    });
+  }
+};
+
+// Actualizar perfil del usuario
+exports.updateProfile = async (req, res) => {
+  try {
+    const userId = req.usuario.id_usuario;
+    const { nombre_completo, email, telefono } = req.body;
+
+    // Verificar que el email no exista en otro usuario (si se proporciona)
+    if (email) {
+      const [existingEmail] = await db.query(
+        "SELECT id_usuario FROM USUARIO WHERE email = ? AND id_usuario != ?",
+        [email, userId],
+      );
+
+      if (existingEmail.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Ya existe otro usuario con ese email",
+        });
+      }
+    }
+
+    // Actualizar perfil
+    await db.query(
+      `UPDATE USUARIO SET
+       nombre_completo = COALESCE(?, nombre_completo),
+       email = ?,
+       telefono = ?,
+       updated_at = CURRENT_TIMESTAMP
+       WHERE id_usuario = ?`,
+      [nombre_completo, email, telefono, userId],
+    );
+
+    // Obtener usuario actualizado
+    const [updatedUser] = await db.query(
+      `SELECT id_usuario, username, nombre_completo, email, telefono, activo, created_at, updated_at
+       FROM USUARIO WHERE id_usuario = ?`,
+      [userId],
+    );
+
+    res.json({
+      success: true,
+      data: updatedUser[0],
+      message: "Perfil actualizado exitosamente",
+    });
+  } catch (error) {
+    console.error("Error al actualizar perfil:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
     });
   }
 };
