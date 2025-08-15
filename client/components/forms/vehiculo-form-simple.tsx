@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Vehiculo } from "@/hooks/use-vehiculos";
+import { normalizeBoolean } from "@/hooks/use-vehiculos";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 
@@ -50,7 +51,7 @@ export function VehiculoFormSimple({
         anio: vehiculo.anio?.toString() || "",
         capacidad_kg: vehiculo.capacidad_kg?.toString() || "",
         capacidad_cajas: vehiculo.capacidad_cajas?.toString() || "",
-        activo: vehiculo.activo ?? true,
+        activo: normalizeBoolean(vehiculo.activo),
       });
     }
   }, [vehiculo]);
