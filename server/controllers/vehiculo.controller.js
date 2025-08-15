@@ -26,7 +26,7 @@ exports.create = async (req, res) => {
     const v = req.body;
     const created_by = v.created_by || 1; // Default to user ID 1 if not provided
     const [result] = await db.query(
-      `INSERT INTO VEHICULO (placa, marca, modelo, anio, tipo, capacidad_carga_kg, tipo_carga, estado, fecha_adquisicion, vin, id_carreta, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO VEHICULO (placa, marca, modelo, anio, tipo, capacidad_carga_kg, tipo_carga, estado, fecha_adquisicion, vin, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         v.placa,
         v.marca,
@@ -38,7 +38,6 @@ exports.create = async (req, res) => {
         v.estado,
         v.fecha_adquisicion,
         v.vin,
-        v.id_carreta,
         created_by,
       ],
     );
@@ -60,7 +59,7 @@ exports.update = async (req, res) => {
     const v = req.body;
     const updated_by = v.updated_by || 1; // Default to user ID 1 if not provided
     const [result] = await db.query(
-      `UPDATE VEHICULO SET placa=?, marca=?, modelo=?, anio=?, tipo=?, capacidad_carga_kg=?, tipo_carga=?, estado=?, fecha_adquisicion=?, vin=?, id_carreta=?, updated_by=? WHERE id=?`,
+      `UPDATE VEHICULO SET placa=?, marca=?, modelo=?, anio=?, tipo=?, capacidad_carga_kg=?, tipo_carga=?, estado=?, fecha_adquisicion=?, vin=?, updated_by=? WHERE id=?`,
       [
         v.placa,
         v.marca,
@@ -72,7 +71,6 @@ exports.update = async (req, res) => {
         v.estado,
         v.fecha_adquisicion,
         v.vin,
-        v.id_carreta,
         updated_by,
         id,
       ],
