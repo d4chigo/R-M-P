@@ -37,17 +37,27 @@ export default function VisitasPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVisita, setEditingVisita] = useState<Visita | null>(null);
 
-  const handleSubmit = async (visitaData: Omit<Visita, "id">) => {
+  const handleSubmit = async (visitaData: Omit<Visita, "id_visita">) => {
     try {
-      if (editingVisita && editingVisita.id) {
-        await updateVisita(editingVisita.id, visitaData);
+      let result;
+
+      if (editingVisita && editingVisita.id_visita) {
+        result = await updateVisita(editingVisita.id_visita, visitaData);
       } else {
-        await createVisita(visitaData);
+        result = await createVisita(visitaData);
       }
-      setIsDialogOpen(false);
-      setEditingVisita(null);
+
+      if (result && result.success) {
+        setIsDialogOpen(false);
+        setEditingVisita(null);
+      } else {
+        alert(
+          `Error al guardar visita: ${result?.error || "Error desconocido"}`,
+        );
+      }
     } catch (error) {
       console.error("Error al guardar visita:", error);
+      alert("Error al guardar visita. Por favor, inténtelo nuevamente.");
     }
   };
 
@@ -57,13 +67,42 @@ export default function VisitasPage() {
   };
 
   const handleDelete = async (visita: Visita) => {
-    if (
-      confirm(
-        `¿Está seguro de eliminar la visita al cliente ${visita.cliente_nombre || "sin nombre"}?`,
-      )
-    ) {
-      if (visita.id) {
-        await deleteVisita(visita.id);
+    const clienteInfo = visita.cliente_nombre || "sin nombre";
+    const viajeInfo = `Viaje #${visita.viaje_nro || visita.id_viaje}`;
+    const fechaInfo = visita.viaje_fecha || "sin fecha";
+
+    const confirmMessage = `🗑️ ELIMINAR VISITA
+
+📋 Información del registro:
+• Cliente: ${clienteInfo}
+• ${viajeInfo} (${fechaInfo})
+• Pedidos: ${visita.pedidos || 0}
+• Entrega CF: ${visita.entrega_cf || 0}
+• Recojo CF: ${visita.recojo_cf || 0}
+
+⚠️ ADVERTENCIA:
+Esta acción es IRREVERSIBLE. La visita será eliminada permanentemente del sistema.
+
+Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede eliminar sin afectar otros registros.
+
+¿Está seguro de continuar con la eliminación?`;
+
+    if (confirm(confirmMessage)) {
+      try {
+        if (visita.id_visita) {
+          const result = await deleteVisita(visita.id_visita);
+          if (result.success) {
+            // Mostrar mensaje de éxito
+            alert(
+              `✅ Visita eliminada exitosamente\n\nSe eliminó la visita del cliente "${clienteInfo}" del ${viajeInfo}.`,
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error al eliminar visita:", error);
+        alert(
+          `❌ Error al eliminar la visita\n\nNo se pudo eliminar la visita. Por favor, inténtelo nuevamente.`,
+        );
       }
     }
   };
@@ -80,10 +119,12 @@ export default function VisitasPage() {
 
   const columns: Column<Visita>[] = [
     {
-      key: "id",
+      key: "id_visita",
       header: "ID",
       sortable: true,
-      render: (visita) => <span className="font-medium">{visita.id}</span>,
+      render: (visita) => (
+        <span className="font-medium">{visita.id_visita}</span>
+      ),
     },
     {
       key: "id_viaje",
@@ -91,9 +132,11 @@ export default function VisitasPage() {
       sortable: true,
       render: (visita) => (
         <div className="text-sm">
-          <div className="font-medium">ID: {visita.id_viaje}</div>
+          <div className="font-medium">
+            Viaje #{visita.viaje_nro || visita.id_viaje}
+          </div>
           <div className="text-gray-500 dark:text-gray-400">
-            {visita.viaje_info || "Sin información"}
+            {visita.viaje_fecha || "Sin fecha"}
           </div>
         </div>
       ),
@@ -104,70 +147,94 @@ export default function VisitasPage() {
       sortable: true,
       render: (visita) => (
         <div className="text-sm">
-          <div className="font-medium">ID: {visita.id_cliente}</div>
+          <div className="font-medium">
+            {visita.cliente_nombre || "Sin nombre"}
+          </div>
           <div className="text-gray-500 dark:text-gray-400">
-            {visita.cliente_nombre || "Cliente sin nombre"}
+            Código: {visita.cliente_codigo || "N/A"}
           </div>
         </div>
       ),
     },
     {
-      key: "entrega",
-      header: "Entrega",
+      key: "pedidos",
+      header: "Pedidos",
+      sortable: true,
+      render: (visita) => (
+        <span className="font-medium text-center">{visita.pedidos || 0}</span>
+      ),
+    },
+    {
+      key: "entrega_cf",
+      header: "Entrega (CF)",
       sortable: true,
       render: (visita) => (
         <span className="text-green-600 dark:text-green-400 font-medium">
-          {visita.entrega ? visita.entrega.toLocaleString() : "0"}
+          {visita.entrega_cf
+            ? visita.entrega_cf.toLocaleString("es-PE", {
+                minimumFractionDigits: 2,
+              })
+            : "0.00"}
         </span>
       ),
     },
     {
-      key: "recojo",
-      header: "Recojo",
+      key: "recojo_cf",
+      header: "Recojo (CF)",
       sortable: true,
       render: (visita) => (
         <span className="text-blue-600 dark:text-blue-400 font-medium">
-          {visita.recojo ? visita.recojo.toLocaleString() : "0"}
+          {visita.recojo_cf
+            ? visita.recojo_cf.toLocaleString("es-PE", {
+                minimumFractionDigits: 2,
+              })
+            : "0.00"}
         </span>
       ),
     },
     {
-      key: "llega",
-      header: "Llegada",
+      key: "peso_kg",
+      header: "Peso (Kg)",
       sortable: true,
       render: (visita) => (
-        <span className="font-mono text-xs">{visita.llega || "--:--:--"}</span>
-      ),
-    },
-    {
-      key: "sale",
-      header: "Salida",
-      sortable: true,
-      render: (visita) => (
-        <span className="font-mono text-xs">{visita.sale || "--:--:--"}</span>
-      ),
-    },
-    {
-      key: "sec1",
-      header: "Sec1",
-      render: (visita) => (
-        <span className="font-mono text-xs">{visita.sec1 || "-"}</span>
-      ),
-    },
-    {
-      key: "sec2",
-      header: "Sec2",
-      render: (visita) => (
-        <span className="font-mono text-xs">{visita.sec2 || "-"}</span>
+        <span className="text-purple-600 dark:text-purple-400 font-medium">
+          {visita.peso_kg
+            ? `${visita.peso_kg.toLocaleString("es-PE", { minimumFractionDigits: 2 })} kg`
+            : "0.00 kg"}
+        </span>
       ),
     },
     {
       key: "distancia_km",
-      header: "Distancia",
+      header: "Distancia (Km)",
+      sortable: true,
       render: (visita) => (
-        <span className="text-sm">
-          {visita.distancia_km ? `${visita.distancia_km} km` : "-"}
+        <span className="text-orange-600 dark:text-orange-400 font-medium">
+          {visita.distancia_km
+            ? `${visita.distancia_km.toLocaleString("es-PE", { minimumFractionDigits: 2 })} km`
+            : "0.00 km"}
         </span>
+      ),
+    },
+    {
+      key: "vehiculo_placa",
+      header: "Vehículo",
+      render: (visita) => (
+        <span className="text-sm font-mono">
+          {visita.vehiculo_placa || "N/A"}
+        </span>
+      ),
+    },
+    {
+      key: "repartidor_nombre",
+      header: "Repartidor",
+      render: (visita) => (
+        <div className="text-sm">
+          <div className="font-medium">{visita.repartidor_nombre || "N/A"}</div>
+          <div className="text-gray-500 dark:text-gray-400">
+            {visita.repartidor_codigo || "N/A"}
+          </div>
+        </div>
       ),
     },
   ];
@@ -204,7 +271,16 @@ export default function VisitasPage() {
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog
+              open={isDialogOpen}
+              onOpenChange={(open) => {
+                setIsDialogOpen(open);
+                if (!open) {
+                  // Si se cierra el dialog, limpiar el estado
+                  setEditingVisita(null);
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button
                   onClick={handleNewVisita}
@@ -226,6 +302,7 @@ export default function VisitasPage() {
                   </DialogDescription>
                 </DialogHeader>
                 <VisitaForm
+                  key={editingVisita?.id_visita || "new"}
                   visita={editingVisita}
                   onSubmit={handleSubmit}
                   onCancel={handleCancel}
@@ -250,10 +327,16 @@ export default function VisitasPage() {
             <DataTable
               data={visitas}
               columns={columns}
-              searchPlaceholder="Buscar por cliente, viaje, secuencia..."
+              searchPlaceholder="Buscar por cliente, código, vehículo..."
               onEdit={handleEdit}
               onDelete={handleDelete}
-              searchKeys={["cliente_nombre", "viaje_info", "sec1", "sec2"]}
+              searchKeys={[
+                "cliente_nombre",
+                "cliente_codigo",
+                "vehiculo_placa",
+                "repartidor_nombre",
+                "viaje_nro",
+              ]}
             />
           </CardContent>
         </Card>

@@ -428,10 +428,17 @@ const deleteVisita = async (req, res) => {
     // Verificar que la visita existe
     const [existing] = await db.query(
       `
-      SELECT vis.id_visita, c.nombre as cliente_nombre, v.fecha as viaje_fecha
+      SELECT
+        vis.id_visita,
+        c.nombre as cliente_nombre,
+        c.codigo as cliente_codigo,
+        v.fecha as viaje_fecha,
+        v.nro_viaje,
+        vh.placa as vehiculo_placa
       FROM VISITA vis
       LEFT JOIN CLIENTE c ON vis.id_cliente = c.id_cliente
       LEFT JOIN VIAJE v ON vis.id_viaje = v.id_viaje
+      LEFT JOIN VEHICULO vh ON v.id_vehiculo = vh.id_vehiculo
       WHERE vis.id_visita = ?
     `,
       [id],
@@ -444,18 +451,49 @@ const deleteVisita = async (req, res) => {
       });
     }
 
+    const visitaInfo = existing[0];
+
+    // Las visitas no tienen tablas que las referencien directamente,
+    // por lo que se puede eliminar sin verificar dependencias
+    // Sin embargo, informamos al usuario sobre la acción
+
     await db.query("DELETE FROM VISITA WHERE id_visita = ?", [id]);
 
-    console.log(
-      `✅ Visita ${existing[0].cliente_nombre} - ${existing[0].viaje_fecha} eliminada exitosamente`,
-    );
+    const successMessage = `Visita eliminada: Cliente ${visitaInfo.cliente_nombre || visitaInfo.cliente_codigo} - Viaje #${visitaInfo.nro_viaje} (${visitaInfo.viaje_fecha})`;
+
+    console.log(`✅ ${successMessage}`);
 
     res.json({
       success: true,
-      message: `Visita ${existing[0].cliente_nombre} - ${existing[0].viaje_fecha} eliminada exitosamente`,
+      message: successMessage,
+      details: {
+        cliente: visitaInfo.cliente_nombre || visitaInfo.cliente_codigo,
+        viaje: `#${visitaInfo.nro_viaje}`,
+        fecha: visitaInfo.viaje_fecha,
+        vehiculo: visitaInfo.vehiculo_placa,
+        tipo_eliminacion: "completa",
+        nota: "La visita ha sido eliminada permanentemente del sistema",
+      },
     });
   } catch (error) {
     console.error("❌ Error al eliminar visita:", error);
+
+    // Verificar si es un error de clave foránea (aunque es improbable en visitas)
+    if (error.code === "ER_ROW_IS_REFERENCED_2") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "No se puede eliminar la visita porque está siendo referenciada por otros registros",
+        error: "Esta visita está siendo utilizada en otras partes del sistema",
+        details: {
+          error_code: error.code,
+          error_type: "FOREIGN_KEY_CONSTRAINT",
+          solucion:
+            "Revise y elimine primero todos los registros que dependan de esta visita",
+        },
+      });
+    }
+
     res.status(500).json({
       success: false,
       message: "Error al eliminar visita",
