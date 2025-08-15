@@ -41,18 +41,18 @@ export default function HomePage() {
       color: "bg-green-500",
     },
     {
-      title: "Clientes",
-      description: "Gestión de clientes y contactos",
-      icon: Users,
-      href: "/clientes",
-      color: "bg-orange-500",
-    },
-    {
       title: "Zonas",
       description: "Gestión de zonas geográficas",
       icon: MapPin,
       href: "/zonas",
       color: "bg-red-500",
+    },
+    {
+      title: "Clientes",
+      description: "Gestión de clientes y contactos",
+      icon: Users,
+      href: "/clientes",
+      color: "bg-orange-500",
     },
     {
       title: "Viajes",
