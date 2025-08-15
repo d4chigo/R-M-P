@@ -21,6 +21,7 @@ interface CreateRepartidorData {
   dni?: string;
   licencia_conducir?: string;
   telefono?: string;
+  activo?: boolean;
 }
 
 interface UpdateRepartidorData extends Partial<CreateRepartidorData> {}
@@ -35,7 +36,9 @@ interface UseRepartidoresReturn {
     id: number,
     data: UpdateRepartidorData,
   ) => Promise<boolean>;
-  deleteRepartidor: (id: number) => Promise<boolean>;
+  deleteRepartidor: (
+    id: number,
+  ) => Promise<{ success: boolean; type?: string; message?: string }>;
   searchRepartidores: (query: string) => Promise<void>;
   getRepartidorById: (id: number) => Promise<Repartidor | null>;
 }
@@ -79,6 +82,7 @@ export function useRepartidores(): UseRepartidoresReturn {
       const errorMessage =
         err instanceof Error ? err.message : "Error desconocido";
       setError(errorMessage);
+      console.error("Error fetching repartidores:", err);
       toast({
         title: "Error",
         description: "No se pudieron cargar los repartidores",
@@ -182,7 +186,9 @@ export function useRepartidores(): UseRepartidoresReturn {
     }
   };
 
-  const deleteRepartidor = async (id: number): Promise<boolean> => {
+  const deleteRepartidor = async (
+    id: number,
+  ): Promise<{ success: boolean; type?: string; message?: string }> => {
     setLoading(true);
     setError(null);
     try {
@@ -201,12 +207,18 @@ export function useRepartidores(): UseRepartidoresReturn {
       }
 
       if (result.success) {
+        const toastTitle =
+          result.type === "soft_delete" ? "Repartidor Desactivado" : "Éxito";
+        const toastVariant =
+          result.type === "soft_delete" ? "default" : undefined;
+
         toast({
-          title: "Éxito",
-          description: "Repartidor eliminado exitosamente",
+          title: toastTitle,
+          description: result.message || "Operación completada exitosamente",
+          variant: toastVariant,
         });
         await fetchRepartidores(); // Recargar la lista
-        return true;
+        return { success: true, type: result.type, message: result.message };
       } else {
         throw new Error(result.message || "Error al eliminar repartidor");
       }
@@ -219,7 +231,7 @@ export function useRepartidores(): UseRepartidoresReturn {
         description: errorMessage,
         variant: "destructive",
       });
-      return false;
+      return { success: false };
     } finally {
       setLoading(false);
     }
@@ -303,6 +315,8 @@ export function useRepartidores(): UseRepartidoresReturn {
       setLoading(false);
     }
   };
+
+
 
   // Cargar repartidores al montar el componente
   useEffect(() => {

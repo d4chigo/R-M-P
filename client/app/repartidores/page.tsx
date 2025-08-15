@@ -1,7 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, Edit, Trash2, User, Phone, CreditCard, FileText } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  User,
+  Phone,
+  CreditCard,
+  FileText,
+  Power,
+  UserCheck,
+  ArrowLeft,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,9 +54,11 @@ interface RepartidorFormData {
   dni?: string;
   licencia_conducir?: string;
   telefono?: string;
+  activo?: boolean;
 }
 
 export default function RepartidoresPage() {
+  const router = useRouter();
   const {
     repartidores,
     loading,
@@ -51,6 +66,7 @@ export default function RepartidoresPage() {
     updateRepartidor,
     deleteRepartidor,
     searchRepartidores,
+
   } = useRepartidores();
 
   const { toast } = useToast();
@@ -66,6 +82,7 @@ export default function RepartidoresPage() {
     dni: "",
     licencia_conducir: "",
     telefono: "",
+    estado_disponibilidad: "DISPONIBLE",
   });
 
   const handleSearch = async (query: string) => {
@@ -85,6 +102,7 @@ export default function RepartidoresPage() {
       dni: "",
       licencia_conducir: "",
       telefono: "",
+      activo: true,
     });
   };
 
@@ -113,6 +131,7 @@ export default function RepartidoresPage() {
       dni: repartidor.dni || "",
       licencia_conducir: repartidor.licencia_conducir || "",
       telefono: repartidor.telefono || "",
+      activo: repartidor.activo,
     });
     setIsEditDialogOpen(true);
   };
@@ -127,7 +146,10 @@ export default function RepartidoresPage() {
       return;
     }
 
-    const success = await updateRepartidor(selectedRepartidor.id_repartidor, formData);
+    const success = await updateRepartidor(
+      selectedRepartidor.id_repartidor,
+      formData,
+    );
     if (success) {
       setIsEditDialogOpen(false);
       resetForm();
@@ -137,8 +159,8 @@ export default function RepartidoresPage() {
 
   const handleDelete = async () => {
     if (selectedRepartidor) {
-      const success = await deleteRepartidor(selectedRepartidor.id_repartidor);
-      if (success) {
+      const result = await deleteRepartidor(selectedRepartidor.id_repartidor);
+      if (result.success) {
         setDeleteDialogOpen(false);
         setSelectedRepartidor(null);
       }
@@ -150,15 +172,28 @@ export default function RepartidoresPage() {
     setDeleteDialogOpen(true);
   };
 
+
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Repartidores</h1>
-          <p className="text-muted-foreground">
-            Gestión de repartidores y conductores
-          </p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.back()}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Regresar
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Repartidores</h1>
+            <p className="text-muted-foreground">
+              Gestión de repartidores y conductores
+            </p>
+          </div>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
@@ -211,7 +246,10 @@ export default function RepartidoresPage() {
                   id="licencia"
                   value={formData.licencia_conducir}
                   onChange={(e) =>
-                    setFormData({ ...formData, licencia_conducir: e.target.value })
+                    setFormData({
+                      ...formData,
+                      licencia_conducir: e.target.value,
+                    })
                   }
                   placeholder="Número de licencia"
                 />
@@ -226,6 +264,18 @@ export default function RepartidoresPage() {
                   }
                   placeholder="Número de teléfono"
                 />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="activo"
+                  checked={formData.activo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, activo: e.target.checked })
+                  }
+                  className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <Label htmlFor="activo">Activo</Label>
               </div>
               <div className="flex justify-end space-x-2">
                 <Button
@@ -264,7 +314,7 @@ export default function RepartidoresPage() {
       </Card>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center space-x-2">
@@ -284,11 +334,22 @@ export default function RepartidoresPage() {
               <CreditCard className="h-8 w-8 text-green-600" />
               <div>
                 <p className="text-2xl font-bold">
-                  {repartidores.filter(r => r.licencia_conducir).length}
+                  {repartidores.filter((r) => r.licencia_conducir).length}
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  Con Licencia
+                <p className="text-sm text-muted-foreground">Con Licencia</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center space-x-2">
+              <UserCheck className="h-8 w-8 text-green-600" />
+              <div>
+                <p className="text-2xl font-bold">
+                  {repartidores.filter((r) => r.activo).length}
                 </p>
+                <p className="text-sm text-muted-foreground">Activos</p>
               </div>
             </div>
           </CardContent>
@@ -299,11 +360,9 @@ export default function RepartidoresPage() {
               <Phone className="h-8 w-8 text-purple-600" />
               <div>
                 <p className="text-2xl font-bold">
-                  {repartidores.filter(r => r.telefono).length}
+                  {repartidores.filter((r) => r.telefono).length}
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  Con Teléfono
-                </p>
+                <p className="text-sm text-muted-foreground">Con Teléfono</p>
               </div>
             </div>
           </CardContent>
@@ -327,13 +386,16 @@ export default function RepartidoresPage() {
                   <TableHead>DNI</TableHead>
                   <TableHead>Licencia</TableHead>
                   <TableHead>Teléfono</TableHead>
-                  <TableHead>Fecha Creación</TableHead>
+                  <TableHead>Activo</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {repartidores.map((repartidor) => (
-                  <TableRow key={repartidor.id_repartidor}>
+                  <TableRow
+                    key={repartidor.id_repartidor}
+                    className={!repartidor.activo ? "opacity-60" : ""}
+                  >
                     <TableCell>
                       <Badge variant="outline">{repartidor.codigo}</Badge>
                     </TableCell>
@@ -356,7 +418,13 @@ export default function RepartidoresPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {new Date(repartidor.created_at).toLocaleDateString()}
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        repartidor.activo
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}>
+                        {repartidor.activo ? "Activo" : "Inactivo"}
+                      </span>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end space-x-2">
@@ -439,7 +507,10 @@ export default function RepartidoresPage() {
                 id="edit-licencia"
                 value={formData.licencia_conducir}
                 onChange={(e) =>
-                  setFormData({ ...formData, licencia_conducir: e.target.value })
+                  setFormData({
+                    ...formData,
+                    licencia_conducir: e.target.value,
+                  })
                 }
                 placeholder="Número de licencia"
               />
@@ -454,6 +525,18 @@ export default function RepartidoresPage() {
                 }
                 placeholder="Número de teléfono"
               />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="edit-activo"
+                checked={formData.activo}
+                onChange={(e) =>
+                  setFormData({ ...formData, activo: e.target.checked })
+                }
+                className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <Label htmlFor="edit-activo">Activo</Label>
             </div>
             <div className="flex justify-end space-x-2">
               <Button
@@ -474,11 +557,26 @@ export default function RepartidoresPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar repartidor?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminará permanentemente el
-              repartidor{" "}
-              <strong>{selectedRepartidor?.nombre}</strong> del sistema.
+              <div className="space-y-2">
+                <p>
+                  Está a punto de eliminar el repartidor{" "}
+                  <strong>{selectedRepartidor?.nombre}</strong>.
+                </p>
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                  <p className="text-sm text-amber-800">
+                    <strong>Importante:</strong> Si este repartidor tiene viajes
+                    registrados en el sistema, será desactivado en lugar de
+                    eliminado para preservar la integridad de los datos
+                    históricos.
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Solo se eliminará completamente si no tiene registros
+                  asociados.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
