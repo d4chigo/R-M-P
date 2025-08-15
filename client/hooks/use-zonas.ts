@@ -4,17 +4,13 @@ import { useState, useCallback, useEffect } from "react";
 import { useSimpleCrud } from "./use-simple-api";
 
 export interface Zona {
-  id?: number;
+  id_zona?: number;
   codigo: string;
-  nombre: string;
   descripcion: string;
-  region?: string;
   latitud?: number;
   longitud?: number;
   created_at?: string;
   updated_at?: string;
-  created_by?: string;
-  updated_by?: string;
 }
 
 export const useZonas = () => {
@@ -48,7 +44,7 @@ export const useZonas = () => {
 
   // Crear zona
   const createZona = useCallback(
-    async (zona: Omit<Zona, "id">) => {
+    async (zona: Omit<Zona, "id_zona">) => {
       setError(null);
 
       try {
@@ -82,7 +78,7 @@ export const useZonas = () => {
         const response = await crud.update(id, zona);
         if (response.success) {
           setZonas((prev) =>
-            prev.map((z) => (z.id === id ? ({ ...z, ...zona } as Zona) : z)),
+            prev.map((z) => (z.id_zona === id ? ({ ...z, ...zona } as Zona) : z)),
           );
           return { success: true, data: response.data };
         } else {
@@ -106,7 +102,7 @@ export const useZonas = () => {
       try {
         const response = await crud.remove(id);
         if (response.success) {
-          setZonas((prev) => prev.filter((z) => z.id !== id));
+          setZonas((prev) => prev.filter((z) => z.id_zona !== id));
           return { success: true };
         } else {
           setError(response.error || "Error al eliminar zona");
@@ -163,11 +159,11 @@ export const useZonas = () => {
     }
   }, []);
 
-  // Buscar zonas por nombre
-  const searchByNombre = useCallback(
-    (nombre: string) => {
+  // Buscar zonas por descripción
+  const searchByDescripcion = useCallback(
+    (descripcion: string) => {
       return zonas.filter((zona) =>
-        zona.nombre.toLowerCase().includes(nombre.toLowerCase()),
+        zona.descripcion.toLowerCase().includes(descripcion.toLowerCase()),
       );
     },
     [zonas],
@@ -179,14 +175,6 @@ export const useZonas = () => {
       return zonas.filter((zona) =>
         zona.codigo.toLowerCase().includes(codigo.toLowerCase()),
       );
-    },
-    [zonas],
-  );
-
-  // Obtener zonas por región
-  const getZonasByRegion = useCallback(
-    (region: string) => {
-      return zonas.filter((zona) => zona.region === region);
     },
     [zonas],
   );
@@ -206,9 +194,8 @@ export const useZonas = () => {
     deleteZona,
     getZonaById,
     getZonaByCodigo,
-    searchByNombre,
+    searchByDescripcion,
     searchByCodigo,
-    getZonasByRegion,
     refetch: fetchZonas,
   };
 };

@@ -17,12 +17,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, ArrowLeft, MapPin } from "lucide-react";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Plus, ArrowLeft, MapPin, Edit, Trash2, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ZonaForm } from "@/components/forms/zona-form";
 import { useZonas, type Zona } from "@/hooks/use-zonas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { ZonaEstadisticas } from "@/components/zona-estadisticas";
+import { ZonaMapa } from "@/components/zona-mapa";
+
 
 export default function ZonasPage() {
   const { zonas, createZona, updateZona, deleteZona, isLoading, error } =
@@ -30,11 +39,12 @@ export default function ZonasPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingZona, setEditingZona] = useState<Zona | null>(null);
+  const [selectedZona, setSelectedZona] = useState<Zona | null>(null);
 
-  const handleSubmit = async (zonaData: Omit<Zona, "id">) => {
+  const handleSubmit = async (zonaData: Omit<Zona, "id_zona">) => {
     try {
-      if (editingZona && editingZona.id) {
-        await updateZona(editingZona.id, zonaData);
+      if (editingZona && editingZona.id_zona) {
+        await updateZona(editingZona.id_zona, zonaData);
       } else {
         await createZona(zonaData);
       }
@@ -51,9 +61,12 @@ export default function ZonasPage() {
   };
 
   const handleDelete = async (zona: Zona) => {
-    if (confirm(`¿Está seguro de eliminar la zona ${zona.nombre}?`)) {
-      if (zona.id) {
-        await deleteZona(zona.id);
+    const descripcionCorta = zona.descripcion.length > 50
+      ? zona.descripcion.substring(0, 50) + "..."
+      : zona.descripcion;
+    if (confirm(`¿Está seguro de eliminar la zona ${zona.codigo}?\n\n${descripcionCorta}`)) {
+      if (zona.id_zona) {
+        await deleteZona(zona.id_zona);
       }
     }
   };
@@ -68,6 +81,15 @@ export default function ZonasPage() {
     setIsDialogOpen(true);
   };
 
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("es-ES", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
   const columns: Column<Zona>[] = [
     {
       key: "codigo",
@@ -80,49 +102,63 @@ export default function ZonasPage() {
       ),
     },
     {
-      key: "nombre",
-      header: "Nombre",
-      sortable: true,
-      render: (zona) => <span className="font-semibold">{zona.nombre}</span>,
-    },
-    {
       key: "descripcion",
       header: "Descripción",
-      render: (zona) => (
-        <div className="max-w-md">
-          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3">
-            {zona.descripcion}
-          </p>
-        </div>
-      ),
-    },
-    {
-      key: "region",
-      header: "Región",
       sortable: true,
       render: (zona) => (
-        <span className="text-sm bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded">
-          {zona.region || "Sin región"}
-        </span>
+        <div className="max-w-md">
+          <p className="font-semibold text-sm line-clamp-2">{zona.descripcion}</p>
+        </div>
       ),
     },
     {
       key: "coordenadas",
       header: "Coordenadas",
       render: (zona) => (
-        <div className="text-xs text-gray-600 dark:text-gray-400">
+        <div className="text-xs">
           {zona.latitud && zona.longitud ? (
-            <>
-              <div>Lat: {Number(zona.latitud).toFixed(4)}</div>
-              <div>Lng: {Number(zona.longitud).toFixed(4)}</div>
-            </>
+            <div className="space-y-1">
+              <div className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 px-2 py-1 rounded text-center">
+                <div>📍 {Number(zona.latitud).toFixed(4)}</div>
+                <div>{Number(zona.longitud).toFixed(4)}</div>
+              </div>
+            </div>
           ) : (
-            <span className="text-gray-400">Sin coordenadas</span>
+            <span className="text-gray-400 text-xs">Sin coordenadas</span>
           )}
         </div>
       ),
     },
+    {
+      key: "created_at",
+      header: "Creada",
+      sortable: true,
+      render: (zona) => (
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          {formatDate(zona.created_at)}
+        </span>
+      ),
+    },
+
   ];
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <Card className="w-full max-w-md mx-4">
+          <CardHeader>
+            <CardTitle className="text-red-600">Error</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+            <Button onClick={() => window.location.reload()} className="w-full">
+              Reintentar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -140,7 +176,7 @@ export default function ZonasPage() {
               </Button>
             </Link>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
                 <MapPin className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -188,25 +224,86 @@ export default function ZonasPage() {
           </div>
         </div>
 
-        <Card className="dark:bg-gray-800 dark:border-gray-700">
-          <CardHeader>
-            <CardTitle className="dark:text-gray-100">Lista de Zonas</CardTitle>
-            <CardDescription className="dark:text-gray-300">
-              Gestiona todas las zonas geográficas con funciones de búsqueda,
-              filtrado y ordenamiento
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              data={zonas}
-              columns={columns}
-              searchPlaceholder="Buscar por nombre, descripción..."
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              searchKeys={["codigo", "nombre", "descripcion", "region"]}
+        <Tabs defaultValue="lista" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="lista" className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Lista de Zonas
+            </TabsTrigger>
+            <TabsTrigger value="estadisticas" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Estadísticas
+            </TabsTrigger>
+            <TabsTrigger value="mapa" className="flex items-center gap-2">
+              <MapPin className="w-4 h-4" />
+              Mapa
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="lista" className="mt-6">
+            <Card className="dark:bg-gray-800 dark:border-gray-700">
+              <CardHeader>
+                <CardTitle className="dark:text-gray-100 flex items-center gap-2">
+                  Lista de Zonas
+                  <span className="text-sm font-normal bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                    {zonas.length} {zonas.length === 1 ? "zona" : "zonas"}
+                  </span>
+                </CardTitle>
+                <CardDescription className="dark:text-gray-300">
+                  Gestiona todas las zonas geográficas con funciones de búsqueda,
+                  filtrado y ordenamiento
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        Cargando zonas...
+                      </p>
+                    </div>
+                  </div>
+                ) : zonas.length === 0 ? (
+                  <div className="text-center py-8">
+                    <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      No hay zonas registradas
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                      Comienza creando tu primera zona geográfica
+                    </p>
+                    <Button onClick={handleNewZona}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Crear Primera Zona
+                    </Button>
+                  </div>
+                ) : (
+                  <DataTable
+                    data={zonas}
+                    columns={columns}
+                    searchPlaceholder="Buscar por código o descripción..."
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    searchKeys={["codigo", "descripcion"]}
+                  />
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="estadisticas" className="mt-6">
+            <ZonaEstadisticas />
+          </TabsContent>
+
+          <TabsContent value="mapa" className="mt-6">
+            <ZonaMapa
+              zonas={zonas}
+              selectedZona={selectedZona}
+              onZonaSelect={setSelectedZona}
             />
-          </CardContent>
-        </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
