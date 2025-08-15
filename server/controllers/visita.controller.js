@@ -138,6 +138,8 @@ const createVisita = async (req, res) => {
       distancia_km,
     } = req.body;
 
+    const created_by = req.usuario?.id_usuario || null;
+
     console.log("➕ Creando nueva visita:", {
       id_viaje,
       id_cliente,
@@ -742,19 +744,13 @@ const getEstadisticasVisitas = async (req, res) => {
 };
 
 module.exports = {
-  getVisitas,
-  getVisitaById,
-  createVisita,
-  updateVisita,
-  deleteVisita,
-  searchVisitas,
-  getVisitasByViaje,
-  getVisitasByCliente,
-  getEstadisticasVisitas,
-  // Aliases para compatibilidad
   getAll: getVisitas,
   getById: getVisitaById,
   create: createVisita,
   update: updateVisita,
   delete: deleteVisita,
+  searchVisitas,
+  getVisitasByViaje,
+  getVisitasByCliente,
+  getEstadisticasVisitas,
 };
