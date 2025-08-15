@@ -17,7 +17,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, ArrowLeft, Users } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Plus, ArrowLeft, Users, Info } from "lucide-react";
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ClienteForm } from "@/components/forms/cliente-form";
@@ -26,6 +37,7 @@ import { useClientes, type Cliente } from "@/hooks/use-clientes";
 import { useZonas } from "@/hooks/use-zonas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { formatDateForDisplay } from "@/lib/utils/date";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ClientesPage() {
   const {
@@ -38,9 +50,12 @@ export default function ClientesPage() {
   } = useClientes();
 
   const { fetchZonas } = useZonas();
+  const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [clienteToDelete, setClienteToDelete] = useState<Cliente | null>(null);
 
   const handleSubmit = async (clienteData: {
     codigo: string;
@@ -69,12 +84,60 @@ export default function ClientesPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (cliente: Cliente) => {
-    if (confirm(`¿Está seguro de eliminar el cliente ${cliente.nombre}?`)) {
-      if (cliente.id_cliente) {
-        await deleteCliente(cliente.id_cliente);
+  const handleDelete = (cliente: Cliente) => {
+    setClienteToDelete(cliente);
+    setDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (clienteToDelete && clienteToDelete.id_cliente) {
+      try {
+        const result = await deleteCliente(clienteToDelete.id_cliente);
+
+        if (result.success) {
+          if (result.isDeactivated) {
+            toast({
+              title: "Cliente desactivado",
+              description: `${clienteToDelete.nombre} tenía visitas registradas, por lo que se desactivó en lugar de eliminarse. Los datos históricos se han preservado.`,
+              variant: "default",
+            });
+          } else if (result.isDeleted) {
+            toast({
+              title: "Cliente eliminado",
+              description: `${clienteToDelete.nombre} se eliminó completamente del sistema al no tener visitas registradas.`,
+              variant: "default",
+            });
+          } else {
+            toast({
+              title: "Operación completada",
+              description: result.message || "Cliente procesado exitosamente",
+              variant: "default",
+            });
+          }
+        } else {
+          toast({
+            title: "Error al eliminar",
+            description:
+              result.error || "No se pudo procesar la eliminación del cliente",
+            variant: "destructive",
+          });
+        }
+      } catch (error) {
+        toast({
+          title: "Error de conexión",
+          description: "No se pudo conectar con el servidor",
+          variant: "destructive",
+        });
       }
+
+      setDeleteDialogOpen(false);
+      setClienteToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setClienteToDelete(null);
   };
 
   const handleCancel = () => {
@@ -235,6 +298,72 @@ export default function ClientesPage() {
             </Dialog>
           </div>
         </div>
+
+        {/* Alert Dialog para confirmar eliminación */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 dark:text-gray-100">
+                <Info className="w-5 h-5 text-blue-500" />
+                Eliminar Cliente
+              </AlertDialogTitle>
+              <AlertDialogDescription className="dark:text-gray-300">
+                <div className="space-y-3">
+                  <p>
+                    ¿Está seguro de que desea eliminar el cliente{" "}
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+                      {clienteToDelete?.nombre}
+                    </span>
+                    ?
+                  </p>
+
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-blue-800 dark:text-blue-300">
+                        <p className="font-medium mb-1">
+                          Información importante:
+                        </p>
+                        <ul className="space-y-1 text-xs">
+                          <li>
+                            • Si el cliente tiene visitas registradas,{" "}
+                            <strong>NO se eliminará</strong> físicamente
+                          </li>
+                          <li>
+                            • En su lugar, el cliente pasará a estado{" "}
+                            <strong>"Inactivo"</strong>
+                          </li>
+                          <li>
+                            • Si no tiene visitas, se eliminará completamente
+                            del sistema
+                          </li>
+                          <li>
+                            • Esta acción preserva la integridad de los datos
+                            históricos
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel
+                onClick={cancelDelete}
+                className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Confirmar Eliminación
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
