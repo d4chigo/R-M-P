@@ -4,7 +4,6 @@ import { useState, useCallback, useEffect } from "react";
 import { useSimpleCrud } from "./use-simple-api";
 
 export interface Visita {
-  id?: number;
   id_visita?: number;
   id_viaje: number;
   id_cliente: number;
@@ -20,20 +19,14 @@ export interface Visita {
   // Campos relacionados (pueden venir del backend con joins)
   cliente_nombre?: string;
   cliente_codigo?: string;
-  cliente_ruc?: string;
   viaje_info?: string;
   viaje_fecha?: string;
   viaje_nro?: number;
   vehiculo_placa?: string;
   repartidor_codigo?: string;
   repartidor_nombre?: string;
-  // Legacy fields for compatibility
-  entrega?: number;
-  recojo?: number;
-  llega?: string;
-  sale?: string;
-  sec1?: string;
-  sec2?: string;
+  created_by_name?: string;
+  updated_by_name?: string;
 }
 
 export const useVisitas = () => {
@@ -67,16 +60,14 @@ export const useVisitas = () => {
 
   // Crear visita
   const createVisita = useCallback(
-    async (visita: Omit<Visita, "id">) => {
+    async (visita: Omit<Visita, "id_visita">) => {
       setError(null);
 
       try {
         const response = await crud.create(visita);
         if (response.success) {
-          // Agregar la nueva visita al estado sin recargar toda la lista
-          if (response.data) {
-            setVisitas((prev) => [...prev, response.data as Visita]);
-          }
+          // Recargar toda la lista para obtener datos completos con JOINs
+          await fetchVisitas();
           return { success: true, data: response.data };
         } else {
           setError(response.error || "Error al crear visita");
@@ -88,7 +79,7 @@ export const useVisitas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud.create],
+    [crud.create, fetchVisitas],
   );
 
   // Actualizar visita
@@ -99,10 +90,8 @@ export const useVisitas = () => {
       try {
         const response = await crud.update(id, visita);
         if (response.success) {
-          // Actualizar solo la visita modificada en el estado
-          setVisitas((prev) =>
-            prev.map((v) => (v.id === id ? { ...v, ...visita } : v)),
-          );
+          // Recargar toda la lista para obtener datos completos con JOINs
+          await fetchVisitas();
           return { success: true, data: response.data };
         } else {
           setError(response.error || "Error al actualizar visita");
@@ -114,7 +103,7 @@ export const useVisitas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud.update],
+    [crud.update, fetchVisitas],
   );
 
   // Eliminar visita
@@ -125,8 +114,8 @@ export const useVisitas = () => {
       try {
         const response = await crud.remove(id);
         if (response.success) {
-          // Remover la visita del estado sin recargar toda la lista
-          setVisitas((prev) => prev.filter((v) => v.id !== id));
+          // Recargar toda la lista después de eliminar
+          await fetchVisitas();
           return { success: true };
         } else {
           setError(response.error || "Error al eliminar visita");
@@ -138,7 +127,7 @@ export const useVisitas = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud.remove],
+    [crud.remove, fetchVisitas],
   );
 
   // Obtener visita por ID
@@ -179,18 +168,22 @@ export const useVisitas = () => {
     [visitas],
   );
 
-  // Obtener visitas por estado (simulado basado en horas)
+  // Obtener visitas por estado (basado en presencia de datos)
   const getVisitasByEstado = useCallback(
     (estado: string) => {
-      const horaActual = new Date().toTimeString().split(" ")[0];
-
       switch (estado) {
         case "Pendiente":
-          return visitas.filter((visita) => !visita.llega);
+          return visitas.filter(
+            (visita) => !visita.entrega_cf && !visita.recojo_cf,
+          );
         case "En Curso":
-          return visitas.filter((visita) => visita.llega && !visita.sale);
+          return visitas.filter(
+            (visita) => visita.entrega_cf || visita.recojo_cf,
+          );
         case "Completada":
-          return visitas.filter((visita) => visita.llega && visita.sale);
+          return visitas.filter(
+            (visita) => visita.entrega_cf && visita.recojo_cf,
+          );
         default:
           return visitas;
       }
@@ -200,61 +193,30 @@ export const useVisitas = () => {
 
   // Obtener visitas pendientes
   const getVisitasPendientes = useCallback(() => {
-    return visitas.filter((visita) => !visita.llega);
+    return visitas.filter((visita) => !visita.entrega_cf && !visita.recojo_cf);
   }, [visitas]);
 
   // Obtener visitas completadas
   const getVisitasCompletadas = useCallback(() => {
-    return visitas.filter((visita) => visita.llega && visita.sale);
+    return visitas.filter((visita) => visita.entrega_cf && visita.recojo_cf);
   }, [visitas]);
 
   // Obtener visitas en curso
   const getVisitasEnCurso = useCallback(() => {
-    return visitas.filter((visita) => visita.llega && !visita.sale);
+    return visitas.filter(
+      (visita) =>
+        (visita.entrega_cf || visita.recojo_cf) &&
+        !(visita.entrega_cf && visita.recojo_cf),
+    );
   }, [visitas]);
-
-  // Marcar visita como iniciada
-  const iniciarVisita = useCallback(
-    async (id: number) => {
-      const horaActual = new Date().toTimeString().split(" ")[0]; // HH:MM:SS
-      return await updateVisita(id, {
-        llega: horaActual,
-      });
-    },
-    [updateVisita],
-  );
-
-  // Marcar visita como completada
-  const completarVisita = useCallback(
-    async (id: number) => {
-      const horaActual = new Date().toTimeString().split(" ")[0]; // HH:MM:SS
-      return await updateVisita(id, {
-        sale: horaActual,
-      });
-    },
-    [updateVisita],
-  );
-
-  // Actualizar tiempos de llegada y salida
-  const updateTiempos = useCallback(
-    async (id: number, llega?: string, sale?: string) => {
-      const updateData: Partial<Visita> = {};
-
-      if (llega) updateData.llega = llega;
-      if (sale) updateData.sale = sale;
-
-      return await updateVisita(id, updateData);
-    },
-    [updateVisita],
-  );
 
   // Actualizar cantidades de entrega y recojo
   const updateCantidades = useCallback(
-    async (id: number, entrega?: number, recojo?: number) => {
+    async (id: number, entrega_cf?: number, recojo_cf?: number) => {
       const updateData: Partial<Visita> = {};
 
-      if (entrega !== undefined) updateData.entrega = entrega;
-      if (recojo !== undefined) updateData.recojo = recojo;
+      if (entrega_cf !== undefined) updateData.entrega_cf = entrega_cf;
+      if (recojo_cf !== undefined) updateData.recojo_cf = recojo_cf;
 
       return await updateVisita(id, updateData);
     },
@@ -267,14 +229,6 @@ export const useVisitas = () => {
       return visitas.filter((visita) =>
         visita.cliente_nombre?.toLowerCase().includes(nombre.toLowerCase()),
       );
-    },
-    [visitas],
-  );
-
-  // Buscar visitas por RUC de cliente
-  const searchByClienteRuc = useCallback(
-    (ruc: string) => {
-      return visitas.filter((visita) => visita.cliente_ruc?.includes(ruc));
     },
     [visitas],
   );
@@ -311,63 +265,61 @@ export const useVisitas = () => {
     [visitas],
   );
 
-  // Calcular tiempo total de visita (diferencia entre llegada y salida)
-  const calcularTiempoVisita = useCallback((visita: Visita) => {
-    if (!visita.llega || !visita.sale) return 0;
-
-    const [llegaHoras, llegaMinutos, llegaSegundos] = visita.llega
-      .split(":")
-      .map(Number);
-    const [saleHoras, saleMinutos, saleSegundos] = visita.sale
-      .split(":")
-      .map(Number);
-
-    const llegaEnMinutos = llegaHoras * 60 + llegaMinutos + llegaSegundos / 60;
-    const saleEnMinutos = saleHoras * 60 + saleMinutos + saleSegundos / 60;
-
-    return Math.max(0, saleEnMinutos - llegaEnMinutos);
+  // Calcular peso total de visita
+  const calcularPesoTotalVisita = useCallback((visita: Visita) => {
+    return visita.peso_kg || 0;
   }, []);
 
   // Obtener estadísticas de visitas
   const getEstadisticasVisitas = useCallback(() => {
     const total = visitas.length;
-    const pendientes = visitas.filter((v) => !v.llega).length;
-    const enCurso = visitas.filter((v) => v.llega && !v.sale).length;
-    const completadas = visitas.filter((v) => v.llega && v.sale).length;
+    const pendientes = visitas.filter(
+      (v) => !v.entrega_cf && !v.recojo_cf,
+    ).length;
+    const enCurso = visitas.filter(
+      (v) => (v.entrega_cf || v.recojo_cf) && !(v.entrega_cf && v.recojo_cf),
+    ).length;
+    const completadas = visitas.filter(
+      (v) => v.entrega_cf && v.recojo_cf,
+    ).length;
 
-    const totalEntrega = visitas.reduce((sum, v) => sum + (v.entrega || 0), 0);
-    const totalRecojo = visitas.reduce((sum, v) => sum + (v.recojo || 0), 0);
-
-    const tiempoPromedio =
-      visitas
-        .filter((v) => v.llega && v.sale)
-        .reduce((sum, v) => sum + calcularTiempoVisita(v), 0) /
-      Math.max(1, completadas);
+    const totalEntrega = visitas.reduce(
+      (sum, v) => sum + (v.entrega_cf || 0),
+      0,
+    );
+    const totalRecojo = visitas.reduce((sum, v) => sum + (v.recojo_cf || 0), 0);
+    const totalPedidos = visitas.reduce((sum, v) => sum + (v.pedidos || 0), 0);
+    const pesoTotal = visitas.reduce((sum, v) => sum + (v.peso_kg || 0), 0);
+    const distanciaTotal = visitas.reduce(
+      (sum, v) => sum + (v.distancia_km || 0),
+      0,
+    );
 
     return {
       total,
       pendientes,
       enCurso,
       completadas,
-      canceladas: 0, // No hay campo canceladas en BD
       totalEntrega,
       totalRecojo,
-      tiempoPromedioMinutos: Math.round(tiempoPromedio),
+      totalPedidos,
+      pesoTotal,
+      distanciaTotal,
       porcentajeCompletadas:
         total > 0 ? Math.round((completadas / total) * 100) : 0,
     };
-  }, [visitas, calcularTiempoVisita]);
+  }, [visitas]);
 
-  // Reordenar visitas de un viaje (funcionalidad removida - no hay campo orden_visita en BD)
+  // Reordenar visitas de un viaje (funcionalidad no disponible - no hay campo orden_visita en BD)
   const reordenarVisitas = useCallback(
-    async (visitasConNuevoOrden: { id: number }[]) => {
+    async (visitasConNuevoOrden: { id_visita: number }[]) => {
       // Esta funcionalidad no está disponible sin el campo orden_visita en BD
       return {
         success: false,
         error: "Funcionalidad no disponible sin campo orden_visita",
       };
     },
-    [updateVisita],
+    [],
   );
 
   // Efecto para cargar visitas al montar el componente
@@ -402,16 +354,12 @@ export const useVisitas = () => {
     getVisitasPendientes,
     getVisitasCompletadas,
     getVisitasEnCurso,
-    iniciarVisita,
-    completarVisita,
-    updateTiempos,
     updateCantidades,
     searchByClienteNombre,
-    searchByClienteRuc,
     searchByClienteCodigo,
     getVisitasByFecha,
     getVisitasByRangoFechas,
-    calcularTiempoVisita,
+    calcularPesoTotalVisita,
     getEstadisticasVisitas,
     reordenarVisitas,
     refetch: fetchVisitas,
