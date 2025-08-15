@@ -20,7 +20,6 @@ CREATE TABLE `VEHICULO` (
     `estado` VARCHAR(10) NOT NULL,
     `fecha_adquisicion` DATE NOT NULL,
     `vin` VARCHAR(17) NOT NULL UNIQUE,
-    `id_carreta` INTEGER,
     -- Auditoría
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -80,8 +79,9 @@ CREATE TABLE `TIPO_CLIENTE` (
 -- Tabla ZONA
 CREATE TABLE `ZONA` (
     `id` INTEGER NOT NULL AUTO_INCREMENT UNIQUE,
+    `codigo` VARCHAR(20) NOT NULL UNIQUE,
     `nombre` VARCHAR(50) NOT NULL UNIQUE,
-    `descripcion` TEXT NOT NULL COMMENT 'Nombre de la zona (zona norte, etc.)',
+    `descripcion` TEXT NOT NULL,
     `region` VARCHAR(50),
     `latitud` DECIMAL(9,6),
     `longitud` DECIMAL(9,6),
@@ -91,7 +91,7 @@ CREATE TABLE `ZONA` (
     `created_by` VARCHAR(50),
     `updated_by` VARCHAR(50),
     PRIMARY KEY (`id`)
-) COMMENT='Nombre de la zona (zona norte, etc.)';
+);
 
 -- Tabla CLIENTE
 CREATE TABLE `CLIENTE` (
@@ -175,12 +175,6 @@ CREATE TABLE `VISITA` (
 -- FOREIGN KEYS (RELACIONES ENTRE TABLAS)
 -- ======================================
 
--- Relación: VEHICULO -> CARRETA
-ALTER TABLE `VEHICULO`
-ADD CONSTRAINT `fk_vehiculo_carreta`
-FOREIGN KEY (`id_carreta`) REFERENCES `CARRETA`(`id`)
-ON UPDATE CASCADE ON DELETE SET NULL;
-
 -- Relación: CLIENTE -> TIPO_CLIENTE
 ALTER TABLE `CLIENTE`
 ADD CONSTRAINT `fk_cliente_tipo`
@@ -234,7 +228,6 @@ ON UPDATE CASCADE ON DELETE RESTRICT;
 -- ======================================
 
 -- Índices en foreign keys
-CREATE INDEX `idx_vehiculo_carreta` ON `VEHICULO`(`id_carreta`);
 CREATE INDEX `idx_cliente_tipo` ON `CLIENTE`(`id_tipo_cliente`);
 CREATE INDEX `idx_cliente_zona_pvta` ON `CLIENTE`(`id_zona_pvta`);
 CREATE INDEX `idx_cliente_zona_tvta` ON `CLIENTE`(`id_zona_tvta`);
