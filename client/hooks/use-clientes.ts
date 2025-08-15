@@ -5,27 +5,13 @@ import { useSimpleCrud } from "./use-simple-api";
 
 export interface Cliente {
   id_cliente?: number;
-  id?: number; // kept for backwards compatibility
   codigo: string;
   nombre: string;
-  direccion: string;
-  id_zona: number;
-  zona_nombre?: string;
-  zona_codigo?: string;
-  activo: number | boolean;
-  id_tipo_cliente?: number;
-  codigo_zona_pvta_manual?: string;
-  codigo_zona_tvta_manual?: string;
-  ruc?: string;
-  ciudad?: string;
-  telefono?: string;
-  email?: string;
-  contacto_nombre?: string;
-  contacto_telefono?: string;
-  horario?: string;
-  estado?: string;
-  longitud?: number;
-  latitud?: number;
+  direccion?: string;
+  id_zona?: number;
+  zona_nombre?: string; // Campo calculado del JOIN con ZONA
+  zona_codigo?: string; // Campo calculado del JOIN con ZONA
+  activo: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -96,7 +82,7 @@ export const useClientes = () => {
           // Actualizar solo el cliente modificado en el estado
           setClientes((prev) =>
             prev.map((c) =>
-              c.id === id ? ({ ...c, ...cliente } as Cliente) : c,
+              c.id_cliente === id ? ({ ...c, ...cliente } as Cliente) : c,
             ),
           );
           return { success: true, data: response.data };
@@ -122,7 +108,7 @@ export const useClientes = () => {
         const response = await crud.remove(id);
         if (response.success) {
           // Remover el cliente del estado sin recargar toda la lista
-          setClientes((prev) => prev.filter((c) => c.id !== id));
+          setClientes((prev) => prev.filter((c) => c.id_cliente !== id));
           return { success: true };
         } else {
           setError(response.error || "Error al eliminar cliente");
@@ -159,27 +145,28 @@ export const useClientes = () => {
     [crud.getById],
   );
 
-  // Cambiar estado del cliente
-  const toggleClienteEstado = useCallback(
-    async (id: number, currentEstado: string) => {
-      const newEstado = currentEstado === "Activo" ? "Inactivo" : "Activo";
-      return await updateCliente(id, { estado: newEstado });
+  // Cambiar estado del cliente (activo/inactivo)
+  const toggleClienteActivo = useCallback(
+    async (id: number, currentActivo: boolean) => {
+      return await updateCliente(id, { activo: !currentActivo });
     },
     [updateCliente],
   );
 
-  // Obtener clientes por estado
-  const getClientesByEstado = useCallback(
-    (estado: string) => {
-      return clientes.filter((cliente) => cliente.estado === estado);
+  // Obtener clientes por estado activo
+  const getClientesByActivo = useCallback(
+    (activo: boolean) => {
+      return clientes.filter((cliente) => cliente.activo === activo);
     },
     [clientes],
   );
 
-  // Buscar clientes por RUC
-  const searchByRuc = useCallback(
-    (ruc: string) => {
-      return clientes.filter((cliente) => cliente.ruc.includes(ruc));
+  // Buscar clientes por código
+  const searchByCodigo = useCallback(
+    (codigo: string) => {
+      return clientes.filter((cliente) =>
+        cliente.codigo.toLowerCase().includes(codigo.toLowerCase()),
+      );
     },
     [clientes],
   );
@@ -194,21 +181,19 @@ export const useClientes = () => {
     [clientes],
   );
 
-  // Obtener clientes por tipo
-  const getClientesByTipo = useCallback(
-    (tipoId: number) => {
-      return clientes.filter((cliente) => cliente.id_tipo_cliente === tipoId);
+  // Obtener clientes por zona
+  const getClientesByZonaId = useCallback(
+    (zonaId: number) => {
+      return clientes.filter((cliente) => cliente.id_zona === zonaId);
     },
     [clientes],
   );
 
-  // Obtener clientes por zona
-  const getClientesByZona = useCallback(
-    (codigoZona: string, tipoZona: "pvta" | "tvta" = "pvta") => {
+  // Buscar clientes por dirección
+  const searchByDireccion = useCallback(
+    (direccion: string) => {
       return clientes.filter((cliente) =>
-        tipoZona === "pvta"
-          ? cliente.codigo_zona_pvta_manual === codigoZona
-          : cliente.codigo_zona_tvta_manual === codigoZona,
+        cliente.direccion?.toLowerCase().includes(direccion.toLowerCase()),
       );
     },
     [clientes],
@@ -240,12 +225,12 @@ export const useClientes = () => {
     updateCliente,
     deleteCliente,
     getClienteById,
-    toggleClienteEstado,
-    getClientesByEstado,
-    getClientesByTipo,
-    getClientesByZona,
-    searchByRuc,
+    toggleClienteActivo,
+    getClientesByActivo,
+    getClientesByZonaId,
+    searchByCodigo,
     searchByNombre,
+    searchByDireccion,
     refetch: fetchClientes,
   };
 };

@@ -52,7 +52,7 @@ export function useRepartidores(): UseRepartidoresReturn {
   const API_BASE =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
-  const getAuthHeader = () => {
+  const getAuthHeader = (): Record<string, string> => {
     const token = Cookies.get("auth_token");
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
@@ -315,8 +315,6 @@ export function useRepartidores(): UseRepartidoresReturn {
       setLoading(false);
     }
   };
-
-
 
   // Cargar repartidores al montar el componente
   useEffect(() => {

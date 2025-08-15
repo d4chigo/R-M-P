@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -6,66 +9,276 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-interface Cliente {
-  id_cliente: number;
-  codigo: string;
-  nombre: string;
-  direccion: string;
-  id_zona: number;
-  zona_nombre?: string;
-  zona_codigo?: string;
-  activo: boolean;
-  created_at: string;
-  updated_at: string;
-}
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  Eye,
+  ToggleLeft,
+  ToggleRight,
+} from "lucide-react";
+import type { Cliente } from "@/hooks/use-clientes";
 
 interface ClientesTableProps {
   clientes: Cliente[];
+  onEdit?: (cliente: Cliente) => void;
+  onDelete?: (id: number) => void;
+  onView?: (cliente: Cliente) => void;
+  onToggleActivo?: (id: number, currentActivo: boolean) => void;
+  isLoading?: boolean;
 }
 
-export function ClientesTable({ clientes }: ClientesTableProps) {
+export function ClientesTable({
+  clientes,
+  onEdit,
+  onDelete,
+  onView,
+  onToggleActivo,
+  isLoading = false,
+}: ClientesTableProps) {
+  const [sortField, setSortField] = useState<string>("nombre");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
+
+  const sortedClientes = [...clientes].sort((a, b) => {
+    let aValue: any = a[sortField as keyof Cliente];
+    let bValue: any = b[sortField as keyof Cliente];
+
+    // Handle null/undefined values
+    if (aValue == null) aValue = "";
+    if (bValue == null) bValue = "";
+
+    // Convert to string for comparison
+    aValue = String(aValue).toLowerCase();
+    bValue = String(bValue).toLowerCase();
+
+    if (sortDirection === "asc") {
+      return aValue.localeCompare(bValue);
+    } else {
+      return bValue.localeCompare(aValue);
+    }
+  });
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    return new Date(dateString).toLocaleDateString("es-ES", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="h-12 bg-muted animate-pulse rounded" />
+        ))}
+      </div>
+    );
+  }
+
+  if (clientes.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">No se encontraron clientes</p>
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>ID</TableHead>
-            <TableHead>Código</TableHead>
-            <TableHead>Nombre</TableHead>
-            <TableHead>RUC</TableHead>
-            <TableHead>Ciudad</TableHead>
-            <TableHead>Teléfono</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Contacto</TableHead>
-            <TableHead>Horario</TableHead>
-            <TableHead>Estado</TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort("id_cliente")}
+            >
+              ID
+              {sortField === "id_cliente" && (
+                <span className="ml-1">
+                  {sortDirection === "asc" ? "↑" : "↓"}
+                </span>
+              )}
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort("codigo")}
+            >
+              Código
+              {sortField === "codigo" && (
+                <span className="ml-1">
+                  {sortDirection === "asc" ? "↑" : "↓"}
+                </span>
+              )}
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort("nombre")}
+            >
+              Nombre
+              {sortField === "nombre" && (
+                <span className="ml-1">
+                  {sortDirection === "asc" ? "↑" : "↓"}
+                </span>
+              )}
+            </TableHead>
+            <TableHead>Dirección</TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort("zona_nombre")}
+            >
+              Zona
+              {sortField === "zona_nombre" && (
+                <span className="ml-1">
+                  {sortDirection === "asc" ? "↑" : "↓"}
+                </span>
+              )}
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort("activo")}
+            >
+              Estado
+              {sortField === "activo" && (
+                <span className="ml-1">
+                  {sortDirection === "asc" ? "↑" : "↓"}
+                </span>
+              )}
+            </TableHead>
+            <TableHead
+              className="cursor-pointer hover:bg-muted/50"
+              onClick={() => handleSort("created_at")}
+            >
+              Creado
+              {sortField === "created_at" && (
+                <span className="ml-1">
+                  {sortDirection === "asc" ? "↑" : "↓"}
+                </span>
+              )}
+            </TableHead>
+            <TableHead className="w-[50px]">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {clientes.map((cliente) => (
-            <TableRow key={cliente.id}>
-              <TableCell className="font-medium">{cliente.id}</TableCell>
-              <TableCell className="font-semibold">{cliente.codigo}</TableCell>
-              <TableCell>{cliente.nombre}</TableCell>
-              <TableCell>{cliente.ruc}</TableCell>
-              <TableCell>{cliente.ciudad}</TableCell>
-              <TableCell>{cliente.telefono}</TableCell>
-              <TableCell>{cliente.email}</TableCell>
-              <TableCell>{cliente.contacto_nombre}</TableCell>
-              <TableCell>{cliente.horario}</TableCell>
-              <TableCell>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    cliente.estado === "Activo"
-                      ? "bg-green-100 text-green-800"
-                      : cliente.estado === "Suspendido"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-red-100 text-red-800"
-                  }`}
+          {sortedClientes.map((cliente) => (
+            <TableRow key={cliente.id_cliente} className="hover:bg-muted/50">
+              <TableCell className="font-medium">
+                {cliente.id_cliente}
+              </TableCell>
+              <TableCell className="font-mono font-semibold">
+                {cliente.codigo}
+              </TableCell>
+              <TableCell className="font-medium">{cliente.nombre}</TableCell>
+              <TableCell className="max-w-[200px]">
+                <div
+                  className="truncate"
+                  title={cliente.direccion || "Sin dirección"}
                 >
-                  {cliente.estado}
-                </span>
+                  {cliente.direccion || (
+                    <span className="text-muted-foreground italic">
+                      Sin dirección
+                    </span>
+                  )}
+                </div>
+              </TableCell>
+              <TableCell>
+                {cliente.zona_nombre ? (
+                  <div className="space-y-1">
+                    <div className="font-medium">{cliente.zona_nombre}</div>
+                    {cliente.zona_codigo && (
+                      <div className="text-sm text-muted-foreground font-mono">
+                        {cliente.zona_codigo}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-muted-foreground italic">Sin zona</span>
+                )}
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant={cliente.activo ? "default" : "secondary"}
+                  className={
+                    cliente.activo
+                      ? "bg-green-100 text-green-800 hover:bg-green-200"
+                      : "bg-gray-100 text-gray-800 hover:bg-gray-200"
+                  }
+                >
+                  {cliente.activo ? "Activo" : "Inactivo"}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-sm text-muted-foreground">
+                {formatDate(cliente.created_at)}
+              </TableCell>
+              <TableCell>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                      <span className="sr-only">Abrir menú</span>
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {onView && (
+                      <DropdownMenuItem onClick={() => onView(cliente)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver detalles
+                      </DropdownMenuItem>
+                    )}
+                    {onEdit && (
+                      <DropdownMenuItem onClick={() => onEdit(cliente)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Editar
+                      </DropdownMenuItem>
+                    )}
+                    {onToggleActivo && (
+                      <DropdownMenuItem
+                        onClick={() =>
+                          onToggleActivo(cliente.id_cliente!, cliente.activo)
+                        }
+                      >
+                        {cliente.activo ? (
+                          <>
+                            <ToggleLeft className="mr-2 h-4 w-4" />
+                            Desactivar
+                          </>
+                        ) : (
+                          <>
+                            <ToggleRight className="mr-2 h-4 w-4" />
+                            Activar
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    )}
+                    {onDelete && (
+                      <DropdownMenuItem
+                        onClick={() => onDelete(cliente.id_cliente!)}
+                        className="text-red-600 focus:text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Eliminar
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </TableCell>
             </TableRow>
           ))}

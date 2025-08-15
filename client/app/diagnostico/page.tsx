@@ -25,14 +25,13 @@ import Link from "next/link";
 
 // Importar todos los hooks
 import { useVehiculos } from "@/hooks/use-vehiculos";
-
 import { useClientes } from "@/hooks/use-clientes";
 import { useRutas } from "@/hooks/use-rutas";
-import { useUsuarios } from "@/hooks/use-usuarios";
 import { useViajes } from "@/hooks/use-viajes";
 import { useVisitas } from "@/hooks/use-visitas";
 import { useTiposCliente } from "@/hooks/use-tipos-cliente";
 import { useZonas } from "@/hooks/use-zonas";
+import { useRepartidores } from "@/hooks/use-repartidores";
 
 interface ModuleStatus {
   name: string;
@@ -54,7 +53,7 @@ export default function DiagnosticoPage() {
 
   const clientes = useClientes();
   const rutas = useRutas();
-  const usuarios = useUsuarios();
+  const repartidores = useRepartidores();
   const viajes = useViajes();
   const visitas = useVisitas();
   const tiposCliente = useTiposCliente();
@@ -95,14 +94,14 @@ export default function DiagnosticoPage() {
       status: rutas.error ? "error" : rutas.isLoading ? "loading" : "success",
     },
     {
-      name: "Usuarios",
-      endpoint: "/api/usuarios",
-      isLoading: usuarios.isLoading,
-      error: usuarios.error,
-      dataCount: usuarios.usuarios.length,
-      status: usuarios.error
+      name: "Repartidores",
+      endpoint: "/api/repartidores",
+      isLoading: repartidores.loading,
+      error: repartidores.error,
+      dataCount: repartidores.repartidores.length,
+      status: repartidores.error
         ? "error"
-        : usuarios.isLoading
+        : repartidores.loading
           ? "loading"
           : "success",
     },
@@ -173,7 +172,7 @@ export default function DiagnosticoPage() {
 
     clientes.refetch();
     rutas.refetch();
-    usuarios.refetch();
+    repartidores.fetchRepartidores();
     viajes.refetch();
     visitas.refetch();
     tiposCliente.refetch();
@@ -279,7 +278,9 @@ export default function DiagnosticoPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Usuario</p>
-                <p className="font-medium">{usuario?.nombre || "N/A"}</p>
+                <p className="font-medium">
+                  {usuario?.nombre_completo || "N/A"}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Email</p>

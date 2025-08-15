@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -13,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import type { Cliente } from "@/hooks/use-clientes";
 import { useZonas } from "@/hooks/use-zonas";
 
@@ -23,15 +25,10 @@ interface ClienteFormProps {
     nombre: string;
     direccion?: string;
     id_zona?: number;
-    activo?: boolean;
+    activo: boolean;
   }) => void;
   onCancel: () => void;
   isEditing?: boolean;
-}
-
-interface OptionType {
-  value: number;
-  label: string;
 }
 
 export function ClienteForm({
@@ -40,208 +37,274 @@ export function ClienteForm({
   onCancel,
   isEditing = false,
 }: ClienteFormProps) {
-  const { zonas, fetchZonas, isLoading: zonasLoading } = useZonas();
+  const { zonas, fetchZonas, isLoading: zonasLoading, error } = useZonas();
 
   const [formData, setFormData] = useState({
     codigo: "",
     nombre: "",
     direccion: "",
-    selectedZonaId: "",
+    id_zona: "0",
+    activo: true,
   });
 
   // Cargar zonas al montar el componente
   useEffect(() => {
+    console.log("🔍 ClienteForm: Componente montado, cargando zonas...");
     fetchZonas();
-  }, [fetchZonas]);
+  }, []);
 
+  // Debug: Log cuando cambien las zonas
+  useEffect(() => {
+    console.log("📊 ClienteForm: Estado de zonas:", {
+      count: zonas.length,
+      isLoading: zonasLoading,
+      error: error,
+      zonas: zonas.map((z) => ({
+        id: z.id_zona,
+        codigo: z.codigo,
+        descripcion: z.descripcion,
+      })),
+    });
+  }, [zonas, zonasLoading, error]);
+
+  // Llenar el formulario cuando se edita un cliente
   useEffect(() => {
     if (cliente && !zonasLoading) {
       setFormData({
         codigo: cliente.codigo || "",
         nombre: cliente.nombre || "",
         direccion: cliente.direccion || "",
-        selectedZonaId: cliente.id_zona?.toString() || "",
+        id_zona:
+          cliente.id_zona && cliente.id_zona > 0
+            ? cliente.id_zona.toString()
+            : "0",
+        activo: Boolean(cliente.activo),
       });
     } else if (!cliente) {
       setFormData({
         codigo: "",
         nombre: "",
         direccion: "",
-        selectedZonaId: "",
+        id_zona: "0",
+        activo: true,
       });
     }
   }, [cliente, zonasLoading]);
-
-  // Preparar opciones para dropdown de zonas
-  const zonasOptions = zonas.map((zona) => ({
-    codigo: zona.codigo,
-    label: `${zona.codigo} - ${zona.nombre} - ${zona.region || "Sin región"}`,
-  }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validaciones básicas
-    if (!formData.codigo || !formData.nombre) {
-      alert("Código y nombre son obligatorios");
+    if (!formData.codigo.trim()) {
+      alert("El código es obligatorio");
+      return;
+    }
+
+    if (!formData.nombre.trim()) {
+      alert("El nombre es obligatorio");
+      return;
+    }
+
+    // Validación de formato de código
+    if (formData.codigo.length > 20) {
+      alert("El código no puede exceder 20 caracteres");
+      return;
+    }
+
+    // Validación de formato de nombre
+    if (formData.nombre.length > 100) {
+      alert("El nombre no puede exceder 100 caracteres");
       return;
     }
 
     onSubmit({
-      codigo: formData.codigo,
-      nombre: formData.nombre,
-      direccion: formData.direccion || undefined,
-      id_zona: formData.selectedZonaId
-        ? Number.parseInt(formData.selectedZonaId)
-        : undefined,
-      activo: true,
+      codigo: formData.codigo.trim(),
+      nombre: formData.nombre.trim(),
+      direccion: formData.direccion.trim() || undefined,
+      id_zona:
+        formData.id_zona && formData.id_zona !== "0"
+          ? Number.parseInt(formData.id_zona)
+          : undefined,
+      activo: formData.activo,
     });
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  // Función para manejar selección de zona y autocompletar coordenadas
-  const handleZonaSelect = (codigoZona: string, tipo: "pvta" | "tvta") => {
-    const field = tipo === "pvta" ? "codigo_zona_pvta" : "codigo_zona_tvta";
-    handleInputChange(field, codigoZona);
-
-    // Auto-completar coordenadas si la zona tiene coordenadas
-    const zona = zonas.find((z) => z.codigo === codigoZona);
-    if (zona && zona.latitud && zona.longitud) {
-      const shouldUpdate =
-        !formData.latitud ||
-        !formData.longitud ||
-        confirm(
-          `¿Desea actualizar las coordenadas con las de la zona ${zona.nombre}?`,
-        );
-
-      if (shouldUpdate) {
-        setFormData((prev) => ({
-          ...prev,
-          latitud: zona.latitud!.toString(),
-          longitud: zona.longitud!.toString(),
-        }));
-      }
-    }
-  };
-
-  // Estilos personalizados para react-select que coincidan con shadcn/ui
-  const selectStyles = {
-    control: (provided: any, state: any) => ({
-      ...provided,
-      minHeight: "40px",
-      borderColor: state.isFocused ? "hsl(var(--ring))" : "hsl(var(--border))",
-      borderRadius: "6px",
-      backgroundColor: "hsl(var(--background))",
-      boxShadow: state.isFocused ? "0 0 0 2px hsl(var(--ring))" : "none",
-      "&:hover": {
-        borderColor: "hsl(var(--border))",
-      },
-    }),
-    menu: (provided: any) => ({
-      ...provided,
-      backgroundColor: "hsl(var(--popover))",
-      border: "1px solid hsl(var(--border))",
-      borderRadius: "6px",
-      zIndex: 50,
-    }),
-    option: (provided: any, state: any) => ({
-      ...provided,
-      backgroundColor: state.isSelected
-        ? "hsl(var(--accent))"
-        : state.isFocused
-          ? "hsl(var(--accent) / 0.8)"
-          : "transparent",
-      color: "hsl(var(--foreground))",
-      padding: "8px 12px",
-      "&:active": {
-        backgroundColor: "hsl(var(--accent))",
-      },
-    }),
-    singleValue: (provided: any) => ({
-      ...provided,
-      color: "hsl(var(--foreground))",
-    }),
-    placeholder: (provided: any) => ({
-      ...provided,
-      color: "hsl(var(--muted-foreground))",
-    }),
-    input: (provided: any) => ({
-      ...provided,
-      color: "hsl(var(--foreground))",
-    }),
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="nombre">Nombre de la Empresa *</Label>
-          <Input
-            id="nombre"
-            value={formData.nombre}
-            onChange={(e) => handleInputChange("nombre", e.target.value)}
-            placeholder="Distribuidora Central S.A."
-            required
-          />
-        </div>
-        <div>
-          <Label htmlFor="codigo">Código Cliente *</Label>
+      {/* Código y Nombre - campos obligatorios */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="codigo">
+            Código <span className="text-red-500">*</span>
+          </Label>
           <Input
             id="codigo"
             value={formData.codigo}
             onChange={(e) => handleInputChange("codigo", e.target.value)}
             placeholder="CLI001"
+            maxLength={20}
+            required
+            className="font-mono"
+          />
+          <p className="text-sm text-muted-foreground">
+            Máximo 20 caracteres. Debe ser único.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="nombre">
+            Nombre <span className="text-red-500">*</span>
+          </Label>
+          <Input
+            id="nombre"
+            value={formData.nombre}
+            onChange={(e) => handleInputChange("nombre", e.target.value)}
+            placeholder="Distribuidora Central S.A."
+            maxLength={100}
             required
           />
+          <p className="text-sm text-muted-foreground">
+            Máximo 100 caracteres.
+          </p>
         </div>
       </div>
 
-      <div>
+      {/* Dirección - campo opcional */}
+      <div className="space-y-2">
         <Label htmlFor="direccion">Dirección</Label>
-        <Input
+        <Textarea
           id="direccion"
           value={formData.direccion}
           onChange={(e) => handleInputChange("direccion", e.target.value)}
-          placeholder="Av. Principal 123, Distrito"
+          placeholder="Av. Principal 123, Distrito, Ciudad"
+          rows={3}
+          className="resize-none"
         />
+        <p className="text-sm text-muted-foreground">
+          Dirección completa del cliente (opcional).
+        </p>
       </div>
 
-      <div>
-        <Label htmlFor="selectedZonaId">Zona</Label>
+      {/* Zona - campo opcional */}
+      <div className="space-y-2">
+        <Label htmlFor="id_zona">Zona</Label>
         <Select
-          value={formData.selectedZonaId}
-          onValueChange={(value) => handleInputChange("selectedZonaId", value)}
+          value={formData.id_zona || "0"}
+          onValueChange={(value) => handleInputChange("id_zona", value)}
           disabled={zonasLoading}
         >
           <SelectTrigger>
             <SelectValue
               placeholder={
-                zonasLoading ? "Cargando zonas..." : "Seleccionar zona"
+                zonasLoading
+                  ? "Cargando zonas..."
+                  : "Seleccionar zona (opcional)"
               }
             />
           </SelectTrigger>
           <SelectContent>
-            {zonas.map((zona) => (
-              <SelectItem
-                key={zona.id_zona}
-                value={zona.id_zona?.toString() || ""}
-              >
-                {zona.codigo} - {zona.nombre}
+            <SelectItem value="0">Sin zona asignada</SelectItem>
+            {zonasLoading ? (
+              <SelectItem value="loading" disabled>
+                Cargando zonas...
               </SelectItem>
-            ))}
+            ) : error ? (
+              <SelectItem value="error" disabled>
+                Error al cargar zonas
+              </SelectItem>
+            ) : zonas.length === 0 ? (
+              <SelectItem value="empty" disabled>
+                No hay zonas disponibles
+              </SelectItem>
+            ) : (
+              zonas
+                .filter((zona) => zona.id_zona && zona.id_zona > 0)
+                .map((zona) => (
+                  <SelectItem
+                    key={zona.id_zona}
+                    value={zona.id_zona!.toString()}
+                  >
+                    {zona.codigo} - {zona.descripcion}
+                  </SelectItem>
+                ))
+            )}
           </SelectContent>
         </Select>
+        <p className="text-sm text-muted-foreground">
+          Zona geográfica donde se encuentra el cliente.
+        </p>
       </div>
 
-      <div className="flex justify-end gap-2 pt-4">
+      {/* Estado Activo - campo booleano */}
+      <div className="flex items-center justify-between p-4 border rounded-lg">
+        <div className="space-y-1">
+          <Label htmlFor="activo" className="text-base font-medium">
+            Cliente Activo
+          </Label>
+          <p className="text-sm text-muted-foreground">
+            Los clientes inactivos no aparecerán en las listas principales.
+          </p>
+        </div>
+        <Switch
+          id="activo"
+          checked={formData.activo}
+          onCheckedChange={(checked) => handleInputChange("activo", checked)}
+        />
+      </div>
+
+      {/* Información adicional para edición */}
+      {isEditing && cliente && (
+        <div className="p-4 bg-muted/50 rounded-lg space-y-2">
+          <h4 className="font-medium text-sm">Información del Sistema</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
+            <div>
+              <span className="font-medium">ID:</span> {cliente.id_cliente}
+            </div>
+            <div>
+              <span className="font-medium">Creado:</span>{" "}
+              {cliente.created_at
+                ? new Date(cliente.created_at).toLocaleDateString("es-ES", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "N/A"}
+            </div>
+            <div>
+              <span className="font-medium">Última modificación:</span>{" "}
+              {cliente.updated_at
+                ? new Date(cliente.updated_at).toLocaleDateString("es-ES", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "N/A"}
+            </div>
+            {cliente.zona_nombre && (
+              <div>
+                <span className="font-medium">Zona actual:</span>{" "}
+                {cliente.zona_codigo} - {cliente.zona_nombre}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Botones de acción */}
+      <div className="flex justify-end gap-3 pt-6 border-t">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancelar
         </Button>
         <Button type="submit">
-          {isEditing ? "Actualizar Cliente" : "Registrar Cliente"}
+          {isEditing ? "Actualizar Cliente" : "Crear Cliente"}
         </Button>
       </div>
     </form>

@@ -42,10 +42,16 @@ export default function ClientesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
 
-  const handleSubmit = async (clienteData: Omit<Cliente, "id">) => {
+  const handleSubmit = async (clienteData: {
+    codigo: string;
+    nombre: string;
+    direccion?: string;
+    id_zona?: number;
+    activo: boolean;
+  }) => {
     try {
-      if (editingCliente && editingCliente.id) {
-        await updateCliente(editingCliente.id, clienteData);
+      if (editingCliente && editingCliente.id_cliente) {
+        await updateCliente(editingCliente.id_cliente, clienteData);
       } else {
         await createCliente(clienteData);
       }
@@ -65,8 +71,8 @@ export default function ClientesPage() {
 
   const handleDelete = async (cliente: Cliente) => {
     if (confirm(`¿Está seguro de eliminar el cliente ${cliente.nombre}?`)) {
-      if (cliente.id) {
-        await deleteCliente(cliente.id);
+      if (cliente.id_cliente) {
+        await deleteCliente(cliente.id_cliente);
       }
     }
   };
@@ -109,41 +115,61 @@ export default function ClientesPage() {
       key: "direccion",
       header: "Dirección",
       sortable: true,
+      render: (cliente) => (
+        <span
+          className="max-w-[200px] truncate block"
+          title={cliente.direccion || "Sin dirección"}
+        >
+          {cliente.direccion || (
+            <span className="text-gray-400 italic">Sin dirección</span>
+          )}
+        </span>
+      ),
     },
     {
       key: "zona_nombre",
       header: "Zona",
       sortable: true,
       render: (cliente) => (
-        <span className="text-sm bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded">
-          {cliente.zona_nombre || "Sin zona"}
-        </span>
+        <div className="space-y-1">
+          {cliente.zona_nombre ? (
+            <>
+              <div className="text-sm bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded">
+                {cliente.zona_nombre}
+              </div>
+              {cliente.zona_codigo && (
+                <div className="text-xs text-gray-500 font-mono">
+                  {cliente.zona_codigo}
+                </div>
+              )}
+            </>
+          ) : (
+            <span className="text-gray-400 italic">Sin zona</span>
+          )}
+        </div>
       ),
     },
     {
       key: "activo",
       header: "Estado",
       sortable: true,
-      render: (cliente) => {
-        const isActive = cliente.activo === 1 || cliente.activo === true;
-        return (
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${
-              isActive
-                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-            }`}
-          >
-            {isActive ? "Activo" : "Inactivo"}
-          </span>
-        );
-      },
+      render: (cliente) => (
+        <span
+          className={`px-2 py-1 rounded-full text-xs font-medium ${
+            cliente.activo
+              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+          }`}
+        >
+          {cliente.activo ? "Activo" : "Inactivo"}
+        </span>
+      ),
     },
     {
       key: "created_at",
       header: "Fecha Registro",
       sortable: true,
-      render: (cliente) => formatDateForDisplay(cliente.created_at),
+      render: (cliente) => formatDateForDisplay(cliente.created_at || ""),
     },
   ];
 
@@ -224,7 +250,7 @@ export default function ClientesPage() {
             <DataTable
               data={clientes}
               columns={columns}
-              searchPlaceholder="Buscar por nombre, código, RUC, ciudad..."
+              searchPlaceholder="Buscar por nombre, código, dirección, zona..."
               onEdit={handleEdit}
               onDelete={handleDelete}
               showDateFilter={true}
@@ -232,10 +258,9 @@ export default function ClientesPage() {
               searchKeys={[
                 "nombre",
                 "codigo",
-                "ruc",
-                "ciudad",
-                "email",
-                "contacto_nombre",
+                "direccion",
+                "zona_nombre",
+                "zona_codigo",
               ]}
             />
           </CardContent>
