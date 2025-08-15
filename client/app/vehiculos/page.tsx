@@ -17,11 +17,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, ArrowLeft, Truck } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Plus, ArrowLeft, Truck, AlertTriangle, Info } from "lucide-react";
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { VehiculoFormSimple } from "@/components/forms/vehiculo-form-simple";
-import { useVehiculos, type Vehiculo } from "@/hooks/use-vehiculos";
+import {
+  useVehiculos,
+  type Vehiculo,
+  normalizeBoolean,
+} from "@/hooks/use-vehiculos";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { formatDateForDisplay } from "@/lib/utils/date";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,6 +54,16 @@ export default function VehiculosPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehiculo, setEditingVehiculo] = useState<Vehiculo | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [vehiculoToDelete, setVehiculoToDelete] = useState<Vehiculo | null>(
+    null,
+  );
+  const [lastDeleteResult, setLastDeleteResult] = useState<{
+    type: "deleted" | "deactivated";
+    message: string;
+    details?: string;
+    relatedCount?: number;
+  } | null>(null);
 
   const handleSubmit = async (vehiculoData: Omit<Vehiculo, "id_vehiculo">) => {
     try {
@@ -59,29 +84,44 @@ export default function VehiculosPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (vehiculo: Vehiculo) => {
-    if (!vehiculo.id_vehiculo) return;
+  const handleDelete = (vehiculo: Vehiculo) => {
+    setVehiculoToDelete(vehiculo);
+    setDeleteDialogOpen(true);
+  };
 
-    // Simple confirmation dialog first
-    if (
-      confirm(
-        `¿Está seguro de eliminar el vehículo ${vehiculo.placa}?\n\nEsta acción no se puede deshacer.`,
-      )
-    ) {
-      try {
-        const result = await deleteVehiculo(vehiculo.id_vehiculo);
-        if (result.success) {
-        } else {
-          alert(
-            `Error al eliminar el vehículo: ${result.error || "Error desconocido"}`,
-          );
-        }
-      } catch (error) {
-        alert(
-          `Error inesperado al eliminar el vehículo: ${error instanceof Error ? error.message : "Error desconocido"}`,
-        );
+  const confirmDelete = async () => {
+    if (!vehiculoToDelete?.id_vehiculo) return;
+
+    try {
+      const result = await deleteVehiculo(vehiculoToDelete.id_vehiculo);
+      if (result.success) {
+        // Guardar el resultado para mostrar la alerta correspondiente
+        setLastDeleteResult({
+          type: (result as any).type || "deleted",
+          message: result.message || "Operación completada",
+          details: (result as any).details,
+          relatedCount: (result as any).relatedCount,
+        });
+      } else {
+        setLastDeleteResult({
+          type: "deleted",
+          message: `Error al eliminar el vehículo: ${result.error || "Error desconocido"}`,
+        });
       }
+    } catch (error) {
+      setLastDeleteResult({
+        type: "deleted",
+        message: `Error inesperado: ${error instanceof Error ? error.message : "Error desconocido"}`,
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setVehiculoToDelete(null);
     }
+  };
+
+  const cancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setVehiculoToDelete(null);
   };
 
   const handleCancel = () => {
@@ -149,7 +189,7 @@ export default function VehiculosPage() {
       header: "Estado",
       sortable: true,
       render: (vehiculo) => {
-        const isActive = vehiculo.activo === true;
+        const isActive = normalizeBoolean(vehiculo.activo);
         return (
           <span
             className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -194,6 +234,53 @@ export default function VehiculosPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-4 sm:py-8">
+        {/* Alerta de resultado de eliminación */}
+        {lastDeleteResult && (
+          <Alert
+            className={`mb-6 ${
+              lastDeleteResult.type === "deactivated"
+                ? "border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950"
+                : lastDeleteResult.message.includes("Error")
+                  ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950"
+                  : "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              {lastDeleteResult.type === "deactivated" ? (
+                <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5" />
+              ) : lastDeleteResult.message.includes("Error") ? (
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+              ) : (
+                <Info className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+              )}
+              <div className="flex-1">
+                <AlertDescription className="text-sm font-medium mb-1">
+                  {lastDeleteResult.message}
+                </AlertDescription>
+                {lastDeleteResult.details && (
+                  <AlertDescription className="text-xs opacity-80">
+                    {lastDeleteResult.details}
+                  </AlertDescription>
+                )}
+                {lastDeleteResult.type === "deactivated" && (
+                  <AlertDescription className="text-xs mt-2 opacity-80">
+                    💡 El vehículo permanece en el sistema para preservar el
+                    historial de viajes.
+                  </AlertDescription>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLastDeleteResult(null)}
+                className="h-6 w-6 p-0 opacity-60 hover:opacity-100"
+              >
+                ×
+              </Button>
+            </div>
+          </Alert>
+        )}
+
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Link href="/">
@@ -288,6 +375,49 @@ export default function VehiculosPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Dialog de confirmación de eliminación */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-orange-600" />
+                Confirmar Eliminación
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3">
+                <p>
+                  ¿Está seguro de que desea eliminar el vehículo{" "}
+                  <span className="font-semibold">
+                    {vehiculoToDelete?.placa}
+                  </span>
+                  ?
+                </p>
+                <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                    <Info className="h-4 w-4 inline mr-1" />
+                    <strong>Importante:</strong> Si este vehículo tiene viajes
+                    registrados, será <strong>desactivado</strong> en lugar de
+                    eliminado para preservar el historial de datos.
+                  </p>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Esta acción no se puede deshacer fácilmente.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={cancelDelete}>
+                Cancelar
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Sí, eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

@@ -3,6 +3,12 @@
 import { useState, useCallback, useEffect } from "react";
 import { useSimpleCrud } from "./use-simple-api";
 
+// Helper function para normalizar valores booleanos que vienen de la BD
+// MySQL devuelve BOOLEAN como TINYINT(1) que puede ser 1/0 o true/false
+export const normalizeBoolean = (value: any): boolean => {
+  return value === true || value === 1;
+};
+
 export interface Vehiculo {
   id_vehiculo?: number;
   placa: string;
@@ -104,9 +110,26 @@ export const useVehiculos = () => {
       try {
         const response = await crud.remove(id);
         if (response.success) {
-          // Remover el vehículo del estado sin recargar toda la lista
-          setVehiculos((prev) => prev.filter((v) => v.id_vehiculo !== id));
-          return { success: true };
+          // Solo remover del estado si fue eliminado completamente
+          // Si fue desactivado, mantenerlo pero actualizar el estado
+          if (response.type === "deleted") {
+            setVehiculos((prev) => prev.filter((v) => v.id_vehiculo !== id));
+          } else if (response.type === "deactivated") {
+            setVehiculos((prev) =>
+              prev.map((v) =>
+                v.id_vehiculo === id ? { ...v, activo: false } : v,
+              ),
+            );
+          }
+
+          return {
+            success: true,
+            type: response.type,
+            message: response.message,
+            details: response.details,
+            relatedCount: response.relatedCount,
+            hasRelatedRecords: response.hasRelatedRecords,
+          };
         } else {
           const errorMsg =
             response.error || response.message || "Error al eliminar vehículo";
@@ -150,7 +173,9 @@ export const useVehiculos = () => {
       const vehiculo = vehiculos.find((v) => v.id_vehiculo === id);
       if (!vehiculo) return { success: false, error: "Vehículo no encontrado" };
 
-      const nuevoEstado = !vehiculo.activo;
+      // Usar función helper para normalizar el valor booleano
+      const isCurrentlyActive = normalizeBoolean(vehiculo.activo);
+      const nuevoEstado = !isCurrentlyActive;
       return await updateVehiculo(id, { activo: nuevoEstado });
     },
     [vehiculos, updateVehiculo],
@@ -158,12 +183,12 @@ export const useVehiculos = () => {
 
   // Obtener vehículos activos
   const getVehiculosActivos = useCallback(() => {
-    return vehiculos.filter((vehiculo) => vehiculo.activo === true);
+    return vehiculos.filter((vehiculo) => normalizeBoolean(vehiculo.activo));
   }, [vehiculos]);
 
   // Obtener vehículos inactivos
   const getVehiculosInactivos = useCallback(() => {
-    return vehiculos.filter((vehiculo) => vehiculo.activo === false);
+    return vehiculos.filter((vehiculo) => !normalizeBoolean(vehiculo.activo));
   }, [vehiculos]);
 
   // Buscar vehículos por placa

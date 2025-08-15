@@ -9,6 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Edit, Trash2 } from "lucide-react";
 import { formatDateForDisplay } from "@/lib/utils/date";
+import { normalizeBoolean } from "@/hooks/use-vehiculos";
 
 interface Vehiculo {
   id_vehiculo: number;
@@ -74,12 +75,12 @@ export function VehiculosTable({
               <TableCell>
                 <span
                   className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    vehiculo.activo
+                    normalizeBoolean(vehiculo.activo)
                       ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
                       : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
                   }`}
                 >
-                  {vehiculo.activo ? "Activo" : "Inactivo"}
+                  {normalizeBoolean(vehiculo.activo) ? "Activo" : "Inactivo"}
                 </span>
               </TableCell>
               <TableCell>{formatDateForDisplay(vehiculo.created_at)}</TableCell>
