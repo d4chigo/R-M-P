@@ -107,9 +107,28 @@ export const useClientes = () => {
       try {
         const response = await crud.remove(id);
         if (response.success) {
-          // Remover el cliente del estado sin recargar toda la lista
-          setClientes((prev) => prev.filter((c) => c.id_cliente !== id));
-          return { success: true };
+          // Determinar el tipo de eliminación basado en el mensaje de respuesta
+          const isDeactivated = response.message?.includes("desactivado");
+          const isDeleted = response.message?.includes("eliminado");
+
+          if (isDeactivated) {
+            // Si fue desactivado, actualizar el estado del cliente en lugar de eliminarlo
+            setClientes((prev) =>
+              prev.map((c) =>
+                c.id_cliente === id ? { ...c, activo: false } : c,
+              ),
+            );
+          } else {
+            // Si fue eliminado completamente, removerlo del estado
+            setClientes((prev) => prev.filter((c) => c.id_cliente !== id));
+          }
+
+          return {
+            success: true,
+            isDeactivated,
+            isDeleted,
+            message: response.message,
+          };
         } else {
           setError(response.error || "Error al eliminar cliente");
           return { success: false, error: response.error };
