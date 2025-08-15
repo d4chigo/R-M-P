@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useSimpleCrud } from "./use-simple-api";
+import { useAuth } from "@/contexts/AuthContext";
+import Cookies from "js-cookie";
 
 export interface Zona {
   id_zona?: number;
@@ -18,146 +19,199 @@ export const useZonas = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const crud = useSimpleCrud<Zona>("/zonas");
+  const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
-  // Cargar todas las zonas
+  // Función simplificada para obtener zonas
   const fetchZonas = useCallback(async () => {
-    if (isLoading) return;
+    if (isLoading) {
+      console.log("🔄 useZonas: Ya hay una carga en progreso, saltando...");
+      return;
+    }
 
+    console.log("🔍 useZonas: Iniciando carga de zonas...");
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await crud.getAll();
-      if (response.success && response.data) {
-        setZonas(response.data);
+      // Obtener token de autenticación
+      const authToken = Cookies.get("auth_token");
+
+      if (!authToken) {
+        console.warn("⚠️ useZonas: No hay token de autenticación");
+        setError("No se ha iniciado sesión");
+        return;
+      }
+
+      console.log("🔑 useZonas: Token encontrado, haciendo request...");
+
+      const response = await fetch(`${API_BASE_URL}/zonas`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      console.log("📡 useZonas: Response status:", response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("📊 useZonas: Respuesta del servidor:", data);
+
+      if (data.success && data.data) {
+        console.log(
+          `✅ useZonas: ${data.data.length} zonas cargadas exitosamente`,
+        );
+        setZonas(data.data);
       } else {
-        setError(response.error || "Error al cargar zonas");
+        console.error("❌ useZonas: Error en respuesta:", data.message);
+        setError(data.message || "Error al cargar zonas");
       }
     } catch (err) {
-      setError("Error de conexión");
-      console.error("Error fetching zonas:", err);
+      console.error("❌ useZonas: Error de conexión:", err);
+      setError("Error de conexión al cargar zonas");
     } finally {
       setIsLoading(false);
     }
-  }, [crud]);
+  }, [API_BASE_URL, isLoading]);
 
   // Crear zona
   const createZona = useCallback(
     async (zona: Omit<Zona, "id_zona">) => {
-      setError(null);
-
       try {
-        const response = await crud.create(zona);
-        if (response.success) {
-          if (response.data) {
-            setZonas((prev) => [response.data as Zona, ...prev]);
+        const authToken = Cookies.get("auth_token");
+        if (!authToken) {
+          return { success: false, error: "No se ha iniciado sesión" };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/zonas`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(zona),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          if (data.data) {
+            setZonas((prev) => [data.data as Zona, ...prev]);
           } else {
             await fetchZonas();
           }
-          return { success: true, data: response.data };
+          return { success: true, data: data.data };
         } else {
-          setError(response.error || "Error al crear zona");
-          return { success: false, error: response.error };
+          return { success: false, error: data.message };
         }
       } catch (err) {
-        const errorMessage = "Error de conexión al crear zona";
-        setError(errorMessage);
-        return { success: false, error: errorMessage };
+        return { success: false, error: "Error de conexión" };
       }
     },
-    [crud, fetchZonas],
+    [API_BASE_URL, fetchZonas],
   );
 
   // Actualizar zona
   const updateZona = useCallback(
     async (id: number, zona: Partial<Zona>) => {
-      setError(null);
-
       try {
-        const response = await crud.update(id, zona);
-        if (response.success) {
+        const authToken = Cookies.get("auth_token");
+        if (!authToken) {
+          return { success: false, error: "No se ha iniciado sesión" };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/zonas/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(zona),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
           setZonas((prev) =>
-            prev.map((z) => (z.id_zona === id ? ({ ...z, ...zona } as Zona) : z)),
+            prev.map((z) =>
+              z.id_zona === id ? ({ ...z, ...zona } as Zona) : z,
+            ),
           );
-          return { success: true, data: response.data };
+          return { success: true, data: data.data };
         } else {
-          setError(response.error || "Error al actualizar zona");
-          return { success: false, error: response.error };
+          return { success: false, error: data.message };
         }
       } catch (err) {
-        const errorMessage = "Error de conexión al actualizar zona";
-        setError(errorMessage);
-        return { success: false, error: errorMessage };
+        return { success: false, error: "Error de conexión" };
       }
     },
-    [crud],
+    [API_BASE_URL],
   );
 
   // Eliminar zona
   const deleteZona = useCallback(
     async (id: number) => {
-      setError(null);
-
       try {
-        const response = await crud.remove(id);
-        if (response.success) {
+        const authToken = Cookies.get("auth_token");
+        if (!authToken) {
+          return { success: false, error: "No se ha iniciado sesión" };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/zonas/${id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
           setZonas((prev) => prev.filter((z) => z.id_zona !== id));
           return { success: true };
         } else {
-          setError(response.error || "Error al eliminar zona");
-          return { success: false, error: response.error };
+          return { success: false, error: data.message };
         }
       } catch (err) {
-        const errorMessage = "Error de conexión al eliminar zona";
-        setError(errorMessage);
-        return { success: false, error: errorMessage };
+        return { success: false, error: "Error de conexión" };
       }
     },
-    [crud],
+    [API_BASE_URL],
   );
 
   // Obtener zona por ID
   const getZonaById = useCallback(
     async (id: number) => {
-      setError(null);
-
       try {
-        const response = await crud.getById(id);
-        if (response.success) {
-          return { success: true, data: response.data };
+        const authToken = Cookies.get("auth_token");
+        if (!authToken) {
+          return { success: false, error: "No se ha iniciado sesión" };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/zonas/${id}`, {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          return { success: true, data: data.data };
         } else {
-          setError(response.error || "Error al obtener zona");
-          return { success: false, error: response.error };
+          return { success: false, error: data.message };
         }
       } catch (err) {
-        const errorMessage = "Error de conexión al obtener zona";
-        setError(errorMessage);
-        return { success: false, error: errorMessage };
+        return { success: false, error: "Error de conexión" };
       }
     },
-    [crud],
+    [API_BASE_URL],
   );
-
-  // Obtener zona por código
-  const getZonaByCodigo = useCallback(async (codigo: string) => {
-    setError(null);
-
-    try {
-      const response = await fetch(`/api/zonas/codigo/${codigo}`);
-      const data = await response.json();
-      if (data.success) {
-        return { success: true, data: data.data };
-      } else {
-        setError(data.message || "Error al obtener zona");
-        return { success: false, error: data.message };
-      }
-    } catch (err) {
-      const errorMessage = "Error de conexión al obtener zona";
-      setError(errorMessage);
-      return { success: false, error: errorMessage };
-    }
-  }, []);
 
   // Buscar zonas por descripción
   const searchByDescripcion = useCallback(
@@ -179,10 +233,26 @@ export const useZonas = () => {
     [zonas],
   );
 
-  // Efecto para cargar zonas al montar el componente
+  // Cargar zonas automáticamente
   useEffect(() => {
-    fetchZonas();
-  }, []);
+    console.log("🚀 useZonas: useEffect ejecutándose");
+    console.log("   Zonas actuales:", zonas.length);
+    console.log("   IsLoading:", isLoading);
+    console.log("   Error:", error);
+
+    // Solo cargar si no hay zonas, no está cargando y no hay error
+    if (zonas.length === 0 && !isLoading && !error) {
+      console.log("🎯 useZonas: Condiciones cumplidas, iniciando carga...");
+      fetchZonas();
+    }
+  }, []); // Dependencias vacías para que solo se ejecute al montar
+
+  // Log cuando cambien las zonas
+  useEffect(() => {
+    if (zonas.length > 0) {
+      console.log(`📋 useZonas: Estado actualizado con ${zonas.length} zonas`);
+    }
+  }, [zonas]);
 
   return {
     zonas,
@@ -193,7 +263,6 @@ export const useZonas = () => {
     updateZona,
     deleteZona,
     getZonaById,
-    getZonaByCodigo,
     searchByDescripcion,
     searchByCodigo,
     refetch: fetchZonas,
