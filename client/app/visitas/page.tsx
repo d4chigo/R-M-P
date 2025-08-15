@@ -59,7 +59,7 @@ export default function VisitasPage() {
   const handleDelete = async (visita: Visita) => {
     if (
       confirm(
-        `¿Está seguro de eliminar la visita al cliente ${visita.cliente_nombre}?`,
+        `¿Está seguro de eliminar la visita al cliente ${visita.cliente_nombre || "sin nombre"}?`,
       )
     ) {
       if (visita.id) {
@@ -93,7 +93,7 @@ export default function VisitasPage() {
         <div className="text-sm">
           <div className="font-medium">ID: {visita.id_viaje}</div>
           <div className="text-gray-500 dark:text-gray-400">
-            {visita.viaje_info}
+            {visita.viaje_info || "Sin información"}
           </div>
         </div>
       ),
@@ -106,7 +106,7 @@ export default function VisitasPage() {
         <div className="text-sm">
           <div className="font-medium">ID: {visita.id_cliente}</div>
           <div className="text-gray-500 dark:text-gray-400">
-            {visita.cliente_nombre}
+            {visita.cliente_nombre || "Cliente sin nombre"}
           </div>
         </div>
       ),
@@ -117,7 +117,7 @@ export default function VisitasPage() {
       sortable: true,
       render: (visita) => (
         <span className="text-green-600 dark:text-green-400 font-medium">
-          {visita.entrega.toLocaleString()}
+          {visita.entrega ? visita.entrega.toLocaleString() : "0"}
         </span>
       ),
     },
@@ -127,7 +127,7 @@ export default function VisitasPage() {
       sortable: true,
       render: (visita) => (
         <span className="text-blue-600 dark:text-blue-400 font-medium">
-          {visita.recojo.toLocaleString()}
+          {visita.recojo ? visita.recojo.toLocaleString() : "0"}
         </span>
       ),
     },
@@ -135,30 +135,40 @@ export default function VisitasPage() {
       key: "llega",
       header: "Llegada",
       sortable: true,
+      render: (visita) => (
+        <span className="font-mono text-xs">{visita.llega || "--:--:--"}</span>
+      ),
     },
     {
       key: "sale",
       header: "Salida",
       sortable: true,
+      render: (visita) => (
+        <span className="font-mono text-xs">{visita.sale || "--:--:--"}</span>
+      ),
     },
     {
       key: "sec1",
       header: "Sec1",
       render: (visita) => (
-        <span className="font-mono text-xs">{visita.sec1}</span>
+        <span className="font-mono text-xs">{visita.sec1 || "-"}</span>
       ),
     },
     {
       key: "sec2",
       header: "Sec2",
       render: (visita) => (
-        <span className="font-mono text-xs">{visita.sec2}</span>
+        <span className="font-mono text-xs">{visita.sec2 || "-"}</span>
       ),
     },
     {
       key: "distancia_km",
       header: "Distancia",
-      render: (visita) => visita.distancia_km || "-",
+      render: (visita) => (
+        <span className="text-sm">
+          {visita.distancia_km ? `${visita.distancia_km} km` : "-"}
+        </span>
+      ),
     },
   ];
 

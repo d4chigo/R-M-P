@@ -19,19 +19,15 @@ import { useClientes } from "@/hooks/use-clientes";
 
 interface VisitaFormProps {
   visita?: Visita | null;
-  onSubmit: (
-    visita: Omit<
-      Visita,
-      | "id"
-      | "cliente_nombre"
-      | "viaje_info"
-      | "cliente_codigo"
-      | "cliente_ruc"
-      | "viaje_fecha"
-      | "ruta_nombre"
-      | "vehiculo_placa"
-    >,
-  ) => void;
+  onSubmit: (visita: {
+    id_viaje: number;
+    id_cliente: number;
+    pedidos?: number;
+    entrega_cf?: number;
+    recojo_cf?: number;
+    peso_kg?: number;
+    distancia_km?: number;
+  }) => void;
   onCancel: () => void;
   isEditing?: boolean;
 }
@@ -48,12 +44,10 @@ export function VisitaForm({
   const [formData, setFormData] = useState({
     id_viaje: "",
     id_cliente: "",
-    entrega: "",
-    recojo: "",
-    llega: "",
-    sale: "",
-    sec1: "",
-    sec2: "",
+    pedidos: "",
+    entrega_cf: "",
+    recojo_cf: "",
+    peso_kg: "",
     distancia_km: "",
   });
 
@@ -62,12 +56,10 @@ export function VisitaForm({
       setFormData({
         id_viaje: visita.id_viaje.toString(),
         id_cliente: visita.id_cliente.toString(),
-        entrega: visita.entrega.toString(),
-        recojo: visita.recojo.toString(),
-        llega: visita.llega,
-        sale: visita.sale,
-        sec1: visita.sec1,
-        sec2: visita.sec2,
+        pedidos: visita.pedidos?.toString() || "",
+        entrega_cf: visita.entrega_cf?.toString() || "",
+        recojo_cf: visita.recojo_cf?.toString() || "",
+        peso_kg: visita.peso_kg?.toString() || "",
         distancia_km: visita.distancia_km?.toString() || "",
       });
     }
@@ -75,21 +67,34 @@ export function VisitaForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validaciones básicas
+    if (!formData.id_viaje || !formData.id_cliente) {
+      alert("Viaje y cliente son obligatorios");
+      return;
+    }
+
     onSubmit({
       id_viaje: Number.parseInt(formData.id_viaje),
       id_cliente: Number.parseInt(formData.id_cliente),
-      entrega: Number.parseFloat(formData.entrega),
-      recojo: Number.parseFloat(formData.recojo),
-      llega: formData.llega,
-      sale: formData.sale,
-      sec1: formData.sec1,
-      sec2: formData.sec2,
-      distancia_km: formData.distancia_km || undefined,
+      pedidos: formData.pedidos ? Number.parseInt(formData.pedidos) : undefined,
+      entrega_cf: formData.entrega_cf
+        ? Number.parseFloat(formData.entrega_cf)
+        : undefined,
+      recojo_cf: formData.recojo_cf
+        ? Number.parseFloat(formData.recojo_cf)
+        : undefined,
+      peso_kg: formData.peso_kg
+        ? Number.parseFloat(formData.peso_kg)
+        : undefined,
+      distancia_km: formData.distancia_km
+        ? Number.parseFloat(formData.distancia_km)
+        : undefined,
     });
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev: typeof formData) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -106,8 +111,12 @@ export function VisitaForm({
             </SelectTrigger>
             <SelectContent>
               {viajes.map((viaje) => (
-                <SelectItem key={viaje.id} value={viaje.id?.toString() || ""}>
-                  {viaje.id} - {viaje.ruta} ({viaje.fecha})
+                <SelectItem
+                  key={viaje.id || viaje.id_viaje}
+                  value={(viaje.id || viaje.id_viaje)?.toString() || ""}
+                >
+                  {viaje.id || viaje.id_viaje} - Viaje #{viaje.nro_viaje} (
+                  {viaje.fecha})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -125,10 +134,10 @@ export function VisitaForm({
             <SelectContent>
               {clientes.map((cliente) => (
                 <SelectItem
-                  key={cliente.id}
-                  value={cliente.id?.toString() || ""}
+                  key={cliente.id || cliente.id_cliente}
+                  value={(cliente.id || cliente.id_cliente)?.toString() || ""}
                 >
-                  {cliente.id} - {cliente.nombre}
+                  {cliente.id || cliente.id_cliente} - {cliente.nombre}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -138,87 +147,62 @@ export function VisitaForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <Label htmlFor="entrega">Entrega (kg) *</Label>
+          <Label htmlFor="pedidos">Número de Pedidos</Label>
           <Input
-            id="entrega"
+            id="pedidos"
+            type="number"
+            value={formData.pedidos}
+            onChange={(e) => handleInputChange("pedidos", e.target.value)}
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <Label htmlFor="entrega_cf">Entrega (CF)</Label>
+          <Input
+            id="entrega_cf"
             type="number"
             step="0.01"
-            value={formData.entrega}
-            onChange={(e) => handleInputChange("entrega", e.target.value)}
-            placeholder="1500.50"
-            required
+            value={formData.entrega_cf}
+            onChange={(e) => handleInputChange("entrega_cf", e.target.value)}
+            placeholder="0.00"
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
-          <Label htmlFor="recojo">Recojo (kg) *</Label>
+          <Label htmlFor="recojo_cf">Recojo (CF)</Label>
           <Input
-            id="recojo"
+            id="recojo_cf"
             type="number"
             step="0.01"
-            value={formData.recojo}
-            onChange={(e) => handleInputChange("recojo", e.target.value)}
-            placeholder="800.25"
-            required
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="llega">Hora de Llegada *</Label>
-          <Input
-            id="llega"
-            type="time"
-            value={formData.llega}
-            onChange={(e) => handleInputChange("llega", e.target.value)}
-            required
+            value={formData.recojo_cf}
+            onChange={(e) => handleInputChange("recojo_cf", e.target.value)}
+            placeholder="0.00"
           />
         </div>
         <div>
-          <Label htmlFor="sale">Hora de Salida *</Label>
+          <Label htmlFor="peso_kg">Peso (kg)</Label>
           <Input
-            id="sale"
-            type="time"
-            value={formData.sale}
-            onChange={(e) => handleInputChange("sale", e.target.value)}
-            required
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="sec1">Secuencia 1 *</Label>
-          <Input
-            id="sec1"
-            value={formData.sec1}
-            onChange={(e) => handleInputChange("sec1", e.target.value)}
-            placeholder="SEC001"
-            required
+            id="peso_kg"
+            type="number"
+            step="0.01"
+            value={formData.peso_kg}
+            onChange={(e) => handleInputChange("peso_kg", e.target.value)}
+            placeholder="0.00"
           />
         </div>
         <div>
-          <Label htmlFor="sec2">Secuencia 2 *</Label>
+          <Label htmlFor="distancia_km">Distancia (km)</Label>
           <Input
-            id="sec2"
-            value={formData.sec2}
-            onChange={(e) => handleInputChange("sec2", e.target.value)}
-            placeholder="SEC002"
-            required
+            id="distancia_km"
+            type="number"
+            step="0.01"
+            value={formData.distancia_km}
+            onChange={(e) => handleInputChange("distancia_km", e.target.value)}
+            placeholder="0.0"
           />
         </div>
-      </div>
-
-      <div>
-        <Label htmlFor="distancia_km">Distancia (km) - Opcional</Label>
-        <Input
-          id="distancia_km"
-          type="number"
-          step="0.01"
-          value={formData.distancia_km}
-          onChange={(e) => handleInputChange("distancia_km", e.target.value)}
-          placeholder="25.5"
-        />
       </div>
 
       <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">

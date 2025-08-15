@@ -4,21 +4,16 @@ import { useState, useCallback, useEffect } from "react";
 import { useSimpleCrud } from "./use-simple-api";
 
 export interface Vehiculo {
-  id?: number;
+  id_vehiculo?: number;
   placa: string;
   marca: string;
   modelo: string;
-  anio: number;
-  tipo: string;
-  capacidad_carga_kg: number;
-  tipo_carga: string;
-  estado: string;
-  fecha_adquisicion: string;
-  vin: string;
+  anio?: number;
+  capacidad_kg?: number;
+  capacidad_cajas?: number;
+  activo?: boolean;
   created_at?: string;
   updated_at?: string;
-  created_by?: string;
-  updated_by?: string;
 }
 
 export const useVehiculos = () => {
@@ -51,7 +46,7 @@ export const useVehiculos = () => {
 
   // Crear vehículo
   const createVehiculo = useCallback(
-    async (vehiculo: Omit<Vehiculo, "id">) => {
+    async (vehiculo: Omit<Vehiculo, "id_vehiculo">) => {
       setError(null);
 
       try {
@@ -85,7 +80,7 @@ export const useVehiculos = () => {
         if (response.success) {
           // Actualizar solo el vehículo modificado en el estado
           setVehiculos((prev) =>
-            prev.map((v) => (v.id === id ? { ...v, ...vehiculo } : v)),
+            prev.map((v) => (v.id_vehiculo === id ? { ...v, ...vehiculo } : v)),
           );
           return { success: true, data: response.data };
         } else {
@@ -110,7 +105,7 @@ export const useVehiculos = () => {
         const response = await crud.remove(id);
         if (response.success) {
           // Remover el vehículo del estado sin recargar toda la lista
-          setVehiculos((prev) => prev.filter((v) => v.id !== id));
+          setVehiculos((prev) => prev.filter((v) => v.id_vehiculo !== id));
           return { success: true };
         } else {
           const errorMsg =
@@ -149,28 +144,43 @@ export const useVehiculos = () => {
     [crud.getById],
   );
 
-  // Cambiar estado del vehículo
-  const toggleVehiculoEstado = useCallback(
-    async (id: number, currentEstado: string) => {
-      const newEstado = currentEstado === "Activo" ? "Inactivo" : "Activo";
-      return await updateVehiculo(id, { estado: newEstado });
+  // Cambiar estado activo/inactivo del vehículo
+  const toggleVehiculoActivo = useCallback(
+    async (id: number) => {
+      const vehiculo = vehiculos.find((v) => v.id_vehiculo === id);
+      if (!vehiculo) return { success: false, error: "Vehículo no encontrado" };
+
+      const nuevoEstado = !vehiculo.activo;
+      return await updateVehiculo(id, { activo: nuevoEstado });
     },
-    [updateVehiculo],
+    [vehiculos, updateVehiculo],
   );
 
-  // Obtener vehículos por estado
-  const getVehiculosByEstado = useCallback(
-    (estado: string) => {
-      return vehiculos.filter((vehiculo) => vehiculo.estado === estado);
-    },
-    [vehiculos],
-  );
+  // Obtener vehículos activos
+  const getVehiculosActivos = useCallback(() => {
+    return vehiculos.filter((vehiculo) => vehiculo.activo === true);
+  }, [vehiculos]);
+
+  // Obtener vehículos inactivos
+  const getVehiculosInactivos = useCallback(() => {
+    return vehiculos.filter((vehiculo) => vehiculo.activo === false);
+  }, [vehiculos]);
 
   // Buscar vehículos por placa
   const searchByPlaca = useCallback(
     (placa: string) => {
       return vehiculos.filter((vehiculo) =>
         vehiculo.placa.toLowerCase().includes(placa.toLowerCase()),
+      );
+    },
+    [vehiculos],
+  );
+
+  // Buscar vehículos por marca
+  const searchByMarca = useCallback(
+    (marca: string) => {
+      return vehiculos.filter((vehiculo) =>
+        vehiculo.marca.toLowerCase().includes(marca.toLowerCase()),
       );
     },
     [vehiculos],
@@ -202,9 +212,11 @@ export const useVehiculos = () => {
     updateVehiculo,
     deleteVehiculo,
     getVehiculoById,
-    toggleVehiculoEstado,
-    getVehiculosByEstado,
+    toggleVehiculoActivo,
+    getVehiculosActivos,
+    getVehiculosInactivos,
     searchByPlaca,
+    searchByMarca,
     refetch: fetchVehiculos,
   };
 };

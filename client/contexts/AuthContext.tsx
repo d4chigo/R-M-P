@@ -10,12 +10,14 @@ import React, {
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 
-// Tipos
+// Tipos actualizados para la nueva estructura
 interface Usuario {
-  id: number;
-  nombre: string;
+  id_usuario: number;
+  username: string;
+  nombre_completo: string;
   email: string;
-  estado: number;
+  telefono?: string;
+  activo: boolean;
   created_at?: string;
   updated_at?: string;
 }
@@ -77,7 +79,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         },
         body: JSON.stringify({
           email,
-          contrasena: password,
+          password,
         }),
       });
 

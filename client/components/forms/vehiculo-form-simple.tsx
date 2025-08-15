@@ -12,11 +12,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Vehiculo } from "@/hooks/use-vehiculos";
-import { formatDateForInput } from "@/lib/utils/date";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
 
 interface VehiculoFormSimpleProps {
   vehiculo?: Vehiculo | null;
-  onSubmit: (vehiculo: Omit<Vehiculo, "id">) => void;
+  onSubmit: (vehiculo: Omit<Vehiculo, "id_vehiculo">) => void;
   onCancel: () => void;
   isEditing?: boolean;
 }
@@ -27,214 +28,228 @@ export function VehiculoFormSimple({
   onCancel,
   isEditing = false,
 }: VehiculoFormSimpleProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     placa: "",
     marca: "",
     modelo: "",
     anio: "",
-    tipo: "",
-    capacidad_carga_kg: "",
-    tipo_carga: "",
-    estado: "",
-    fecha_adquisicion: "",
-    vin: "",
+    capacidad_kg: "",
+    capacidad_cajas: "",
+    activo: true,
   });
 
   useEffect(() => {
     if (vehiculo) {
-      // Format date for HTML date input (YYYY-MM-DD)
-      const formattedDate = formatDateForInput(vehiculo.fecha_adquisicion);
-
       setFormData({
         placa: vehiculo.placa || "",
         marca: vehiculo.marca || "",
         modelo: vehiculo.modelo || "",
         anio: vehiculo.anio?.toString() || "",
-        tipo: vehiculo.tipo || "",
-        capacidad_carga_kg: vehiculo.capacidad_carga_kg?.toString() || "",
-        tipo_carga: vehiculo.tipo_carga || "",
-        estado: vehiculo.estado || "",
-        fecha_adquisicion: formattedDate,
-        vin: vehiculo.vin || "",
+        capacidad_kg: vehiculo.capacidad_kg?.toString() || "",
+        capacidad_cajas: vehiculo.capacidad_cajas?.toString() || "",
+        activo: vehiculo.activo ?? true,
       });
     }
   }, [vehiculo]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    setFormError(null);
 
-    onSubmit({
-      placa: formData.placa,
-      marca: formData.marca,
-      modelo: formData.modelo,
-      anio: Number.parseInt(formData.anio) || 0,
-      tipo: formData.tipo,
-      capacidad_carga_kg: Number.parseFloat(formData.capacidad_carga_kg) || 0,
-      tipo_carga: formData.tipo_carga,
-      estado: formData.estado,
-      fecha_adquisicion: formData.fecha_adquisicion,
-      vin: formData.vin,
-    });
+    try {
+      // Validaciones básicas
+      if (!formData.placa.trim()) {
+        throw new Error("La placa es requerida");
+      }
+      if (!formData.marca.trim()) {
+        throw new Error("La marca es requerida");
+      }
+      if (!formData.modelo.trim()) {
+        throw new Error("El modelo es requerido");
+      }
+
+      await onSubmit({
+        placa: formData.placa.trim().toUpperCase(),
+        marca: formData.marca.trim(),
+        modelo: formData.modelo.trim(),
+        anio: formData.anio ? Number.parseInt(formData.anio) : undefined,
+        capacidad_kg: formData.capacidad_kg
+          ? Number.parseFloat(formData.capacidad_kg)
+          : undefined,
+        capacidad_cajas: formData.capacidad_cajas
+          ? Number.parseInt(formData.capacidad_cajas)
+          : undefined,
+        activo: formData.activo,
+      });
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : "Error al guardar el vehículo. Por favor intenta nuevamente.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+    <div className="space-y-4">
+      {formError && (
+        <Alert variant="destructive">
+          <AlertDescription>{formError}</AlertDescription>
+        </Alert>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Placa - Campo requerido */}
         <div>
           <Label htmlFor="placa">Placa *</Label>
           <Input
             id="placa"
             value={formData.placa}
-            onChange={(e) => handleInputChange("placa", e.target.value)}
+            onChange={(e) =>
+              handleInputChange("placa", e.target.value.toUpperCase())
+            }
             placeholder="ABC-123"
+            maxLength={10}
+            className="mobile-input"
             required
           />
         </div>
-        <div>
-          <Label htmlFor="vin">VIN *</Label>
-          <Input
-            id="vin"
-            value={formData.vin}
-            onChange={(e) => handleInputChange("vin", e.target.value)}
-            placeholder="1HGCM82633A004352"
-            required
-          />
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="marca">Marca *</Label>
-          <Input
-            id="marca"
-            value={formData.marca}
-            onChange={(e) => handleInputChange("marca", e.target.value)}
-            placeholder="Volvo"
-            required
-          />
+        {/* Marca y Modelo - Campos requeridos */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="marca">Marca *</Label>
+            <Input
+              id="marca"
+              value={formData.marca}
+              onChange={(e) => handleInputChange("marca", e.target.value)}
+              placeholder="Toyota, Volvo, Mercedes, etc."
+              maxLength={50}
+              className="mobile-input"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="modelo">Modelo *</Label>
+            <Input
+              id="modelo"
+              value={formData.modelo}
+              onChange={(e) => handleInputChange("modelo", e.target.value)}
+              placeholder="FH16, Actros, Hino, etc."
+              maxLength={50}
+              className="mobile-input"
+              required
+            />
+          </div>
         </div>
-        <div>
-          <Label htmlFor="modelo">Modelo *</Label>
-          <Input
-            id="modelo"
-            value={formData.modelo}
-            onChange={(e) => handleInputChange("modelo", e.target.value)}
-            placeholder="FH16"
-            required
-          />
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="anio">Año *</Label>
-          <Input
-            id="anio"
-            type="number"
-            value={formData.anio}
-            onChange={(e) => handleInputChange("anio", e.target.value)}
-            placeholder="2023"
-            min="1990"
-            max="2030"
-            required
-          />
+        {/* Año - Campo opcional */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="anio">Año</Label>
+            <Input
+              id="anio"
+              type="number"
+              value={formData.anio}
+              onChange={(e) => handleInputChange("anio", e.target.value)}
+              placeholder="2023"
+              min="1990"
+              max="2030"
+              className="mobile-input"
+            />
+          </div>
+          <div>
+            <Label htmlFor="activo">Estado</Label>
+            <Select
+              value={formData.activo ? "true" : "false"}
+              onValueChange={(value) =>
+                handleInputChange("activo", value === "true")
+              }
+            >
+              <SelectTrigger className="mobile-input">
+                <SelectValue placeholder="Seleccionar estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="true">Activo</SelectItem>
+                <SelectItem value="false">Inactivo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div>
-          <Label htmlFor="capacidad_carga_kg">Capacidad (kg) *</Label>
-          <Input
-            id="capacidad_carga_kg"
-            type="number"
-            value={formData.capacidad_carga_kg}
-            onChange={(e) =>
-              handleInputChange("capacidad_carga_kg", e.target.value)
-            }
-            placeholder="25000"
-            min="0"
-            step="0.01"
-            required
-          />
-        </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="tipo">Tipo de Vehículo *</Label>
-          <select
-            id="tipo"
-            value={formData.tipo}
-            onChange={(e) => handleInputChange("tipo", e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-            required
+        {/* Capacidades - Campos opcionales */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="capacidad_kg">Capacidad de Carga (Kg)</Label>
+            <Input
+              id="capacidad_kg"
+              type="number"
+              step="0.01"
+              value={formData.capacidad_kg}
+              onChange={(e) =>
+                handleInputChange("capacidad_kg", e.target.value)
+              }
+              placeholder="25000"
+              min="0"
+              className="mobile-input"
+            />
+          </div>
+          <div>
+            <Label htmlFor="capacidad_cajas">Capacidad en Cajas</Label>
+            <Input
+              id="capacidad_cajas"
+              type="number"
+              value={formData.capacidad_cajas}
+              onChange={(e) =>
+                handleInputChange("capacidad_cajas", e.target.value)
+              }
+              placeholder="100"
+              min="0"
+              className="mobile-input"
+            />
+          </div>
+        </div>
+
+        {/* Botones */}
+        <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-2 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            className="mobile-button bg-transparent"
+            disabled={isSubmitting}
           >
-            <option value="">Seleccionar tipo</option>
-            <option value="Camión">Camión</option>
-            <option value="Tractocamión">Tractocamión</option>
-            <option value="Camioneta">Camioneta</option>
-            <option value="Furgón">Furgón</option>
-          </select>
-        </div>
-        <div>
-          <Label htmlFor="tipo_carga">Tipo de Carga *</Label>
-          <select
-            id="tipo_carga"
-            value={formData.tipo_carga}
-            onChange={(e) => handleInputChange("tipo_carga", e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-            required
+            Cancelar
+          </Button>
+          <Button
+            type="submit"
+            className="mobile-button"
+            disabled={isSubmitting}
           >
-            <option value="">Seleccionar tipo de carga</option>
-            <option value="General">General</option>
-            <option value="Refrigerada">Refrigerada</option>
-            <option value="Líquidos">Líquidos</option>
-            <option value="Peligrosa">Peligrosa</option>
-            <option value="Contenedores">Contenedores</option>
-          </select>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                {isEditing ? "Actualizando..." : "Registrando..."}
+              </>
+            ) : isEditing ? (
+              "Actualizar Vehículo"
+            ) : (
+              "Registrar Vehículo"
+            )}
+          </Button>
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="estado">Estado *</Label>
-          <select
-            id="estado"
-            value={formData.estado}
-            onChange={(e) => handleInputChange("estado", e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
-            required
-          >
-            <option value="">Seleccionar estado</option>
-            <option value="Activo">Activo</option>
-            <option value="Inactivo">Inactivo</option>
-            <option value="Mantenimiento">Mantenimiento</option>
-            <option value="Fuera de Servicio">Fuera de Servicio</option>
-          </select>
-        </div>
-        <div>
-          <Label htmlFor="fecha_adquisicion">Fecha de Adquisición *</Label>
-          <Input
-            id="fecha_adquisicion"
-            type="date"
-            value={formData.fecha_adquisicion}
-            onChange={(e) =>
-              handleInputChange("fecha_adquisicion", e.target.value)
-            }
-            required
-          />
-        </div>
-      </div>
-
-      <div className="flex justify-end gap-2 pt-4">
-        <Button type="button" variant="outline" onClick={onCancel}>
-          Cancelar
-        </Button>
-        <Button type="submit">
-          {isEditing ? "Actualizar Vehículo" : "Registrar Vehículo"}
-        </Button>
-      </div>
-    </form>
+      </form>
+    </div>
   );
 }

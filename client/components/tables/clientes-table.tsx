@@ -8,25 +8,16 @@ import {
 } from "@/components/ui/table";
 
 interface Cliente {
-  id: number;
-  nombre: string;
+  id_cliente: number;
   codigo: string;
-  id_tipo_cliente: number;
-  id_ruta_pvta?: number;
-  id_ruta_tvta?: number;
-  ruc: string;
-  ciudad: string;
-  telefono: string;
-  email: string;
-  contacto_nombre: string;
-  horario: string;
-  estado: string;
-  longitud: number;
-  latitud: number;
-  created_at?: string;
-  updated_at?: string;
-  created_by?: string;
-  updated_by?: string;
+  nombre: string;
+  direccion: string;
+  id_zona: number;
+  zona_nombre?: string;
+  zona_codigo?: string;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ClientesTableProps {

@@ -16,11 +16,18 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2 } from "lucide-react";
 import type { Vehiculo } from "@/hooks/use-vehiculos";
-import { formatDateForInput } from "@/lib/utils/date";
 
 interface VehiculoFormProps {
   vehiculo?: Vehiculo | null;
-  onSubmit: (vehiculo: Omit<Vehiculo, "id">) => void;
+  onSubmit: (vehiculo: {
+    placa: string;
+    marca: string;
+    modelo: string;
+    anio?: number;
+    capacidad_kg?: number;
+    capacidad_cajas?: number;
+    activo?: boolean;
+  }) => void;
   onCancel: () => void;
   isEditing?: boolean;
 }
@@ -39,30 +46,21 @@ export function VehiculoForm({
     marca: "",
     modelo: "",
     anio: "",
-    tipo: "",
-    capacidad_carga_kg: "",
-    tipo_carga: "",
-    estado: "Activo",
-    fecha_adquisicion: "",
-    vin: "",
+    capacidad_kg: "",
+    capacidad_cajas: "",
+    activo: true,
   });
 
   useEffect(() => {
     if (vehiculo) {
-      // Format date for HTML date input (YYYY-MM-DD)
-      const formattedDate = formatDateForInput(vehiculo.fecha_adquisicion);
-
       setFormData({
         placa: vehiculo.placa || "",
         marca: vehiculo.marca || "",
         modelo: vehiculo.modelo || "",
         anio: vehiculo.anio?.toString() || "",
-        tipo: vehiculo.tipo || "",
-        capacidad_carga_kg: vehiculo.capacidad_carga_kg?.toString() || "",
-        tipo_carga: vehiculo.tipo_carga || "",
-        estado: vehiculo.estado || "",
-        fecha_adquisicion: formattedDate,
-        vin: vehiculo.vin || "",
+        capacidad_kg: vehiculo.capacidad_kg?.toString() || "",
+        capacidad_cajas: vehiculo.capacidad_cajas?.toString() || "",
+        activo: vehiculo.activo ?? true,
       });
     }
   }, [vehiculo]);
@@ -73,29 +71,43 @@ export function VehiculoForm({
     setFormError(null);
 
     try {
+      // Validaciones básicas
+      if (!formData.placa.trim()) {
+        throw new Error("La placa es requerida");
+      }
+      if (!formData.marca.trim()) {
+        throw new Error("La marca es requerida");
+      }
+      if (!formData.modelo.trim()) {
+        throw new Error("El modelo es requerido");
+      }
+
       await onSubmit({
-        placa: formData.placa,
-        marca: formData.marca,
-        modelo: formData.modelo,
-        anio: Number.parseInt(formData.anio) || 0,
-        tipo: formData.tipo,
-        capacidad_carga_kg: Number.parseFloat(formData.capacidad_carga_kg) || 0,
-        tipo_carga: formData.tipo_carga,
-        estado: formData.estado,
-        fecha_adquisicion: formData.fecha_adquisicion,
-        vin: formData.vin,
+        placa: formData.placa.trim().toUpperCase(),
+        marca: formData.marca.trim(),
+        modelo: formData.modelo.trim(),
+        anio: formData.anio ? Number.parseInt(formData.anio) : undefined,
+        capacidad_kg: formData.capacidad_kg
+          ? Number.parseFloat(formData.capacidad_kg)
+          : undefined,
+        capacidad_cajas: formData.capacidad_cajas
+          ? Number.parseInt(formData.capacidad_cajas)
+          : undefined,
+        activo: formData.activo,
       });
     } catch (error) {
       console.error("Error submitting form:", error);
       setFormError(
-        "Error al guardar el vehículo. Por favor intenta nuevamente.",
+        error instanceof Error
+          ? error.message
+          : "Error al guardar el vehículo. Por favor intenta nuevamente.",
       );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -107,31 +119,23 @@ export function VehiculoForm({
         </Alert>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="placa">Placa *</Label>
-            <Input
-              id="placa"
-              value={formData.placa}
-              onChange={(e) => handleInputChange("placa", e.target.value)}
-              placeholder="ABC-123"
-              className="mobile-input"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="vin">VIN *</Label>
-            <Input
-              id="vin"
-              value={formData.vin}
-              onChange={(e) => handleInputChange("vin", e.target.value)}
-              placeholder="Número de identificación del vehículo"
-              className="mobile-input"
-              required
-            />
-          </div>
+        {/* Placa - Campo requerido */}
+        <div>
+          <Label htmlFor="placa">Placa *</Label>
+          <Input
+            id="placa"
+            value={formData.placa}
+            onChange={(e) =>
+              handleInputChange("placa", e.target.value.toUpperCase())
+            }
+            placeholder="ABC-123"
+            maxLength={10}
+            className="mobile-input"
+            required
+          />
         </div>
 
+        {/* Marca y Modelo - Campos requeridos */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="marca">Marca *</Label>
@@ -139,7 +143,8 @@ export function VehiculoForm({
               id="marca"
               value={formData.marca}
               onChange={(e) => handleInputChange("marca", e.target.value)}
-              placeholder="Volvo, Mercedes, etc."
+              placeholder="Toyota, Volvo, Mercedes, etc."
+              maxLength={50}
               className="mobile-input"
               required
             />
@@ -150,16 +155,18 @@ export function VehiculoForm({
               id="modelo"
               value={formData.modelo}
               onChange={(e) => handleInputChange("modelo", e.target.value)}
-              placeholder="FH16, Actros, etc."
+              placeholder="FH16, Actros, Hino, etc."
+              maxLength={50}
               className="mobile-input"
               required
             />
           </div>
         </div>
 
+        {/* Año y Estado */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="anio">Año *</Label>
+            <Label htmlFor="anio">Año</Label>
             <Input
               id="anio"
               type="number"
@@ -169,98 +176,56 @@ export function VehiculoForm({
               min="1990"
               max="2030"
               className="mobile-input"
-              required
             />
           </div>
           <div>
-            <Label htmlFor="tipo">Tipo de Vehículo *</Label>
+            <Label htmlFor="activo">Estado</Label>
             <Select
-              value={formData.tipo || "Tractocamión"}
-              onValueChange={(value) => handleInputChange("tipo", value)}
-            >
-              <SelectTrigger className="mobile-input">
-                <SelectValue placeholder="Seleccionar tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Camión">Camión</SelectItem>
-                <SelectItem value="Tractocamión">Tractocamión</SelectItem>
-                <SelectItem value="Camioneta">Camioneta</SelectItem>
-                <SelectItem value="Furgón">Furgón</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="capacidad_carga_kg">
-              Capacidad de Carga (kg) *
-            </Label>
-            <Input
-              id="capacidad_carga_kg"
-              type="number"
-              value={formData.capacidad_carga_kg}
-              onChange={(e) =>
-                handleInputChange("capacidad_carga_kg", e.target.value)
+              value={formData.activo ? "true" : "false"}
+              onValueChange={(value) =>
+                handleInputChange("activo", value === "true")
               }
-              placeholder="25000"
-              min="0"
-              step="0.01"
-              className="mobile-input"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="tipo_carga">Tipo de Carga *</Label>
-            <Select
-              value={formData.tipo_carga || "General"}
-              onValueChange={(value) => handleInputChange("tipo_carga", value)}
-            >
-              <SelectTrigger className="mobile-input">
-                <SelectValue placeholder="Seleccionar tipo de carga" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="General">General</SelectItem>
-                <SelectItem value="Refrigerada">Refrigerada</SelectItem>
-                <SelectItem value="Líquidos">Líquidos</SelectItem>
-                <SelectItem value="Peligrosa">Peligrosa</SelectItem>
-                <SelectItem value="Contenedores">Contenedores</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="estado">Estado *</Label>
-            <Select
-              value={formData.estado || "Activo"}
-              onValueChange={(value) => handleInputChange("estado", value)}
             >
               <SelectTrigger className="mobile-input">
                 <SelectValue placeholder="Seleccionar estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Activo">Activo</SelectItem>
-                <SelectItem value="Inactivo">Inactivo</SelectItem>
-                <SelectItem value="Mantenimiento">Mantenimiento</SelectItem>
-                <SelectItem value="Fuera de Servicio">
-                  Fuera de Servicio
-                </SelectItem>
+                <SelectItem value="true">Activo</SelectItem>
+                <SelectItem value="false">Inactivo</SelectItem>
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Capacidades - Campos opcionales */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="fecha_adquisicion">Fecha de Adquisición *</Label>
+            <Label htmlFor="capacidad_kg">Capacidad de Carga (Kg)</Label>
             <Input
-              id="fecha_adquisicion"
-              type="date"
-              value={formData.fecha_adquisicion}
+              id="capacidad_kg"
+              type="number"
+              step="0.01"
+              value={formData.capacidad_kg}
               onChange={(e) =>
-                handleInputChange("fecha_adquisicion", e.target.value)
+                handleInputChange("capacidad_kg", e.target.value)
               }
+              placeholder="25000"
+              min="0"
               className="mobile-input"
-              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="capacidad_cajas">Capacidad en Cajas</Label>
+            <Input
+              id="capacidad_cajas"
+              type="number"
+              value={formData.capacidad_cajas}
+              onChange={(e) =>
+                handleInputChange("capacidad_cajas", e.target.value)
+              }
+              placeholder="100"
+              min="0"
+              className="mobile-input"
             />
           </div>
         </div>
@@ -271,6 +236,7 @@ export function VehiculoForm({
             variant="outline"
             onClick={onCancel}
             className="mobile-button bg-transparent"
+            disabled={isSubmitting}
           >
             Cancelar
           </Button>
