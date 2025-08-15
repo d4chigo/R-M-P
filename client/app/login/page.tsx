@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff, Truck, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Truck, AlertCircle, User } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -113,19 +113,25 @@ export default function LoginPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="email" className="dark:text-gray-200">
-                  Correo Electrónico
+                  Email
                 </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="usuario@ejemplo.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={isSubmitting}
-                  className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
-                  autoComplete="email"
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Ingrese su email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isSubmitting}
+                    className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 pl-10"
+                    autoComplete="email"
+                    required
+                  />
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Credenciales de prueba: admin@rmp.com / demo@rmp.com
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -159,6 +165,9 @@ export default function LoginPage() {
                     )}
                   </Button>
                 </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Contraseñas de prueba: admin123 / demo123
+                </p>
               </div>
 
               <Button type="submit" className="w-full" disabled={isSubmitting}>
@@ -172,6 +181,22 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
+
+            <div className="mt-6">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <h4 className="font-semibold text-blue-900 dark:text-blue-100 text-sm mb-2">
+                  Credenciales de Prueba:
+                </h4>
+                <div className="space-y-1 text-xs text-blue-800 dark:text-blue-200">
+                  <p>
+                    <strong>Administrador:</strong> admin@rmp.com / admin123
+                  </p>
+                  <p>
+                    <strong>Usuario Demo:</strong> demo@rmp.com / demo123
+                  </p>
+                </div>
+              </div>
+            </div>
 
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600 dark:text-gray-400">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Cookies from "js-cookie";
 
 interface ApiResponse<T> {
   success: boolean;
@@ -23,7 +24,7 @@ export const useApi = <T>(endpoint: string, options: UseApiOptions = {}) => {
     "http://localhost:4000";
 
   const getAuthHeaders = () => {
-    const token = localStorage.getItem("token");
+    const token = Cookies.get("auth_token");
     return {
       "Content-Type": "application/json",
       ...(token && { Authorization: `Bearer ${token}` }),
@@ -50,8 +51,7 @@ export const useApi = <T>(endpoint: string, options: UseApiOptions = {}) => {
         if (!response.ok) {
           if (response.status === 401) {
             // Token expirado o inválido
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
+            Cookies.remove("auth_token");
             window.location.href = "/login";
             throw new Error("Sesión expirada");
           }

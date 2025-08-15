@@ -40,10 +40,10 @@ export default function VehiculosPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehiculo, setEditingVehiculo] = useState<Vehiculo | null>(null);
 
-  const handleSubmit = async (vehiculoData: Omit<Vehiculo, "id">) => {
+  const handleSubmit = async (vehiculoData: Omit<Vehiculo, "id_vehiculo">) => {
     try {
-      if (editingVehiculo && editingVehiculo.id) {
-        await updateVehiculo(editingVehiculo.id, vehiculoData);
+      if (editingVehiculo && editingVehiculo.id_vehiculo) {
+        await updateVehiculo(editingVehiculo.id_vehiculo, vehiculoData);
       } else {
         await createVehiculo(vehiculoData);
       }
@@ -60,7 +60,7 @@ export default function VehiculosPage() {
   };
 
   const handleDelete = async (vehiculo: Vehiculo) => {
-    if (!vehiculo.id) return;
+    if (!vehiculo.id_vehiculo) return;
 
     // Simple confirmation dialog first
     if (
@@ -69,7 +69,7 @@ export default function VehiculosPage() {
       )
     ) {
       try {
-        const result = await deleteVehiculo(vehiculo.id);
+        const result = await deleteVehiculo(vehiculo.id_vehiculo);
         if (result.success) {
         } else {
           alert(
@@ -96,10 +96,12 @@ export default function VehiculosPage() {
 
   const columns: Column<Vehiculo>[] = [
     {
-      key: "id",
+      key: "id_vehiculo",
       header: "ID",
       sortable: true,
-      render: (vehiculo) => <span className="font-medium">{vehiculo.id}</span>,
+      render: (vehiculo) => (
+        <span className="font-medium">{vehiculo.id_vehiculo}</span>
+      ),
     },
     {
       key: "placa",
@@ -119,57 +121,75 @@ export default function VehiculosPage() {
       key: "anio",
       header: "Año",
       sortable: true,
+      render: (vehiculo) => vehiculo.anio || "N/A",
     },
     {
-      key: "tipo",
-      header: "Tipo",
-      sortable: true,
-    },
-    {
-      key: "capacidad_carga_kg",
+      key: "capacidad_kg",
       header: "Capacidad (kg)",
       sortable: true,
-      render: (vehiculo) => vehiculo.capacidad_carga_kg.toLocaleString(),
+      render: (vehiculo) => {
+        const capacidad = vehiculo.capacidad_kg;
+        if (capacidad == null || capacidad === "") return "N/A";
+        const numero =
+          typeof capacidad === "string" ? parseFloat(capacidad) : capacidad;
+        return isNaN(numero) ? "N/A" : numero.toLocaleString();
+      },
     },
     {
-      key: "tipo_carga",
-      header: "Tipo Carga",
+      key: "capacidad_cajas",
+      header: "Capacidad Cajas",
       sortable: true,
+      render: (vehiculo) => {
+        const cajas = vehiculo.capacidad_cajas;
+        return cajas != null ? cajas.toLocaleString() : "N/A";
+      },
     },
     {
-      key: "estado",
+      key: "activo",
       header: "Estado",
       sortable: true,
-      render: (vehiculo) => (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            vehiculo.estado === "Activo"
-              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-              : vehiculo.estado === "Mantenimiento"
-                ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
-                : vehiculo.estado === "Inactivo"
-                  ? "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
-                  : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-          }`}
-        >
-          {vehiculo.estado}
-        </span>
-      ),
+      render: (vehiculo) => {
+        const isActive = vehiculo.activo === true;
+        return (
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-medium ${
+              isActive
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
+            }`}
+          >
+            {isActive ? "Activo" : "Inactivo"}
+          </span>
+        );
+      },
     },
     {
-      key: "fecha_adquisicion",
-      header: "Fecha Adquisición",
+      key: "created_at",
+      header: "Fecha Registro",
       sortable: true,
-      render: (vehiculo) => formatDateForDisplay(vehiculo.fecha_adquisicion),
-    },
-    {
-      key: "vin",
-      header: "VIN",
-      render: (vehiculo) => (
-        <span className="font-mono text-xs">{vehiculo.vin}</span>
-      ),
+      render: (vehiculo) => formatDateForDisplay(vehiculo.created_at),
     },
   ];
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <Card className="w-full max-w-md mx-4">
+          <CardHeader>
+            <CardTitle className="text-red-600">Error</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+              {error}
+            </p>
+            <Button onClick={() => window.location.reload()} className="w-full">
+              Recargar página
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -220,7 +240,7 @@ export default function VehiculosPage() {
                   <DialogDescription className="dark:text-gray-300">
                     {editingVehiculo
                       ? "Modifique los campos necesarios para actualizar el vehículo."
-                      : "Complete todos los campos para registrar un nuevo vehículo en el sistema."}
+                      : "Complete los campos requeridos para registrar un nuevo vehículo en el sistema."}
                   </DialogDescription>
                 </DialogHeader>
                 <VehiculoFormSimple
@@ -245,16 +265,27 @@ export default function VehiculosPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <DataTable
-              data={vehiculos}
-              columns={columns}
-              searchPlaceholder="Buscar por placa, marca, modelo..."
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              showDateFilter={true}
-              dateFilterKey="fecha_adquisicion"
-              searchKeys={["placa", "marca", "modelo", "tipo", "estado"]}
-            />
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    Cargando vehículos...
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <DataTable
+                data={vehiculos}
+                columns={columns}
+                searchPlaceholder="Buscar por placa, marca, modelo..."
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                showDateFilter={true}
+                dateFilterKey="created_at"
+                searchKeys={["placa", "marca", "modelo"]}
+              />
+            )}
           </CardContent>
         </Card>
       </div>

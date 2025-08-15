@@ -5,27 +5,35 @@ import { useSimpleCrud } from "./use-simple-api";
 
 export interface Visita {
   id?: number;
+  id_visita?: number;
   id_viaje: number;
   id_cliente: number;
-  entrega: number;
-  recojo: number;
-  llega: string; // TIME format: "HH:MM:SS"
-  sale: string; // TIME format: "HH:MM:SS"
-  sec1: string;
-  sec2: string;
-  distancia_km?: string;
+  pedidos?: number;
+  entrega_cf?: number;
+  recojo_cf?: number;
+  peso_kg?: number;
+  distancia_km?: number;
   created_at?: string;
   updated_at?: string;
-  created_by?: string;
-  updated_by?: string;
+  created_by?: number;
+  updated_by?: number;
   // Campos relacionados (pueden venir del backend con joins)
   cliente_nombre?: string;
   cliente_codigo?: string;
   cliente_ruc?: string;
   viaje_info?: string;
   viaje_fecha?: string;
-  ruta_nombre?: string;
+  viaje_nro?: number;
   vehiculo_placa?: string;
+  repartidor_codigo?: string;
+  repartidor_nombre?: string;
+  // Legacy fields for compatibility
+  entrega?: number;
+  recojo?: number;
+  llega?: string;
+  sale?: string;
+  sec1?: string;
+  sec2?: string;
 }
 
 export const useVisitas = () => {

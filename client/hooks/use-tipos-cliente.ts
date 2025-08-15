@@ -7,10 +7,9 @@ export interface TipoCliente {
   id?: number;
   nombre: string;
   descripcion?: string;
+  activo?: boolean;
   created_at?: string;
   updated_at?: string;
-  created_by?: string;
-  updated_by?: string;
 }
 
 export const useTiposCliente = () => {
@@ -18,9 +17,45 @@ export const useTiposCliente = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Since there's no actual TIPO_CLIENTE table in the database, we'll provide static data
+  // This can be later replaced with actual API calls when TIPO_CLIENTE table is created
+  const staticTiposCliente: TipoCliente[] = [
+    {
+      id: 1,
+      nombre: "Mayorista",
+      descripcion: "Cliente que compra grandes volúmenes",
+      activo: true,
+    },
+    {
+      id: 2,
+      nombre: "Minorista",
+      descripcion: "Cliente que compra volúmenes pequeños",
+      activo: true,
+    },
+    {
+      id: 3,
+      nombre: "Corporativo",
+      descripcion: "Cliente empresarial con contrato especial",
+      activo: true,
+    },
+    {
+      id: 4,
+      nombre: "Distribuidor",
+      descripcion: "Cliente que redistribuye productos",
+      activo: true,
+    },
+    {
+      id: 5,
+      nombre: "VIP",
+      descripcion: "Cliente con beneficios especiales",
+      activo: true,
+    },
+  ];
+
+  // For future implementation when TIPO_CLIENTE table exists
   const crud = useSimpleCrud<TipoCliente>("/tipos-cliente");
 
-  // Cargar todos los tipos de cliente
+  // Load all client types (currently static data)
   const fetchTiposCliente = useCallback(async () => {
     if (isLoading) return;
 
@@ -28,107 +63,95 @@ export const useTiposCliente = () => {
     setError(null);
 
     try {
-      const response = await crud.getAll();
-      if (response.success && response.data) {
-        setTiposCliente(response.data);
-      } else {
-        setError(response.error || "Error al cargar tipos de cliente");
-      }
+      // For now, use static data
+      // TODO: Replace with actual API call when TIPO_CLIENTE table exists
+      // const response = await crud.getAll();
+
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      setTiposCliente(staticTiposCliente);
     } catch (err) {
       setError("Error de conexión");
       console.error("Error fetching tipos cliente:", err);
     } finally {
       setIsLoading(false);
     }
-  }, [crud]);
+  }, [isLoading]);
 
-  // Crear tipo de cliente
-  const createTipoCliente = useCallback(
-    async (tipoCliente: Omit<TipoCliente, "id">) => {
-      setError(null);
+  // Create client type (placeholder for future implementation)
+  const createTipoCliente = useCallback(async (tipo: Omit<TipoCliente, "id">) => {
+    setError(null);
 
-      try {
-        const response = await crud.create(tipoCliente);
-        if (response.success) {
-          if (response.data) {
-            setTiposCliente((prev) => [response.data as TipoCliente, ...prev]);
-          } else {
-            await fetchTiposCliente();
-          }
-          return { success: true, data: response.data };
-        } else {
-          setError(response.error || "Error al crear tipo de cliente");
-          return { success: false, error: response.error };
-        }
-      } catch (err) {
-        const errorMessage = "Error de conexión al crear tipo de cliente";
-        setError(errorMessage);
-        return { success: false, error: errorMessage };
-      }
-    },
-    [crud, fetchTiposCliente],
-  );
+    try {
+      // TODO: Implement when TIPO_CLIENTE table exists
+      // const response = await crud.create(tipo);
 
-  // Actualizar tipo de cliente
-  const updateTipoCliente = useCallback(
-    async (id: number, tipoCliente: Partial<TipoCliente>) => {
-      setError(null);
+      // For now, add to static data with new ID
+      const newId = Math.max(...staticTiposCliente.map((t) => t.id || 0)) + 1;
+      const newTipo = { ...tipo, id: newId };
+      setTiposCliente((prev: TipoCliente[]) => [...prev, newTipo]);
 
-      try {
-        const response = await crud.update(id, tipoCliente);
-        if (response.success) {
-          setTiposCliente((prev) =>
-            prev.map((t) => (t.id === id ? { ...t, ...tipoCliente } : t)),
-          );
-          return { success: true, data: response.data };
-        } else {
-          setError(response.error || "Error al actualizar tipo de cliente");
-          return { success: false, error: response.error };
-        }
-      } catch (err) {
-        const errorMessage = "Error de conexión al actualizar tipo de cliente";
-        setError(errorMessage);
-        return { success: false, error: errorMessage };
-      }
-    },
-    [crud],
-  );
+      return { success: true, data: newTipo };
+    } catch (err) {
+      const errorMessage = "Error de conexión al crear tipo de cliente";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }, []);
 
-  // Eliminar tipo de cliente
-  const deleteTipoCliente = useCallback(
-    async (id: number) => {
-      setError(null);
+  // Update client type (placeholder for future implementation)
+  const updateTipoCliente = useCallback(async (id: number, tipo: Partial<TipoCliente>) => {
+    setError(null);
 
-      try {
-        const response = await crud.remove(id);
-        if (response.success) {
-          setTiposCliente((prev) => prev.filter((t) => t.id !== id));
-          return { success: true };
-        } else {
-          setError(response.error || "Error al eliminar tipo de cliente");
-          return { success: false, error: response.error };
-        }
-      } catch (err) {
-        const errorMessage = "Error de conexión al eliminar tipo de cliente";
-        setError(errorMessage);
-        return { success: false, error: errorMessage };
-      }
-    },
-    [crud],
-  );
+    try {
+      // TODO: Implement when TIPO_CLIENTE table exists
+      // const response = await crud.update(id, tipo);
 
-  // Obtener tipo de cliente por ID
+      // For now, update in static data
+      setTiposCliente((prev: TipoCliente[]) =>
+        prev.map((t: TipoCliente) => (t.id === id ? { ...t, ...tipo } : t)),
+      );
+
+      return { success: true, data: tipo };
+    } catch (err) {
+      const errorMessage = "Error de conexión al actualizar tipo de cliente";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
+  // Delete client type (placeholder for future implementation)
+  const deleteTipoCliente = useCallback(async (id: number) => {
+    setError(null);
+
+    try {
+      // TODO: Implement when TIPO_CLIENTE table exists
+      // const response = await crud.remove(id);
+
+      // For now, remove from static data
+      setTiposCliente((prev: TipoCliente[]) => prev.filter((t: TipoCliente) => t.id !== id));
+
+      return { success: true };
+    } catch (err) {
+      const errorMessage = "Error de conexión al eliminar tipo de cliente";
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
+  // Get client type by ID
   const getTipoClienteById = useCallback(
     async (id: number) => {
       setError(null);
 
       try {
-        const response = await crud.getById(id);
-        if (response.success) {
-          return { success: true, data: response.data };
+        const tipo = tiposCliente.find((t: TipoCliente) => t.id === id);
+        if (tipo) {
+          return { success: true, data: tipo };
         } else {
-          setError(response.error || "Error al obtener tipo de cliente");
-          return { success: false, error: response.error };
+          setError("Tipo de cliente no encontrado");
+          return { success: false, error: "Tipo de cliente no encontrado" };
         }
       } catch (err) {
         const errorMessage = "Error de conexión al obtener tipo de cliente";
@@ -136,27 +159,55 @@ export const useTiposCliente = () => {
         return { success: false, error: errorMessage };
       }
     },
-    [crud],
+    [tiposCliente],
   );
 
-  // Buscar tipos de cliente por nombre
-  const searchByNombre = useCallback(
-    (nombre: string) => {
-      return tiposCliente.filter((tipo) =>
-        tipo.nombre.toLowerCase().includes(nombre.toLowerCase()),
+  // Search client types by name
+  const searchTiposCliente = useCallback(
+    (searchTerm: string) => {
+      return tiposCliente.filter(
+        (tipo: TipoCliente) =>
+          tipo.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          tipo.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()),
       );
     },
     [tiposCliente],
   );
 
-  // Verificar si un tipo de cliente puede ser eliminado
-  const canDelete = useCallback(async (id: number) => {
-    return true;
-  }, []);
+  // Get active client types
+  const getTiposClienteActivos = useCallback(() => {
+    return tiposCliente.filter((tipo: TipoCliente) => tipo.activo !== false);
+  }, [tiposCliente]);
 
-  // Efecto para cargar tipos de cliente al montar el componente
+  // Get client types statistics
+  const getEstadisticasTiposCliente = useCallback(() => {
+    const total = tiposCliente.length;
+    const activos = tiposCliente.filter((t: TipoCliente) => t.activo !== false).length;
+    const inactivos = total - activos;
+
+    return {
+      total,
+      activos,
+      inactivos,
+      porcentaje_activos: total > 0 ? Math.round((activos / total) * 100) : 0,
+    };
+  }, [tiposCliente]);
+
+  // Load client types on component mount
   useEffect(() => {
-    fetchTiposCliente();
+    let mounted = true;
+
+    const loadTiposCliente = async () => {
+      if (tiposCliente.length === 0 && mounted && !isLoading) {
+        await fetchTiposCliente();
+      }
+    };
+
+    loadTiposCliente();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return {
@@ -168,8 +219,9 @@ export const useTiposCliente = () => {
     updateTipoCliente,
     deleteTipoCliente,
     getTipoClienteById,
-    searchByNombre,
-    canDelete,
+    searchTiposCliente,
+    getTiposClienteActivos,
+    getEstadisticasTiposCliente,
     refetch: fetchTiposCliente,
   };
 };

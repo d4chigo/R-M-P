@@ -93,12 +93,14 @@ export default function ViajesPage() {
       sortable: true,
       render: (viaje) => (
         <div className="text-sm">
-          <div className="font-medium">ID: {viaje.id_ruta}</div>
+          <div className="font-medium">ID: {viaje.id_ruta || "N/A"}</div>
           <div className="text-gray-500 dark:text-gray-400">
-            {viaje.ruta_nombre || viaje.ruta}
+            {viaje.ruta_nombre || viaje.ruta || "Ruta no asignada"}
           </div>
           <div className="text-xs text-blue-600 dark:text-blue-400">
-            {viaje.origen} → {viaje.destino}
+            {viaje.origen && viaje.destino
+              ? `${viaje.origen} → ${viaje.destino}`
+              : "Sin definir"}
           </div>
         </div>
       ),
@@ -111,10 +113,10 @@ export default function ViajesPage() {
         <div className="text-sm">
           <div className="font-medium">ID: {viaje.id_vehiculo}</div>
           <div className="text-gray-500 dark:text-gray-400 font-semibold">
-            {viaje.vehiculo_placa || viaje.vehiculo}
+            {viaje.vehiculo_placa || viaje.vehiculo || "Sin asignar"}
           </div>
           <div className="text-xs text-gray-400">
-            {viaje.vehiculo_marca} {viaje.vehiculo_modelo}
+            {viaje.vehiculo_marca || ""} {viaje.vehiculo_modelo || ""}
           </div>
         </div>
       ),
@@ -133,9 +135,17 @@ export default function ViajesPage() {
       header: "Repartidor",
       sortable: true,
       render: (viaje) => (
-        <span className="text-sm bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded">
-          {viaje.repartidor}
-        </span>
+        <div className="text-sm">
+          <div className="font-medium">ID: {viaje.id_repartidor || "N/A"}</div>
+          <span className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300 px-2 py-1 rounded text-xs">
+            {viaje.repartidor_nombre || viaje.repartidor || "Sin asignar"}
+          </span>
+          {viaje.repartidor_codigo && (
+            <div className="text-xs text-gray-400 mt-1">
+              Código: {viaje.repartidor_codigo}
+            </div>
+          )}
+        </div>
       ),
     },
     {
@@ -262,6 +272,8 @@ export default function ViajesPage() {
                 "vehiculo_placa",
                 "vehiculo",
                 "repartidor",
+                "repartidor_nombre",
+                "repartidor_codigo",
               ]}
             />
           </CardContent>

@@ -6,26 +6,34 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Edit, Trash2 } from "lucide-react";
+import { formatDateForDisplay } from "@/lib/utils/date";
 
 interface Vehiculo {
-  id: number;
+  id_vehiculo: number;
   placa: string;
   marca: string;
   modelo: string;
-  anio: number;
-  tipo: string;
-  capacidad_carga_kg: number;
-  tipo_carga: string;
-  estado: string;
-  fecha_adquisicion: string;
-  vin: string;
+  anio?: number;
+  capacidad_kg?: number;
+  capacidad_cajas?: number;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface VehiculosTableProps {
   vehiculos: Vehiculo[];
+  onEdit?: (vehiculo: Vehiculo) => void;
+  onDelete?: (vehiculo: Vehiculo) => void;
 }
 
-export function VehiculosTable({ vehiculos }: VehiculosTableProps) {
+export function VehiculosTable({
+  vehiculos,
+  onEdit,
+  onDelete,
+}: VehiculosTableProps) {
   return (
     <div className="overflow-x-auto">
       <Table>
@@ -35,49 +43,72 @@ export function VehiculosTable({ vehiculos }: VehiculosTableProps) {
             <TableHead>Placa</TableHead>
             <TableHead>Marca/Modelo</TableHead>
             <TableHead>Año</TableHead>
-            <TableHead>Tipo</TableHead>
             <TableHead>Capacidad (kg)</TableHead>
-            <TableHead>Tipo Carga</TableHead>
+            <TableHead>Capacidad Cajas</TableHead>
             <TableHead>Estado</TableHead>
-            <TableHead>Fecha Adquisición</TableHead>
-            <TableHead>VIN</TableHead>
+            <TableHead>Fecha Registro</TableHead>
+            {(onEdit || onDelete) && <TableHead>Acciones</TableHead>}
           </TableRow>
         </TableHeader>
         <TableBody>
           {vehiculos.map((vehiculo) => (
-            <TableRow key={vehiculo.id}>
-              <TableCell className="font-medium">{vehiculo.id}</TableCell>
+            <TableRow key={vehiculo.id_vehiculo}>
+              <TableCell className="font-medium">
+                {vehiculo.id_vehiculo}
+              </TableCell>
               <TableCell className="font-semibold">{vehiculo.placa}</TableCell>
               <TableCell>
                 {vehiculo.marca} {vehiculo.modelo}
               </TableCell>
-              <TableCell>{vehiculo.anio}</TableCell>
-              <TableCell>{vehiculo.tipo}</TableCell>
+              <TableCell>{vehiculo.anio || "N/A"}</TableCell>
               <TableCell>
-                {vehiculo.capacidad_carga_kg.toLocaleString()}
+                {vehiculo.capacidad_kg != null
+                  ? vehiculo.capacidad_kg.toLocaleString()
+                  : "N/A"}
               </TableCell>
-              <TableCell>{vehiculo.tipo_carga}</TableCell>
+              <TableCell>
+                {vehiculo.capacidad_cajas != null
+                  ? vehiculo.capacidad_cajas.toLocaleString()
+                  : "N/A"}
+              </TableCell>
               <TableCell>
                 <span
                   className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    vehiculo.estado === "Activo"
-                      ? "bg-green-100 text-green-800"
-                      : vehiculo.estado === "Mantenimiento"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : vehiculo.estado === "Inactivo"
-                          ? "bg-gray-100 text-gray-800"
-                          : "bg-red-100 text-red-800"
+                    vehiculo.activo
+                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                      : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
                   }`}
                 >
-                  {vehiculo.estado}
+                  {vehiculo.activo ? "Activo" : "Inactivo"}
                 </span>
               </TableCell>
-              <TableCell>
-                {new Date(vehiculo.fecha_adquisicion).toLocaleDateString()}
-              </TableCell>
-              <TableCell className="font-mono text-xs">
-                {vehiculo.vin}
-              </TableCell>
+              <TableCell>{formatDateForDisplay(vehiculo.created_at)}</TableCell>
+              {(onEdit || onDelete) && (
+                <TableCell>
+                  <div className="flex gap-2">
+                    {onEdit && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onEdit(vehiculo)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    )}
+                    {onDelete && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onDelete(vehiculo)}
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              )}
             </TableRow>
           ))}
         </TableBody>

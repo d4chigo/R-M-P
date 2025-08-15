@@ -5,23 +5,37 @@ import { useSimpleCrud } from "./use-simple-api";
 
 export interface Viaje {
   id?: number;
-  id_ruta: number;
-  ruta: string;
-  id_vehiculo: number;
-  vehiculo: string;
+  id_viaje?: number;
   fecha: string;
-  repartidor: string;
+  id_vehiculo: number;
+  id_repartidor: number;
+  nro_viaje: number;
+  salida_cd?: string;
+  llegada_cd?: string;
+  distancia_km?: number;
+  tiempo_manejo_min?: number;
+  tiempo_servicio_min?: number;
+  recarga_min?: number;
+  refrigerio_min?: number;
+  tipo_viaje?: string;
+  created_by?: number;
+  updated_by?: number;
   created_at?: string;
   updated_at?: string;
-  created_by?: string;
-  updated_by?: string;
   // Campos relacionados (pueden venir del backend con joins)
-  ruta_nombre?: string;
-  origen?: string;
-  destino?: string;
   vehiculo_placa?: string;
   vehiculo_marca?: string;
   vehiculo_modelo?: string;
+  repartidor_codigo?: string;
+  repartidor_nombre?: string;
+  // Legacy fields for compatibility with existing forms
+  id_ruta?: number;
+  ruta?: string;
+  vehiculo?: string;
+  repartidor?: string;
+  ruta_nombre?: string;
+  origen?: string;
+  destino?: string;
 }
 
 export const useViajes = () => {

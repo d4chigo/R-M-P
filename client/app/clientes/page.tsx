@@ -22,9 +22,10 @@ import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ClienteForm } from "@/components/forms/cliente-form";
 import { useClientes, type Cliente } from "@/hooks/use-clientes";
-import { useTiposCliente } from "@/hooks/use-tipos-cliente";
+
 import { useZonas } from "@/hooks/use-zonas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { formatDateForDisplay } from "@/lib/utils/date";
 
 export default function ClientesPage() {
   const {
@@ -36,7 +37,6 @@ export default function ClientesPage() {
     error,
   } = useClientes();
 
-  const { fetchTiposCliente } = useTiposCliente();
   const { fetchZonas } = useZonas();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -58,8 +58,8 @@ export default function ClientesPage() {
 
   const handleEdit = async (cliente: Cliente) => {
     setEditingCliente(cliente);
-    // Recargar tipos de cliente y zonas antes de abrir el diálogo de edición
-    await Promise.all([fetchTiposCliente(), fetchZonas()]);
+    // Recargar zonas antes de abrir el diálogo de edición
+    await fetchZonas();
     setIsDialogOpen(true);
   };
 
@@ -78,17 +78,19 @@ export default function ClientesPage() {
 
   const handleNewCliente = async () => {
     setEditingCliente(null);
-    // Recargar tipos de cliente y zonas antes de abrir el diálogo
-    await Promise.all([fetchTiposCliente(), fetchZonas()]);
+    // Recargar zonas antes de abrir el diálogo
+    await fetchZonas();
     setIsDialogOpen(true);
   };
 
   const columns: Column<Cliente>[] = [
     {
-      key: "id",
+      key: "id_cliente",
       header: "ID",
       sortable: true,
-      render: (cliente) => <span className="font-medium">{cliente.id}</span>,
+      render: (cliente) => (
+        <span className="font-medium">{cliente.id_cliente}</span>
+      ),
     },
     {
       key: "codigo",
@@ -104,88 +106,44 @@ export default function ClientesPage() {
       sortable: true,
     },
     {
-      key: "tipo_cliente_nombre",
-      header: "Tipo de Cliente",
+      key: "direccion",
+      header: "Dirección",
+      sortable: true,
+    },
+    {
+      key: "zona_nombre",
+      header: "Zona",
       sortable: true,
       render: (cliente) => (
         <span className="text-sm bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded">
-          {(cliente as any).tipo_cliente_nombre || "Sin tipo"}
+          {cliente.zona_nombre || "Sin zona"}
         </span>
       ),
     },
     {
-      key: "ruc",
-      header: "RUC",
-      sortable: true,
-    },
-    {
-      key: "codigo_zona_pvta_manual",
-      header: "Zona PVTA",
-      render: (cliente) => (
-        <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 px-2 py-1 rounded">
-          {(cliente as any).codigo_zona_pvta_manual || "Sin zona"}
-        </span>
-      ),
-    },
-    {
-      key: "codigo_zona_tvta_manual",
-      header: "Zona TVTA",
-      render: (cliente) => (
-        <span className="text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300 px-2 py-1 rounded">
-          {(cliente as any).codigo_zona_tvta_manual || "Sin zona"}
-        </span>
-      ),
-    },
-    {
-      key: "ciudad",
-      header: "Ciudad",
-      sortable: true,
-      render: (cliente) => cliente.ciudad,
-    },
-    {
-      key: "telefono",
-      header: "Teléfono",
-      sortable: true,
-    },
-    {
-      key: "email",
-      header: "Email",
-      sortable: true,
-    },
-    {
-      key: "contacto_nombre",
-      header: "Contacto",
-      render: (cliente) => (
-        <div className="text-sm">
-          <div className="font-medium">{cliente.contacto_nombre}</div>
-          <div className="text-gray-500 dark:text-gray-400">
-            {cliente.telefono}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "horario",
-      header: "Horario",
-      render: (cliente) => cliente.horario,
-    },
-    {
-      key: "estado",
+      key: "activo",
       header: "Estado",
       sortable: true,
-      render: (cliente) => (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            cliente.estado === "Activo"
-              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-              : cliente.estado === "Suspendido"
-                ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300"
+      render: (cliente) => {
+        const isActive = cliente.activo === 1 || cliente.activo === true;
+        return (
+          <span
+            className={`px-2 py-1 rounded-full text-xs font-medium ${
+              isActive
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
                 : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-          }`}
-        >
-          {cliente.estado}
-        </span>
-      ),
+            }`}
+          >
+            {isActive ? "Activo" : "Inactivo"}
+          </span>
+        );
+      },
+    },
+    {
+      key: "created_at",
+      header: "Fecha Registro",
+      sortable: true,
+      render: (cliente) => formatDateForDisplay(cliente.created_at),
     },
   ];
 

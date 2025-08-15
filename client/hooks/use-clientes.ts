@@ -4,27 +4,30 @@ import { useState, useCallback, useEffect } from "react";
 import { useSimpleCrud } from "./use-simple-api";
 
 export interface Cliente {
-  id?: number;
-  nombre: string;
+  id_cliente?: number;
+  id?: number; // kept for backwards compatibility
   codigo: string;
-  id_tipo_cliente: number;
+  nombre: string;
+  direccion: string;
+  id_zona: number;
+  zona_nombre?: string;
+  zona_codigo?: string;
+  activo: number | boolean;
+  id_tipo_cliente?: number;
   codigo_zona_pvta_manual?: string;
   codigo_zona_tvta_manual?: string;
-  ruc: string;
-  ciudad: string;
-  telefono: string;
-  email: string;
-  contacto_nombre: string;
-  horario: string;
-  estado: string;
-  latitud: number;
-  longitud: number;
+  ruc?: string;
+  ciudad?: string;
+  telefono?: string;
+  email?: string;
+  contacto_nombre?: string;
+  contacto_telefono?: string;
+  horario?: string;
+  estado?: string;
+  longitud?: number;
+  latitud?: number;
   created_at?: string;
   updated_at?: string;
-  created_by?: string;
-  updated_by?: string;
-  // Campos relacionados desde joins
-  tipo_cliente_nombre?: string;
 }
 
 export const useClientes = () => {

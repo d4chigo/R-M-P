@@ -61,7 +61,7 @@ export const Navbar: React.FC = () => {
             <div className="flex items-center space-x-3">
               <div className="hidden sm:block text-right">
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  {usuario.nombre}
+                  {usuario.nombre_completo}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {usuario.email}
@@ -77,7 +77,7 @@ export const Navbar: React.FC = () => {
                   >
                     <Avatar className="h-10 w-10">
                       <AvatarFallback className="bg-blue-600 text-white">
-                        {getInitials(usuario.nombre)}
+                        {getInitials(usuario.nombre_completo)}
                       </AvatarFallback>
                     </Avatar>
                   </Button>
@@ -86,7 +86,7 @@ export const Navbar: React.FC = () => {
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {usuario.nombre}
+                        {usuario.nombre_completo}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
                         {usuario.email}
