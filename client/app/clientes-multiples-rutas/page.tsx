@@ -1,28 +1,41 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, Users2, Download, Filter, Moon, Sun } from "lucide-react"
-import Link from "next/link"
-import { useTheme } from "next-themes"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ArrowLeft, Users2, Download, Filter, Moon, Sun } from "lucide-react";
+import Link from "next/link";
+import { useTheme } from "next-themes";
 
 interface ClienteMultiplesRutas {
-  fecha: string
-  codigo_siscod_sap: string
-  codigo_rs: string
-  placa: string
-  nro_entrega_pedido: string
-  nro_cajas: number
+  fecha: string;
+  codigo_siscod_sap: string;
+  codigo_rs: string;
+  placa: string;
+  nro_entrega_pedido: string;
+  nro_cajas: number;
 }
 
 export default function ClientesMultiplesRutasPage() {
-  const [filtroFecha, setFiltroFecha] = useState("")
-  const [filtroCodigo, setFiltroCodigo] = useState("")
-  const { theme, setTheme } = useTheme()
+  const [filtroFecha, setFiltroFecha] = useState("");
+  const [filtroCodigo, setFiltroCodigo] = useState("");
+  const { theme, setTheme } = useTheme();
 
   const [clientesMultiplesRutas] = useState<ClienteMultiplesRutas[]>([
     {
@@ -73,36 +86,40 @@ export default function ClientesMultiplesRutasPage() {
       nro_entrega_pedido: "PED-2024-006",
       nro_cajas: 22,
     },
-  ])
+  ]);
 
   const clientesFiltrados = clientesMultiplesRutas.filter((cliente) => {
-    const matchFecha = !filtroFecha || cliente.fecha.includes(filtroFecha)
-    const matchCodigo = !filtroCodigo || cliente.codigo_siscod_sap.toLowerCase().includes(filtroCodigo.toLowerCase())
-    return matchFecha && matchCodigo
-  })
+    const matchFecha = !filtroFecha || cliente.fecha.includes(filtroFecha);
+    const matchCodigo =
+      !filtroCodigo ||
+      cliente.codigo_siscod_sap
+        .toLowerCase()
+        .includes(filtroCodigo.toLowerCase());
+    return matchFecha && matchCodigo;
+  });
 
   const clientesAgrupados = clientesFiltrados.reduce(
     (acc, cliente) => {
-      const key = cliente.codigo_siscod_sap
+      const key = cliente.codigo_siscod_sap;
       if (!acc[key]) {
         acc[key] = {
           codigo: key,
           rutas: new Set(),
           pedidos: 0,
           cajas: 0,
-        }
+        };
       }
-      acc[key].rutas.add(cliente.placa)
-      acc[key].pedidos += 1
-      acc[key].cajas += cliente.nro_cajas
-      return acc
+      acc[key].rutas.add(cliente.placa);
+      acc[key].pedidos += 1;
+      acc[key].cajas += cliente.nro_cajas;
+      return acc;
     },
     {} as Record<string, any>,
-  )
+  );
 
   const exportarExcel = () => {
-    alert("Exportando a Excel...")
-  }
+    alert("Exportando a Excel...");
+  };
 
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-gray-900`}>
@@ -124,8 +141,12 @@ export default function ClientesMultiplesRutasPage() {
                 <Users2 className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Clientes con Múltiples Rutas</h1>
-                <p className="text-gray-600 dark:text-gray-300">Clientes atendidos en múltiples rutas</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Clientes con Múltiples Rutas
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Clientes atendidos en múltiples rutas
+                </p>
               </div>
             </div>
           </div>
@@ -137,9 +158,16 @@ export default function ClientesMultiplesRutasPage() {
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
             >
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {theme === "dark" ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
             </Button>
-            <Button onClick={exportarExcel} className="dark:bg-blue-600 dark:hover:bg-blue-700">
+            <Button
+              onClick={exportarExcel}
+              className="dark:bg-blue-600 dark:hover:bg-blue-700"
+            >
               <Download className="w-4 h-4 mr-2" />
               Exportar Excel
             </Button>
@@ -184,8 +212,8 @@ export default function ClientesMultiplesRutasPage() {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setFiltroFecha("")
-                    setFiltroCodigo("")
+                    setFiltroFecha("");
+                    setFiltroCodigo("");
                   }}
                   className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
@@ -199,33 +227,54 @@ export default function ClientesMultiplesRutasPage() {
         {/* Resumen de clientes con múltiples rutas */}
         <Card className="mb-6 dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Resumen de Clientes con Múltiples Rutas</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Resumen de Clientes con Múltiples Rutas
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="dark:border-gray-700">
-                    <TableHead className="dark:text-gray-300">Código Cliente</TableHead>
-                    <TableHead className="dark:text-gray-300">Número de Rutas</TableHead>
-                    <TableHead className="dark:text-gray-300">Total Pedidos</TableHead>
-                    <TableHead className="dark:text-gray-300">Total Cajas</TableHead>
-                    <TableHead className="dark:text-gray-300">Placas Utilizadas</TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Código Cliente
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Número de Rutas
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Total Pedidos
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Total Cajas
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Placas Utilizadas
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {Object.values(clientesAgrupados)
                     .filter((cliente: any) => cliente.rutas.size > 1)
                     .map((cliente: any, index) => (
-                      <TableRow key={index} className="dark:border-gray-700 dark:hover:bg-gray-800">
-                        <TableCell className="font-semibold dark:text-gray-100">{cliente.codigo}</TableCell>
+                      <TableRow
+                        key={index}
+                        className="dark:border-gray-700 dark:hover:bg-gray-800"
+                      >
+                        <TableCell className="font-semibold dark:text-gray-100">
+                          {cliente.codigo}
+                        </TableCell>
                         <TableCell>
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 rounded-full text-sm font-medium">
                             {cliente.rutas.size} rutas
                           </span>
                         </TableCell>
-                        <TableCell className="text-center dark:text-gray-300">{cliente.pedidos}</TableCell>
-                        <TableCell className="font-medium dark:text-gray-300">{cliente.cajas}</TableCell>
+                        <TableCell className="text-center dark:text-gray-300">
+                          {cliente.pedidos}
+                        </TableCell>
+                        <TableCell className="font-medium dark:text-gray-300">
+                          {cliente.cajas}
+                        </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap gap-1">
                             {Array.from(cliente.rutas).map((placa: any, i) => (
@@ -248,9 +297,12 @@ export default function ClientesMultiplesRutasPage() {
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Detalle Completo de Entregas</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Detalle Completo de Entregas
+            </CardTitle>
             <CardDescription className="dark:text-gray-300">
-              {clientesFiltrados.length} entrega{clientesFiltrados.length !== 1 ? "s" : ""} encontrada
+              {clientesFiltrados.length} entrega
+              {clientesFiltrados.length !== 1 ? "s" : ""} encontrada
               {clientesFiltrados.length !== 1 ? "s" : ""}
             </CardDescription>
           </CardHeader>
@@ -260,31 +312,52 @@ export default function ClientesMultiplesRutasPage() {
                 <TableHeader>
                   <TableRow className="dark:border-gray-700">
                     <TableHead className="dark:text-gray-300">Fecha</TableHead>
-                    <TableHead className="dark:text-gray-300">Código SISCOD/SAP</TableHead>
-                    <TableHead className="dark:text-gray-300">Código RS</TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Código SISCOD/SAP
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Código RS
+                    </TableHead>
                     <TableHead className="dark:text-gray-300">Placa</TableHead>
-                    <TableHead className="dark:text-gray-300">Nro de Entrega/Pedido</TableHead>
-                    <TableHead className="dark:text-gray-300">Nro Cajas</TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Nro de Entrega/Pedido
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Nro Cajas
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {clientesFiltrados.map((cliente, index) => (
-                    <TableRow key={index} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                    <TableRow
+                      key={index}
+                      className="dark:border-gray-700 dark:hover:bg-gray-800"
+                    >
                       <TableCell className="dark:text-gray-300">
-                        {new Date(cliente.fecha + "T00:00:00-05:00").toLocaleDateString("es-PE", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          timeZone: "America/Lima",
-                        })}
+                        {cliente.fecha &&
+                        cliente.fecha.match(/^\d{4}-\d{2}-\d{2}$/)
+                          ? (() => {
+                              const [year, month, day] =
+                                cliente.fecha.split("-");
+                              return `${day}/${month}/${year}`;
+                            })()
+                          : cliente.fecha}
                       </TableCell>
-                      <TableCell className="font-semibold dark:text-gray-100">{cliente.codigo_siscod_sap}</TableCell>
-                      <TableCell className="font-mono text-sm dark:text-gray-300">{cliente.codigo_rs}</TableCell>
-                      <TableCell className="font-semibold dark:text-gray-100">{cliente.placa}</TableCell>
+                      <TableCell className="font-semibold dark:text-gray-100">
+                        {cliente.codigo_siscod_sap}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm dark:text-gray-300">
+                        {cliente.codigo_rs}
+                      </TableCell>
+                      <TableCell className="font-semibold dark:text-gray-100">
+                        {cliente.placa}
+                      </TableCell>
                       <TableCell className="font-mono text-sm dark:text-gray-300">
                         {cliente.nro_entrega_pedido}
                       </TableCell>
-                      <TableCell className="text-center font-medium dark:text-gray-300">{cliente.nro_cajas}</TableCell>
+                      <TableCell className="text-center font-medium dark:text-gray-300">
+                        {cliente.nro_cajas}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -294,5 +367,5 @@ export default function ClientesMultiplesRutasPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

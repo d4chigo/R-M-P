@@ -130,6 +130,28 @@ export default function ViajesPage() {
     setIsDialogOpen(true);
   };
 
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "No definido";
+
+    // Backend now consistently sends dates in YYYY-MM-DD format
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateString.split("-");
+      return `${day}/${month}/${year}`;
+    }
+
+    // Fallback for any other format (shouldn't happen with current backend)
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("es-PE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    } catch {
+      return "Fecha inválida";
+    }
+  };
+
   const formatDateTime = (dateTime: string | undefined) => {
     if (!dateTime) return "No definido";
     try {
@@ -184,14 +206,7 @@ export default function ViajesPage() {
         const { estado, variant } = getEstadoViaje(viaje.fecha);
         return (
           <div className="space-y-1">
-            <div className="font-medium">
-              {new Date(viaje.fecha).toLocaleDateString("es-PE", {
-                timeZone: "America/Lima",
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-              })}
-            </div>
+            <div className="font-medium">{formatDate(viaje.fecha)}</div>
             <Badge variant={variant} className="text-xs">
               {estado}
             </Badge>
@@ -466,10 +481,7 @@ export default function ViajesPage() {
                     </p>
                     <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg space-y-1">
                       <div className="font-medium">
-                        Fecha:{" "}
-                        {new Date(viajeToDelete.fecha).toLocaleDateString(
-                          "es-PE",
-                        )}
+                        Fecha: {formatDate(viajeToDelete.fecha)}
                       </div>
                       <div>
                         Vehículo: {viajeToDelete.vehiculo_placa || "Sin placa"}

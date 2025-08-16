@@ -1,32 +1,54 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, Clock, Download, Filter, CheckCircle, XCircle, Moon, Sun } from "lucide-react"
-import Link from "next/link"
-import { useTheme } from "next-themes"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  ArrowLeft,
+  Clock,
+  Download,
+  Filter,
+  CheckCircle,
+  XCircle,
+  Moon,
+  Sun,
+} from "lucide-react";
+import Link from "next/link";
+import { useTheme } from "next-themes";
 
 interface CumplimientoVH {
-  fecha: string
-  placa: string
-  codigo_cliente: string
-  cliente: string
-  open: string
-  close: string
-  arrive: string
-  leave: string
-  idr: string
-  fuera_vh: boolean
+  fecha: string;
+  placa: string;
+  codigo_cliente: string;
+  cliente: string;
+  open: string;
+  close: string;
+  arrive: string;
+  leave: string;
+  idr: string;
+  fuera_vh: boolean;
 }
 
 export default function CumplimientoVHPage() {
-  const [filtroFecha, setFiltroFecha] = useState("")
-  const [filtroPlaca, setFiltroPlaca] = useState("")
-  const { theme, setTheme } = useTheme()
+  const [filtroFecha, setFiltroFecha] = useState("");
+  const [filtroPlaca, setFiltroPlaca] = useState("");
+  const { theme, setTheme } = useTheme();
 
   const [cumplimientoVH] = useState<CumplimientoVH[]>([
     {
@@ -89,22 +111,31 @@ export default function CumplimientoVHPage() {
       idr: "IDR005",
       fuera_vh: false,
     },
-  ])
+  ]);
 
   const cumplimientoFiltrado = cumplimientoVH.filter((item) => {
-    const matchFecha = !filtroFecha || item.fecha.includes(filtroFecha)
-    const matchPlaca = !filtroPlaca || item.placa.toLowerCase().includes(filtroPlaca.toLowerCase())
-    return matchFecha && matchPlaca
-  })
+    const matchFecha = !filtroFecha || item.fecha.includes(filtroFecha);
+    const matchPlaca =
+      !filtroPlaca ||
+      item.placa.toLowerCase().includes(filtroPlaca.toLowerCase());
+    return matchFecha && matchPlaca;
+  });
 
-  const totalVisitas = cumplimientoFiltrado.length
-  const visitasDentroVH = cumplimientoFiltrado.filter((item) => !item.fuera_vh).length
-  const visitasFueraVH = cumplimientoFiltrado.filter((item) => item.fuera_vh).length
-  const porcentajeCumplimiento = totalVisitas > 0 ? ((visitasDentroVH / totalVisitas) * 100).toFixed(1) : "0"
+  const totalVisitas = cumplimientoFiltrado.length;
+  const visitasDentroVH = cumplimientoFiltrado.filter(
+    (item) => !item.fuera_vh,
+  ).length;
+  const visitasFueraVH = cumplimientoFiltrado.filter(
+    (item) => item.fuera_vh,
+  ).length;
+  const porcentajeCumplimiento =
+    totalVisitas > 0
+      ? ((visitasDentroVH / totalVisitas) * 100).toFixed(1)
+      : "0";
 
   const exportarExcel = () => {
-    alert("Exportando a Excel...")
-  }
+    alert("Exportando a Excel...");
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -129,7 +160,9 @@ export default function CumplimientoVHPage() {
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                   Cumplimiento de Ventanas Horarias
                 </h1>
-                <p className="text-gray-600 dark:text-gray-300">Análisis de cumplimiento de horarios de atención</p>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Análisis de cumplimiento de horarios de atención
+                </p>
               </div>
             </div>
           </div>
@@ -141,9 +174,16 @@ export default function CumplimientoVHPage() {
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
             >
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {theme === "dark" ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
             </Button>
-            <Button onClick={exportarExcel} className="dark:bg-blue-600 dark:hover:bg-blue-700">
+            <Button
+              onClick={exportarExcel}
+              className="dark:bg-blue-600 dark:hover:bg-blue-700"
+            >
               <Download className="w-4 h-4 mr-2" />
               Exportar Excel
             </Button>
@@ -188,8 +228,8 @@ export default function CumplimientoVHPage() {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setFiltroFecha("")
-                    setFiltroPlaca("")
+                    setFiltroFecha("");
+                    setFiltroPlaca("");
                   }}
                   className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
@@ -204,26 +244,42 @@ export default function CumplimientoVHPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalVisitas}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Total Visitas</div>
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {totalVisitas}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Total Visitas
+              </div>
             </CardContent>
           </Card>
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{visitasDentroVH}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Dentro de VH</div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {visitasDentroVH}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Dentro de VH
+              </div>
             </CardContent>
           </Card>
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-red-600 dark:text-red-400">{visitasFueraVH}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Fuera de VH</div>
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                {visitasFueraVH}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Fuera de VH
+              </div>
             </CardContent>
           </Card>
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{porcentajeCumplimiento}%</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">% Cumplimiento</div>
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                {porcentajeCumplimiento}%
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                % Cumplimiento
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -231,7 +287,9 @@ export default function CumplimientoVHPage() {
         {/* Indicador visual de cumplimiento */}
         <Card className="mb-6 dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Indicador de Cumplimiento General</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Indicador de Cumplimiento General
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4">
@@ -249,7 +307,9 @@ export default function CumplimientoVHPage() {
                   />
                 </div>
               </div>
-              <div className="text-lg font-semibold dark:text-gray-100">{porcentajeCumplimiento}% de cumplimiento</div>
+              <div className="text-lg font-semibold dark:text-gray-100">
+                {porcentajeCumplimiento}% de cumplimiento
+              </div>
             </div>
             <div className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               {Number.parseFloat(porcentajeCumplimiento) >= 90
@@ -263,9 +323,12 @@ export default function CumplimientoVHPage() {
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Detalle de Cumplimiento de Ventanas Horarias</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Detalle de Cumplimiento de Ventanas Horarias
+            </CardTitle>
             <CardDescription className="dark:text-gray-300">
-              {cumplimientoFiltrado.length} visita{cumplimientoFiltrado.length !== 1 ? "s" : ""} encontrada
+              {cumplimientoFiltrado.length} visita
+              {cumplimientoFiltrado.length !== 1 ? "s" : ""} encontrada
               {cumplimientoFiltrado.length !== 1 ? "s" : ""}
             </CardDescription>
           </CardHeader>
@@ -276,29 +339,48 @@ export default function CumplimientoVHPage() {
                   <TableRow className="dark:border-gray-700">
                     <TableHead className="dark:text-gray-300">Fecha</TableHead>
                     <TableHead className="dark:text-gray-300">Placa</TableHead>
-                    <TableHead className="dark:text-gray-300">Código Cliente</TableHead>
-                    <TableHead className="dark:text-gray-300">Cliente</TableHead>
-                    <TableHead className="dark:text-gray-300">Ventana Horaria</TableHead>
-                    <TableHead className="dark:text-gray-300">Horario Real</TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Código Cliente
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Cliente
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Ventana Horaria
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Horario Real
+                    </TableHead>
                     <TableHead className="dark:text-gray-300">IDR</TableHead>
                     <TableHead className="dark:text-gray-300">Estado</TableHead>
-                    <TableHead className="dark:text-gray-300">Fuera de VH?</TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Fuera de VH?
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {cumplimientoFiltrado.map((item, index) => (
-                    <TableRow key={index} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                    <TableRow
+                      key={index}
+                      className="dark:border-gray-700 dark:hover:bg-gray-800"
+                    >
                       <TableCell className="dark:text-gray-300">
-                        {new Date(item.fecha + "T00:00:00-05:00").toLocaleDateString("es-PE", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          timeZone: "America/Lima",
-                        })}
+                        {item.fecha && item.fecha.match(/^\d{4}-\d{2}-\d{2}$/)
+                          ? (() => {
+                              const [year, month, day] = item.fecha.split("-");
+                              return `${day}/${month}/${year}`;
+                            })()
+                          : item.fecha}
                       </TableCell>
-                      <TableCell className="font-semibold dark:text-gray-100">{item.placa}</TableCell>
-                      <TableCell className="font-mono text-sm dark:text-gray-300">{item.codigo_cliente}</TableCell>
-                      <TableCell className="dark:text-gray-300">{item.cliente}</TableCell>
+                      <TableCell className="font-semibold dark:text-gray-100">
+                        {item.placa}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm dark:text-gray-300">
+                        {item.codigo_cliente}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {item.cliente}
+                      </TableCell>
                       <TableCell>
                         <div className="text-sm dark:text-gray-300">
                           <div className="font-medium">
@@ -309,14 +391,18 @@ export default function CumplimientoVHPage() {
                       <TableCell>
                         <div className="text-sm dark:text-gray-300">
                           <div>
-                            Llegada: <span className="font-medium">{item.arrive}</span>
+                            Llegada:{" "}
+                            <span className="font-medium">{item.arrive}</span>
                           </div>
                           <div>
-                            Salida: <span className="font-medium">{item.leave}</span>
+                            Salida:{" "}
+                            <span className="font-medium">{item.leave}</span>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="font-mono text-xs dark:text-gray-300">{item.idr}</TableCell>
+                      <TableCell className="font-mono text-xs dark:text-gray-300">
+                        {item.idr}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {item.fuera_vh ? (
@@ -326,7 +412,9 @@ export default function CumplimientoVHPage() {
                           )}
                           <span
                             className={`text-sm font-medium ${
-                              item.fuera_vh ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
+                              item.fuera_vh
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-green-600 dark:text-green-400"
                             }`}
                           >
                             {item.fuera_vh ? "Incumplido" : "Cumplido"}
@@ -353,5 +441,5 @@ export default function CumplimientoVHPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

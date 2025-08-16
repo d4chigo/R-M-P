@@ -10,7 +10,6 @@ import {
   Users,
   Truck,
   Info,
-  X,
   ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -45,7 +44,26 @@ import {
 } from "@/components/ui/dialog";
 import Link from "next/link";
 
-export default function ReportesPage() {
+interface ResumenRuta {
+  Fecha: string;
+  Placa: string;
+  Vehiculo: string;
+  Repartidor: string;
+  "Nro de viajes": number;
+  Zona: number;
+  "Zonas Visitadas": string;
+  Distancia: number;
+  "Salida del CD": string;
+  "Llegada al CD": string;
+  Tiempo: string;
+  "Nro de clientes": number;
+  "Nro de pedidos": number;
+  "Entrega (CF)": number;
+  "Recojo (CF)": number;
+  "Peso (Kg)": number;
+}
+
+export default function ResumenRutasPage() {
   const {
     loading,
     getResumenRutas,
@@ -239,7 +257,7 @@ export default function ReportesPage() {
       headers.join(","),
       ...resumenData.map((row) =>
         [
-          new Date(row.Fecha).toLocaleDateString("es-PE"),
+          formatDate(row.Fecha),
           row.Placa,
           `"${row.Vehiculo}"`,
           `"${row.Repartidor}"`,

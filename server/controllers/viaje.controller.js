@@ -1,5 +1,46 @@
 const db = require("../config/db");
 
+// Utility function to format dates consistently
+const formatDateForResponse = (dateValue) => {
+  if (!dateValue) return null;
+
+  // If it's already a string in YYYY-MM-DD format, return as is
+  if (typeof dateValue === "string" && dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return dateValue;
+  }
+
+  // If it's a Date object, format it to YYYY-MM-DD
+  if (dateValue instanceof Date) {
+    return dateValue.toISOString().split("T")[0];
+  }
+
+  // Try to parse and format
+  try {
+    const date = new Date(dateValue);
+    return date.toISOString().split("T")[0];
+  } catch {
+    return dateValue;
+  }
+};
+
+// Process response data to ensure consistent date formatting
+const processResponseData = (data) => {
+  if (Array.isArray(data)) {
+    return data.map((item) => {
+      if (item.fecha) {
+        item.fecha = formatDateForResponse(item.fecha);
+      }
+      return item;
+    });
+  }
+
+  if (data && typeof data === "object" && data.fecha) {
+    data.fecha = formatDateForResponse(data.fecha);
+  }
+
+  return data;
+};
+
 // Obtener todos los viajes
 const getViajes = async (req, res) => {
   try {
@@ -8,7 +49,7 @@ const getViajes = async (req, res) => {
     const [viajes] = await db.query(`
       SELECT
         v.id_viaje,
-        v.fecha,
+        DATE_FORMAT(v.fecha, '%Y-%m-%d') as fecha,
         v.id_vehiculo,
         v.id_repartidor,
         v.nro_viaje,
@@ -41,10 +82,13 @@ const getViajes = async (req, res) => {
 
     console.log(`✅ Se encontraron ${viajes.length} viajes`);
 
+    // Process dates to ensure consistent formatting
+    const processedViajes = processResponseData(viajes);
+
     res.json({
       success: true,
-      data: viajes,
-      count: viajes.length,
+      data: processedViajes,
+      count: processedViajes.length,
       message: "Viajes obtenidos exitosamente",
     });
   } catch (error) {
@@ -67,7 +111,7 @@ const getViajeById = async (req, res) => {
       `
       SELECT
         v.id_viaje,
-        v.fecha,
+        DATE_FORMAT(v.fecha, '%Y-%m-%d') as fecha,
         v.id_vehiculo,
         v.id_repartidor,
         v.nro_viaje,
@@ -112,9 +156,12 @@ const getViajeById = async (req, res) => {
       `✅ Viaje encontrado: ${viaje[0].fecha} - ${viaje[0].vehiculo_placa}`,
     );
 
+    // Process dates to ensure consistent formatting
+    const processedViaje = processResponseData(viaje[0]);
+
     res.json({
       success: true,
-      data: viaje[0],
+      data: processedViaje,
       message: "Viaje obtenido exitosamente",
     });
   } catch (error) {
@@ -235,7 +282,7 @@ const createViaje = async (req, res) => {
       `
       SELECT
         v.id_viaje,
-        v.fecha,
+        DATE_FORMAT(v.fecha, '%Y-%m-%d') as fecha,
         v.id_vehiculo,
         v.id_repartidor,
         v.nro_viaje,
@@ -268,9 +315,12 @@ const createViaje = async (req, res) => {
       [result.insertId],
     );
 
+    // Process dates to ensure consistent formatting
+    const processedViaje = processResponseData(newViaje[0]);
+
     res.status(201).json({
       success: true,
-      data: newViaje[0],
+      data: processedViaje,
       message: "Viaje creado exitosamente",
     });
   } catch (error) {
@@ -410,7 +460,7 @@ const updateViaje = async (req, res) => {
       `
       SELECT
         v.id_viaje,
-        v.fecha,
+        DATE_FORMAT(v.fecha, '%Y-%m-%d') as fecha,
         v.id_vehiculo,
         v.id_repartidor,
         v.nro_viaje,
@@ -443,9 +493,12 @@ const updateViaje = async (req, res) => {
       [id],
     );
 
+    // Process dates to ensure consistent formatting
+    const processedViaje = processResponseData(updatedViaje[0]);
+
     res.json({
       success: true,
-      data: updatedViaje[0],
+      data: processedViaje,
       message: "Viaje actualizado exitosamente",
     });
   } catch (error) {
