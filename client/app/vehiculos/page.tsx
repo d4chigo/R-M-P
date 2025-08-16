@@ -82,6 +82,7 @@ export default function VehiculosPage() {
     relatedCount?: number;
   } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
   const [showStats, setShowStats] = useState(false);
 
   const handleSubmit = async (vehiculoData: Omit<Vehiculo, "id_vehiculo">) => {
@@ -112,6 +113,17 @@ export default function VehiculosPage() {
       // Si no hay query, recargar todos los vehículos
       await fetchVehiculos();
     }
+  };
+
+  const handleDateFilter = (date: string) => {
+    setDateFilter(date);
+    // Aquí podrías implementar filtrado por fecha si es necesario
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setDateFilter("");
+    fetchVehiculos();
   };
 
   const handleDelete = (vehiculo: Vehiculo) => {
@@ -231,6 +243,25 @@ export default function VehiculosPage() {
               onChange={(e) => handleSearch(e.target.value)}
               className="flex-1"
             />
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => handleDateFilter(e.target.value)}
+                className="pl-10 w-auto"
+                placeholder="Filtrar por fecha"
+              />
+            </div>
+            {(searchQuery || dateFilter) && (
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="flex items-center gap-2"
+              >
+                Limpiar
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => setShowStats(!showStats)}
