@@ -1,46 +1,66 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, TrendingUp, Download, Filter, Moon, Sun } from "lucide-react"
-import Link from "next/link"
-import { useTheme } from "next-themes"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  ArrowLeft,
+  TrendingUp,
+  Download,
+  Filter,
+  Moon,
+  Sun,
+} from "lucide-react";
+import Link from "next/link";
+import { useTheme } from "next-themes";
 
 interface RutaPorViaje {
-  fecha: string
-  cod_rs_tipo_veh: string
-  tipo_vehiculo: string
-  placa: string
-  repartidor: string
-  nro_viaje: number
-  nro_clientes: number
-  entrega_cf: number
-  recojo_cf: number
-  peso_kg: number
-  capac_kg: number
-  porc_capacidad_uso_kg: number
-  capac_cajas: number
-  porc_capacidad_uso_cajas: number
-  distancia_recorrida: number
-  salida_cd: string
-  llegada_cd: string
-  tiempo_viaje: string
-  tiempo_manejo: string
-  tiempo_servicio: string
-  recarga: string
-  refrigerio: string
-  total_viajes: number
-  tipo_viaje: string
+  fecha: string;
+  cod_rs_tipo_veh: string;
+  tipo_vehiculo: string;
+  placa: string;
+  repartidor: string;
+  nro_viaje: number;
+  nro_clientes: number;
+  entrega_cf: number;
+  recojo_cf: number;
+  peso_kg: number;
+  capac_kg: number;
+  porc_capacidad_uso_kg: number;
+  capac_cajas: number;
+  porc_capacidad_uso_cajas: number;
+  distancia_recorrida: number;
+  salida_cd: string;
+  llegada_cd: string;
+  tiempo_viaje: string;
+  tiempo_manejo: string;
+  tiempo_servicio: string;
+  recarga: string;
+  refrigerio: string;
+  total_viajes: number;
+  tipo_viaje: string;
 }
 
 export default function RutasPorViajePage() {
-  const [filtroFecha, setFiltroFecha] = useState("")
-  const [filtroPlaca, setFiltroPlaca] = useState("")
-  const { theme, setTheme } = useTheme()
+  const [filtroFecha, setFiltroFecha] = useState("");
+  const [filtroPlaca, setFiltroPlaca] = useState("");
+  const { theme, setTheme } = useTheme();
 
   const [rutasPorViaje] = useState<RutaPorViaje[]>([
     {
@@ -121,17 +141,19 @@ export default function RutasPorViajePage() {
       total_viajes: 2,
       tipo_viaje: "Larga Distancia",
     },
-  ])
+  ]);
 
   const rutasFiltradas = rutasPorViaje.filter((ruta) => {
-    const matchFecha = !filtroFecha || ruta.fecha.includes(filtroFecha)
-    const matchPlaca = !filtroPlaca || ruta.placa.toLowerCase().includes(filtroPlaca.toLowerCase())
-    return matchFecha && matchPlaca
-  })
+    const matchFecha = !filtroFecha || ruta.fecha.includes(filtroFecha);
+    const matchPlaca =
+      !filtroPlaca ||
+      ruta.placa.toLowerCase().includes(filtroPlaca.toLowerCase());
+    return matchFecha && matchPlaca;
+  });
 
   const exportarExcel = () => {
-    alert("Exportando a Excel...")
-  }
+    alert("Exportando a Excel...");
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -153,8 +175,12 @@ export default function RutasPorViajePage() {
                 <TrendingUp className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Rutas por Viaje</h1>
-                <p className="text-gray-600 dark:text-gray-300">Detalle de capacidad y rendimiento por viaje</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Rutas por Viaje
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Detalle de capacidad y rendimiento por viaje
+                </p>
               </div>
             </div>
           </div>
@@ -166,9 +192,16 @@ export default function RutasPorViajePage() {
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               className="dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
             >
-              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              {theme === "dark" ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
             </Button>
-            <Button onClick={exportarExcel} className="dark:bg-blue-600 dark:hover:bg-blue-700">
+            <Button
+              onClick={exportarExcel}
+              className="dark:bg-blue-600 dark:hover:bg-blue-700"
+            >
               <Download className="w-4 h-4 mr-2" />
               Exportar Excel
             </Button>
@@ -213,8 +246,8 @@ export default function RutasPorViajePage() {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setFiltroFecha("")
-                    setFiltroPlaca("")
+                    setFiltroFecha("");
+                    setFiltroPlaca("");
                   }}
                   className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
@@ -231,42 +264,64 @@ export default function RutasPorViajePage() {
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {(
-                  rutasFiltradas.reduce((sum, ruta) => sum + ruta.porc_capacidad_uso_kg, 0) / rutasFiltradas.length || 0
+                  rutasFiltradas.reduce(
+                    (sum, ruta) => sum + ruta.porc_capacidad_uso_kg,
+                    0,
+                  ) / rutasFiltradas.length || 0
                 ).toFixed(1)}
                 %
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Promedio Uso Capacidad</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Promedio Uso Capacidad
+              </div>
             </CardContent>
           </Card>
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {rutasFiltradas.reduce((sum, ruta) => sum + ruta.distancia_recorrida, 0).toFixed(1)} km
+                {rutasFiltradas
+                  .reduce((sum, ruta) => sum + ruta.distancia_recorrida, 0)
+                  .toFixed(1)}{" "}
+                km
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Distancia Total</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Distancia Total
+              </div>
             </CardContent>
           </Card>
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {rutasFiltradas.reduce((sum, ruta) => sum + ruta.nro_clientes, 0)}
+                {rutasFiltradas.reduce(
+                  (sum, ruta) => sum + ruta.nro_clientes,
+                  0,
+                )}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Total Clientes</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Total Clientes
+              </div>
             </CardContent>
           </Card>
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
-              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{rutasFiltradas.length}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Total Viajes</div>
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                {rutasFiltradas.length}
+              </div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Total Viajes
+              </div>
             </CardContent>
           </Card>
         </div>
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Detalle de Rutas por Viaje</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Detalle de Rutas por Viaje
+            </CardTitle>
             <CardDescription className="dark:text-gray-300">
-              {rutasFiltradas.length} viaje{rutasFiltradas.length !== 1 ? "s" : ""} encontrado
+              {rutasFiltradas.length} viaje
+              {rutasFiltradas.length !== 1 ? "s" : ""} encontrado
               {rutasFiltradas.length !== 1 ? "s" : ""}
             </CardDescription>
           </CardHeader>
@@ -276,53 +331,110 @@ export default function RutasPorViajePage() {
                 <TableHeader>
                   <TableRow className="dark:border-gray-700">
                     <TableHead className="dark:text-gray-300">Fecha</TableHead>
-                    <TableHead className="dark:text-gray-300">Cod RS Tipo Veh</TableHead>
-                    <TableHead className="dark:text-gray-300">Tipo Vehículo</TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Cod RS Tipo Veh
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Tipo Vehículo
+                    </TableHead>
                     <TableHead className="dark:text-gray-300">Placa</TableHead>
-                    <TableHead className="dark:text-gray-300">Repartidor</TableHead>
-                    <TableHead className="dark:text-gray-300">Nro Viaje</TableHead>
-                    <TableHead className="dark:text-gray-300">Nro Clientes</TableHead>
-                    <TableHead className="dark:text-gray-300">Entrega (CF)</TableHead>
-                    <TableHead className="dark:text-gray-300">Recojo (CF)</TableHead>
-                    <TableHead className="dark:text-gray-300">Peso (Kg)</TableHead>
-                    <TableHead className="dark:text-gray-300">Capac. (Kg)</TableHead>
-                    <TableHead className="dark:text-gray-300">% Capacidad Uso (Kg)</TableHead>
-                    <TableHead className="dark:text-gray-300">Capac. (Cajas)</TableHead>
-                    <TableHead className="dark:text-gray-300">% Capacidad Uso (Cajas)</TableHead>
-                    <TableHead className="dark:text-gray-300">Distancia</TableHead>
-                    <TableHead className="dark:text-gray-300">Salida CD</TableHead>
-                    <TableHead className="dark:text-gray-300">Llegada CD</TableHead>
-                    <TableHead className="dark:text-gray-300">Tiempo Viaje</TableHead>
-                    <TableHead className="dark:text-gray-300">Tiempo Manejo</TableHead>
-                    <TableHead className="dark:text-gray-300">Tiempo Servicio</TableHead>
-                    <TableHead className="dark:text-gray-300">Tipo Viaje</TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Repartidor
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Nro Viaje
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Nro Clientes
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Entrega (CF)
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Recojo (CF)
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Peso (Kg)
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Capac. (Kg)
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      % Capacidad Uso (Kg)
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Capac. (Cajas)
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      % Capacidad Uso (Cajas)
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Distancia
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Salida CD
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Llegada CD
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Tiempo Viaje
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Tiempo Manejo
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Tiempo Servicio
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Tipo Viaje
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rutasFiltradas.map((ruta, index) => (
-                    <TableRow key={index} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                    <TableRow
+                      key={index}
+                      className="dark:border-gray-700 dark:hover:bg-gray-800"
+                    >
                       <TableCell className="dark:text-gray-300">
-                        {new Date(ruta.fecha + "T00:00:00-05:00").toLocaleDateString("es-PE", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                          timeZone: "America/Lima",
-                        })}
+                        {ruta.fecha && ruta.fecha.match(/^\d{4}-\d{2}-\d{2}$/)
+                          ? (() => {
+                              const [year, month, day] = ruta.fecha.split("-");
+                              return `${day}/${month}/${year}`;
+                            })()
+                          : ruta.fecha}
                       </TableCell>
-                      <TableCell className="font-mono text-xs dark:text-gray-300">{ruta.cod_rs_tipo_veh}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.tipo_vehiculo}</TableCell>
-                      <TableCell className="font-semibold dark:text-gray-100">{ruta.placa}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.repartidor}</TableCell>
-                      <TableCell className="text-center font-medium dark:text-gray-300">{ruta.nro_viaje}</TableCell>
-                      <TableCell className="text-center dark:text-gray-300">{ruta.nro_clientes}</TableCell>
+                      <TableCell className="font-mono text-xs dark:text-gray-300">
+                        {ruta.cod_rs_tipo_veh}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.tipo_vehiculo}
+                      </TableCell>
+                      <TableCell className="font-semibold dark:text-gray-100">
+                        {ruta.placa}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.repartidor}
+                      </TableCell>
+                      <TableCell className="text-center font-medium dark:text-gray-300">
+                        {ruta.nro_viaje}
+                      </TableCell>
+                      <TableCell className="text-center dark:text-gray-300">
+                        {ruta.nro_clientes}
+                      </TableCell>
                       <TableCell className="text-green-600 dark:text-green-400 font-medium">
                         {ruta.entrega_cf.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-blue-600 dark:text-blue-400 font-medium">
                         {ruta.recojo_cf.toLocaleString()}
                       </TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.peso_kg.toLocaleString()}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.capac_kg.toLocaleString()}</TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.peso_kg.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.capac_kg.toLocaleString()}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="w-12 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
@@ -334,13 +446,19 @@ export default function RutasPorViajePage() {
                                     ? "bg-yellow-500"
                                     : "bg-green-500"
                               }`}
-                              style={{ width: `${Math.min(ruta.porc_capacidad_uso_kg, 100)}%` }}
+                              style={{
+                                width: `${Math.min(ruta.porc_capacidad_uso_kg, 100)}%`,
+                              }}
                             />
                           </div>
-                          <span className="text-sm font-medium dark:text-gray-300">{ruta.porc_capacidad_uso_kg}%</span>
+                          <span className="text-sm font-medium dark:text-gray-300">
+                            {ruta.porc_capacidad_uso_kg}%
+                          </span>
                         </div>
                       </TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.capac_cajas}</TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.capac_cajas}
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <div className="w-12 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
@@ -352,7 +470,9 @@ export default function RutasPorViajePage() {
                                     ? "bg-yellow-500"
                                     : "bg-green-500"
                               }`}
-                              style={{ width: `${Math.min(ruta.porc_capacidad_uso_cajas, 100)}%` }}
+                              style={{
+                                width: `${Math.min(ruta.porc_capacidad_uso_cajas, 100)}%`,
+                              }}
                             />
                           </div>
                           <span className="text-sm font-medium dark:text-gray-300">
@@ -360,12 +480,24 @@ export default function RutasPorViajePage() {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.distancia_recorrida} km</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.salida_cd}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.llegada_cd}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.tiempo_viaje}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.tiempo_manejo}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.tiempo_servicio}</TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.distancia_recorrida} km
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.salida_cd}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.llegada_cd}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.tiempo_viaje}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.tiempo_manejo}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.tiempo_servicio}
+                      </TableCell>
                       <TableCell>
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -386,5 +518,5 @@ export default function RutasPorViajePage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

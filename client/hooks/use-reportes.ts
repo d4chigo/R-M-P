@@ -9,7 +9,8 @@ interface ResumenRuta {
   Vehiculo: string;
   Repartidor: string;
   "Nro de viajes": number;
-  Territorio: number;
+  Zona: number;
+  "Zonas Visitadas": string;
   Distancia: number;
   "Salida del CD": string;
   "Llegada al CD": string;
