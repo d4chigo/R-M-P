@@ -1,36 +1,49 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { ArrowLeft, BarChart3, Download, Filter } from "lucide-react"
-import Link from "next/link"
-import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ArrowLeft, BarChart3, Download, Filter } from "lucide-react";
+import Link from "next/link";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 interface ResumenRuta {
-  fecha: string
-  placa: string
-  vehiculo: string
-  repartidor: string
-  nro_viajes: number
-  territorio: string
-  distancia: number
-  salida_cd: string
-  llegada_cd: string
-  tiempo: string
-  nro_clientes: number
-  nro_pedidos: number
-  entrega_cf: number
-  recojo_cf: number
-  peso_kg: number
+  fecha: string;
+  placa: string;
+  vehiculo: string;
+  repartidor: string;
+  nro_viajes: number;
+  territorio: string;
+  distancia: number;
+  salida_cd: string;
+  llegada_cd: string;
+  tiempo: string;
+  nro_clientes: number;
+  nro_pedidos: number;
+  entrega_cf: number;
+  recojo_cf: number;
+  peso_kg: number;
 }
 
 export default function ResumenRutasPage() {
-  const [filtroFecha, setFiltroFecha] = useState("")
-  const [filtroPlaca, setFiltroPlaca] = useState("")
+  const [filtroFecha, setFiltroFecha] = useState("");
+  const [filtroPlaca, setFiltroPlaca] = useState("");
 
   const [resumenRutas] = useState<ResumenRuta[]>([
     {
@@ -84,18 +97,20 @@ export default function ResumenRutasPage() {
       recojo_cf: 9850.3,
       peso_kg: 21300,
     },
-  ])
+  ]);
 
   const rutasFiltradas = resumenRutas.filter((ruta) => {
-    const matchFecha = !filtroFecha || ruta.fecha.includes(filtroFecha)
-    const matchPlaca = !filtroPlaca || ruta.placa.toLowerCase().includes(filtroPlaca.toLowerCase())
-    return matchFecha && matchPlaca
-  })
+    const matchFecha = !filtroFecha || ruta.fecha.includes(filtroFecha);
+    const matchPlaca =
+      !filtroPlaca ||
+      ruta.placa.toLowerCase().includes(filtroPlaca.toLowerCase());
+    return matchFecha && matchPlaca;
+  });
 
   const exportarExcel = () => {
     // Aquí iría la lógica para exportar a Excel
-    alert("Exportando a Excel...")
-  }
+    alert("Exportando a Excel...");
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -117,8 +132,12 @@ export default function ResumenRutasPage() {
                 <BarChart3 className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Resumen de Rutas</h1>
-                <p className="text-gray-600 dark:text-gray-300">Análisis completo de rutas por fecha y vehículo</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Resumen de Rutas
+                </h1>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Análisis completo de rutas por fecha y vehículo
+                </p>
               </div>
             </div>
           </div>
@@ -170,8 +189,8 @@ export default function ResumenRutasPage() {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setFiltroFecha("")
-                    setFiltroPlaca("")
+                    setFiltroFecha("");
+                    setFiltroPlaca("");
                   }}
                   className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
@@ -189,40 +208,60 @@ export default function ResumenRutasPage() {
               <div className="text-2xl font-bold text-blue-600">
                 {rutasFiltradas.reduce((sum, ruta) => sum + ruta.nro_viajes, 0)}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Total Viajes</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Total Viajes
+              </div>
             </CardContent>
           </Card>
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-green-600">
-                {rutasFiltradas.reduce((sum, ruta) => sum + ruta.nro_clientes, 0)}
+                {rutasFiltradas.reduce(
+                  (sum, ruta) => sum + ruta.nro_clientes,
+                  0,
+                )}
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Total Clientes</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Total Clientes
+              </div>
             </CardContent>
           </Card>
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-purple-600">
-                {rutasFiltradas.reduce((sum, ruta) => sum + ruta.distancia, 0).toFixed(1)} km
+                {rutasFiltradas
+                  .reduce((sum, ruta) => sum + ruta.distancia, 0)
+                  .toFixed(1)}{" "}
+                km
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Distancia Total</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Distancia Total
+              </div>
             </CardContent>
           </Card>
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-orange-600">
-                {rutasFiltradas.reduce((sum, ruta) => sum + ruta.peso_kg, 0).toLocaleString()} kg
+                {rutasFiltradas
+                  .reduce((sum, ruta) => sum + ruta.peso_kg, 0)
+                  .toLocaleString()}{" "}
+                kg
               </div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Peso Total</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                Peso Total
+              </div>
             </CardContent>
           </Card>
         </div>
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
-            <CardTitle className="dark:text-gray-100">Resumen Detallado de Rutas</CardTitle>
+            <CardTitle className="dark:text-gray-100">
+              Resumen Detallado de Rutas
+            </CardTitle>
             <CardDescription className="dark:text-gray-300">
-              {rutasFiltradas.length} registro{rutasFiltradas.length !== 1 ? "s" : ""} encontrado
+              {rutasFiltradas.length} registro
+              {rutasFiltradas.length !== 1 ? "s" : ""} encontrado
               {rutasFiltradas.length !== 1 ? "s" : ""}
             </CardDescription>
           </CardHeader>
@@ -233,45 +272,98 @@ export default function ResumenRutasPage() {
                   <TableRow className="dark:border-gray-700">
                     <TableHead className="dark:text-gray-300">Fecha</TableHead>
                     <TableHead className="dark:text-gray-300">Placa</TableHead>
-                    <TableHead className="dark:text-gray-300">Vehículo</TableHead>
-                    <TableHead className="dark:text-gray-300">Repartidor</TableHead>
-                    <TableHead className="dark:text-gray-300">Nro Viajes</TableHead>
-                    <TableHead className="dark:text-gray-300">Territorio</TableHead>
-                    <TableHead className="dark:text-gray-300">Distancia</TableHead>
-                    <TableHead className="dark:text-gray-300">Salida CD</TableHead>
-                    <TableHead className="dark:text-gray-300">Llegada CD</TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Vehículo
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Repartidor
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Nro Viajes
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Territorio
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Distancia
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Salida CD
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Llegada CD
+                    </TableHead>
                     <TableHead className="dark:text-gray-300">Tiempo</TableHead>
-                    <TableHead className="dark:text-gray-300">Nro Clientes</TableHead>
-                    <TableHead className="dark:text-gray-300">Nro Pedidos</TableHead>
-                    <TableHead className="dark:text-gray-300">Entrega (CF)</TableHead>
-                    <TableHead className="dark:text-gray-300">Recojo (CF)</TableHead>
-                    <TableHead className="dark:text-gray-300">Peso (Kg)</TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Nro Clientes
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Nro Pedidos
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Entrega (CF)
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Recojo (CF)
+                    </TableHead>
+                    <TableHead className="dark:text-gray-300">
+                      Peso (Kg)
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {rutasFiltradas.map((ruta, index) => (
-                    <TableRow key={index} className="dark:border-gray-700 dark:hover:bg-gray-800">
+                    <TableRow
+                      key={index}
+                      className="dark:border-gray-700 dark:hover:bg-gray-800"
+                    >
                       <TableCell className="dark:text-gray-300">
-                        {new Date(ruta.fecha).toLocaleDateString("es-PE", { timeZone: "America/Lima" })}
+                        {new Date(ruta.fecha).toLocaleDateString("es-PE", {
+                          timeZone: "America/Lima",
+                        })}
                       </TableCell>
-                      <TableCell className="font-semibold dark:text-gray-100">{ruta.placa}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.vehiculo}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.repartidor}</TableCell>
-                      <TableCell className="text-center dark:text-gray-300">{ruta.nro_viajes}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.territorio}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.distancia} km</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.salida_cd}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.llegada_cd}</TableCell>
-                      <TableCell className="dark:text-gray-300">{ruta.tiempo}</TableCell>
-                      <TableCell className="text-center dark:text-gray-300">{ruta.nro_clientes}</TableCell>
-                      <TableCell className="text-center dark:text-gray-300">{ruta.nro_pedidos}</TableCell>
+                      <TableCell className="font-semibold dark:text-gray-100">
+                        {ruta.placa}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.vehiculo}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.repartidor}
+                      </TableCell>
+                      <TableCell className="text-center dark:text-gray-300">
+                        {ruta.nro_viajes}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.territorio}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.distancia} km
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.salida_cd}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.llegada_cd}
+                      </TableCell>
+                      <TableCell className="dark:text-gray-300">
+                        {ruta.tiempo}
+                      </TableCell>
+                      <TableCell className="text-center dark:text-gray-300">
+                        {ruta.nro_clientes}
+                      </TableCell>
+                      <TableCell className="text-center dark:text-gray-300">
+                        {ruta.nro_pedidos}
+                      </TableCell>
                       <TableCell className="text-green-600 dark:text-green-400 font-medium">
                         {ruta.entrega_cf.toLocaleString()}
                       </TableCell>
                       <TableCell className="text-blue-600 dark:text-blue-400 font-medium">
                         {ruta.recojo_cf.toLocaleString()}
                       </TableCell>
-                      <TableCell className="font-medium dark:text-gray-300">{ruta.peso_kg.toLocaleString()}</TableCell>
+                      <TableCell className="font-medium dark:text-gray-300">
+                        {ruta.peso_kg.toLocaleString()}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -281,5 +373,5 @@ export default function ResumenRutasPage() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

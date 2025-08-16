@@ -286,9 +286,9 @@ const getMetricasCumplimiento = async (req, res) => {
       [fechaConsulta],
     );
 
-    // Calcular utilización de flota (ejemplo: vehículos que trabajaron vs total de vehículos)
+    // Calcular utilización de flota (vehículos activos vs total de vehículos activos)
     const [totalVehiculos] = await db.query(
-      "SELECT COUNT(*) as total FROM VEHICULO",
+      "SELECT COUNT(*) as total FROM VEHICULO WHERE activo = TRUE",
     );
     const vehiculosUtilizados = datosBase[0].total_vehiculos;
     const utilizacionFlota =
@@ -296,44 +296,78 @@ const getMetricasCumplimiento = async (req, res) => {
         ? (vehiculosUtilizados / totalVehiculos[0].total) * 100
         : 0;
 
-    // Ejemplo de cálculo de productividad (CF por camión)
-    const productividadCamion =
-      vehiculosUtilizados > 0
-        ? datosBase[0].total_entrega_cf / vehiculosUtilizados
-        : 0;
-
-    // Ejemplo de eficiencia de ruta (distancia por cliente)
+    // Calcular eficiencia de rutas (km por cliente)
     const eficienciaRuta =
       datosBase[0].total_clientes > 0
         ? datosBase[0].distancia_promedio / datosBase[0].total_clientes
         : 0;
 
+    // Calcular cumplimiento temporal (viajes con horarios completos)
+    const [viajesCompletos] = await db.query(
+      `
+      SELECT COUNT(*) as viajes_completos
+      FROM v_resumen_rutas
+      WHERE Fecha = ?
+        AND \`Salida del CD\` IS NOT NULL
+        AND \`Llegada al CD\` IS NOT NULL
+    `,
+      [fechaConsulta],
+    );
+    const cumplimientoTemporal =
+      datosBase[0].total_viajes > 0
+        ? (viajesCompletos[0].viajes_completos / datosBase[0].total_viajes) *
+          100
+        : 0;
+
+    // Calcular productividad por vehículo
+    const productividadCF =
+      vehiculosUtilizados > 0
+        ? datosBase[0].total_entrega_cf / vehiculosUtilizados
+        : 0;
+
+    const productividadClientes =
+      vehiculosUtilizados > 0
+        ? datosBase[0].total_clientes / vehiculosUtilizados
+        : 0;
+
+    const productividadPeso =
+      vehiculosUtilizados > 0
+        ? datosBase[0].total_peso_kg / vehiculosUtilizados
+        : 0;
+
     const metricas = {
       fecha: fechaConsulta,
-      cumplimiento_vh: {
-        meta: 1,
-        real: 1, // Por definir lógica de cálculo
-        porcentaje: 100,
+      cumplimiento_temporal: {
+        meta: 90,
+        real: Math.round(cumplimientoTemporal * 100) / 100,
+        porcentaje: Math.round((cumplimientoTemporal / 90) * 100 * 100) / 100,
       },
       utilizacion_flota: {
-        meta: 85,
+        meta: 75,
         real: Math.round(utilizacionFlota * 100) / 100,
-        porcentaje: Math.round((utilizacionFlota / 85) * 100 * 100) / 100,
+        porcentaje: Math.round((utilizacionFlota / 75) * 100 * 100) / 100,
       },
-      distancia_promedio: {
-        meta: 89,
-        real: Math.round(datosBase[0].distancia_promedio * 100) / 100,
+      eficiencia_ruta: {
+        meta: 10,
+        real: Math.round(eficienciaRuta * 100) / 100,
         porcentaje:
-          Math.round((datosBase[0].distancia_promedio / 89) * 100 * 100) / 100,
+          eficienciaRuta > 0
+            ? Math.round((10 / eficienciaRuta) * 100 * 100) / 100
+            : 0,
       },
-      tiempo_mercado: {
-        meta: 0,
-        real: 0, // Por implementar
-        porcentaje: 100,
+      productividad: {
+        cf_por_vehiculo: Math.round(productividadCF * 100) / 100,
+        clientes_por_vehiculo: Math.round(productividadClientes * 100) / 100,
+        peso_por_vehiculo: Math.round(productividadPeso * 100) / 100,
+        meta_cf: 40,
+        porcentaje_cf: Math.round((productividadCF / 40) * 100 * 100) / 100,
       },
-      productividad_camion: Math.round(productividadCamion * 100) / 100,
-      eficiencia_ruta: Math.round(eficienciaRuta * 100) / 100,
-      resumen: datosBase[0],
+      resumen: {
+        ...datosBase[0],
+        vehiculos_utilizados: vehiculosUtilizados,
+        total_vehiculos_activos: totalVehiculos[0].total,
+        viajes_completos: viajesCompletos[0].viajes_completos,
+      },
     };
 
     console.log(`✅ Métricas de cumplimiento calculadas`);

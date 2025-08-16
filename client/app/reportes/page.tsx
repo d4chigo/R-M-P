@@ -9,6 +9,9 @@ import {
   TrendingUp,
   Users,
   Truck,
+  Info,
+  X,
+  ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +35,15 @@ import {
 import { Label } from "@/components/ui/label";
 import { useReportes } from "@/hooks/use-reportes";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import Link from "next/link";
 
 export default function ReportesPage() {
   const {
@@ -46,6 +58,7 @@ export default function ReportesPage() {
   const [resumenData, setResumenData] = useState<any[]>([]);
   const [metricas, setMetricas] = useState<any>(null);
   const [cumplimiento, setCumplimiento] = useState<any>(null);
+  const [showInfoDialog, setShowInfoDialog] = useState(false);
   const [filtros, setFiltros] = useState({
     fecha: new Date().toISOString().split("T")[0],
     fechaInicio: "",
@@ -226,19 +239,236 @@ export default function ReportesPage() {
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Reportes - Resumen de Rutas</h1>
-          <p className="text-muted-foreground">
-            Dashboard principal con métricas de rutas y performance
-          </p>
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Volver
+            </Button>
+          </Link>
+          <div>
+            <h1 className="text-3xl font-bold">Reportes - Resumen de Rutas</h1>
+            <p className="text-muted-foreground">
+              Dashboard principal con métricas de rutas y performance
+            </p>
+          </div>
         </div>
-        <Button
-          onClick={exportarExcel}
-          disabled={loading || resumenData.length === 0}
-        >
-          <Download className="h-4 w-4 mr-2" />
-          Exportar Excel
-        </Button>
+        <div className="flex items-center gap-3">
+          <Dialog open={showInfoDialog} onOpenChange={setShowInfoDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Info className="h-4 w-4 mr-2" />
+                Ayuda Métricas
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Guía de Métricas Operacionales
+                </DialogTitle>
+                <DialogDescription>
+                  Comprende el significado y utilidad de cada métrica del
+                  dashboard
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6 mt-4">
+                {/* Cumplimiento Temporal */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5 text-blue-600" />
+                      Cumplimiento Temporal
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p>
+                        <strong>¿Qué mide?</strong> El porcentaje de viajes que
+                        tienen horarios completos registrados (salida y llegada
+                        al CD).
+                      </p>
+                      <p>
+                        <strong>¿Por qué es importante?</strong> Indica la
+                        disciplina operacional y calidad de los datos del
+                        sistema.
+                      </p>
+                      <p>
+                        <strong>Cálculo:</strong> (Viajes con horarios completos
+                        ÷ Total de viajes) × 100
+                      </p>
+                      <p>
+                        <strong>Meta:</strong> 90% - Un valor alto indica buena
+                        organización y control operacional.
+                      </p>
+                      <p>
+                        <strong>Interpretación:</strong>
+                      </p>
+                      <ul className="list-disc list-inside ml-4 space-y-1">
+                        <li>90-100%: Excelente control operacional</li>
+                        <li>70-89%: Bueno, pero puede mejorar el registro</li>
+                        <li>
+                          &lt;70%: Necesita mejorar disciplina de registro
+                        </li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Utilización de Flota */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Truck className="h-5 w-5 text-green-600" />
+                      Utilización de Flota
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p>
+                        <strong>¿Qué mide?</strong> El porcentaje de vehículos
+                        activos que realmente trabajaron en el día.
+                      </p>
+                      <p>
+                        <strong>¿Por qué es importante?</strong> Mide la
+                        eficiencia en el uso de los activos de la empresa.
+                      </p>
+                      <p>
+                        <strong>Cálculo:</strong> (Vehículos que trabajaron ÷
+                        Total vehículos activos) × 100
+                      </p>
+                      <p>
+                        <strong>Meta:</strong> 75% - Balance entre
+                        disponibilidad y utilización.
+                      </p>
+                      <p>
+                        <strong>Interpretación:</strong>
+                      </p>
+                      <ul className="list-disc list-inside ml-4 space-y-1">
+                        <li>75-90%: Utilización óptima</li>
+                        <li>60-74%: Aceptable, revisar planificación</li>
+                        <li>
+                          &lt;60%: Baja utilización, revisar demanda y
+                          mantenimiento
+                        </li>
+                        <li>
+                          &gt;90%: Muy alta, considerar más vehículos de reserva
+                        </li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Eficiencia de Ruta */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-purple-600" />
+                      Eficiencia de Ruta
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p>
+                        <strong>¿Qué mide?</strong> Los kilómetros promedio
+                        recorridos por cada cliente atendido.
+                      </p>
+                      <p>
+                        <strong>¿Por qué es importante?</strong> Indica qué tan
+                        optimizadas están las rutas, afectando costos de
+                        combustible y tiempo.
+                      </p>
+                      <p>
+                        <strong>Cálculo:</strong> Distancia total recorrida ÷
+                        Número total de clientes atendidos
+                      </p>
+                      <p>
+                        <strong>Meta:</strong> ≤10 km/cliente - Menor valor =
+                        mayor eficiencia.
+                      </p>
+                      <p>
+                        <strong>Interpretación:</strong>
+                      </p>
+                      <ul className="list-disc list-inside ml-4 space-y-1">
+                        <li>&lt;8 km/cliente: Excelente optimización</li>
+                        <li>8-12 km/cliente: Buena eficiencia</li>
+                        <li>
+                          12-15 km/cliente: Regular, revisar planificación de
+                          rutas
+                        </li>
+                        <li>
+                          &gt;15 km/cliente: Ineficiente, necesita optimización
+                          urgente
+                        </li>
+                      </ul>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Productividad */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Users className="h-5 w-5 text-orange-600" />
+                      Productividad
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p>
+                        <strong>¿Qué mide?</strong> La cantidad de cajas físicas
+                        (CF) entregadas por vehículo y clientes atendidos por
+                        vehículo.
+                      </p>
+                      <p>
+                        <strong>¿Por qué es importante?</strong> Mide la carga
+                        de trabajo y eficiencia operativa de cada unidad.
+                      </p>
+                      <p>
+                        <strong>Cálculo:</strong> Total CF entregadas ÷ Número
+                        de vehículos utilizados
+                      </p>
+                      <p>
+                        <strong>Meta:</strong> 40 CF/vehículo - Ajustable según
+                        tipo de operación.
+                      </p>
+                      <p>
+                        <strong>Interpretación:</strong>
+                      </p>
+                      <ul className="list-disc list-inside ml-4 space-y-1">
+                        <li>&gt;50 CF/veh: Alta productividad</li>
+                        <li>40-50 CF/veh: Productividad objetivo</li>
+                        <li>30-39 CF/veh: Por debajo del objetivo</li>
+                        <li>
+                          &lt;30 CF/veh: Baja productividad, revisar cargas y
+                          rutas
+                        </li>
+                      </ul>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        <strong>Nota:</strong> También se muestra
+                        clientes/vehículo para evaluar la cobertura del
+                        servicio.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Button
+            onClick={exportarExcel}
+            disabled={loading || resumenData.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Exportar Excel
+          </Button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -333,24 +563,25 @@ export default function ReportesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Cumplimiento VH
+                    Cumplimiento Temporal
                   </p>
                   <div className="flex items-center space-x-2">
                     <p className="text-2xl font-bold">
-                      {cumplimiento.cumplimiento_vh.real}
+                      {cumplimiento.cumplimiento_temporal.real}%
                     </p>
                     <Badge
                       variant={
-                        cumplimiento.cumplimiento_vh.porcentaje >= 95
+                        cumplimiento.cumplimiento_temporal.porcentaje >= 95
                           ? "default"
                           : "destructive"
                       }
                     >
-                      {cumplimiento.cumplimiento_vh.porcentaje}%
+                      {cumplimiento.cumplimiento_temporal.porcentaje.toFixed(0)}
+                      %
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Meta: {cumplimiento.cumplimiento_vh.meta}
+                    Meta: {cumplimiento.cumplimiento_temporal.meta}%
                   </p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-blue-600" />
@@ -371,7 +602,7 @@ export default function ReportesPage() {
                     </p>
                     <Badge
                       variant={
-                        cumplimiento.utilizacion_flota.porcentaje >= 80
+                        cumplimiento.utilizacion_flota.porcentaje >= 90
                           ? "default"
                           : "secondary"
                       }
@@ -393,18 +624,24 @@ export default function ReportesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Distancia Promedio
+                    Eficiencia Ruta
                   </p>
                   <div className="flex items-center space-x-2">
                     <p className="text-2xl font-bold">
-                      {cumplimiento.distancia_promedio.real} km
+                      {cumplimiento.eficiencia_ruta.real} km/cliente
                     </p>
-                    <Badge variant="outline">
-                      {cumplimiento.distancia_promedio.porcentaje.toFixed(0)}%
+                    <Badge
+                      variant={
+                        cumplimiento.eficiencia_ruta.porcentaje >= 80
+                          ? "default"
+                          : "outline"
+                      }
+                    >
+                      {cumplimiento.eficiencia_ruta.porcentaje.toFixed(0)}%
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Meta: {cumplimiento.distancia_promedio.meta} km
+                    Meta: ≤{cumplimiento.eficiencia_ruta.meta} km/cliente
                   </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-purple-600" />
@@ -419,11 +656,25 @@ export default function ReportesPage() {
                   <p className="text-sm font-medium text-muted-foreground">
                     Productividad
                   </p>
-                  <p className="text-2xl font-bold">
-                    {cumplimiento.productividad_camion} CF/camión
-                  </p>
+                  <div className="flex items-center space-x-2">
+                    <p className="text-2xl font-bold">
+                      {cumplimiento.productividad.cf_por_vehiculo} CF/veh
+                    </p>
+                    <Badge
+                      variant={
+                        cumplimiento.productividad.porcentaje_cf >= 100
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {cumplimiento.productividad.porcentaje_cf.toFixed(0)}%
+                    </Badge>
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    Eficiencia: {cumplimiento.eficiencia_ruta} km/cliente
+                    {cumplimiento.productividad.clientes_por_vehiculo.toFixed(
+                      1,
+                    )}{" "}
+                    clientes/veh
                   </p>
                 </div>
                 <Users className="h-8 w-8 text-orange-600" />
