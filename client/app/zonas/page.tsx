@@ -18,7 +18,23 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ArrowLeft, MapPin, Edit, Trash2, BarChart3 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  Plus,
+  ArrowLeft,
+  MapPin,
+  Edit,
+  Trash2,
+  BarChart3,
+  Search,
+  Calendar,
+  X,
+  ChevronDown,
+  ChevronUp,
+  Activity,
+  Users,
+  Info,
+} from "lucide-react";
 import Link from "next/link";
 import { ZonasTable } from "@/components/tables/zonas-table";
 import { ZonaForm } from "@/components/forms/zona-form";
@@ -34,6 +50,9 @@ export default function ZonasPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingZona, setEditingZona] = useState<Zona | null>(null);
   const [selectedZona, setSelectedZona] = useState<Zona | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [showStats, setShowStats] = useState(false);
 
   const handleSubmit = async (zonaData: Omit<Zona, "id_zona">) => {
     try {
@@ -94,6 +113,13 @@ export default function ZonasPage() {
     // You can implement map view logic here
   };
 
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setDateFilter("");
+  };
+
+  const hasActiveFilters = searchTerm || dateFilter;
+
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -113,151 +139,237 @@ export default function ZonasPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-4 sm:py-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button
-                variant="outline"
-                size="sm"
-                className="dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 bg-transparent"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Volver
-              </Button>
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
-                <MapPin className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  Gestión de Zonas
-                </h1>
-                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
-                  Administra las zonas geográficas de operación
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  onClick={handleNewZona}
-                  className="w-full sm:w-auto mobile-button"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nueva Zona
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md mx-4 sm:mx-auto dark:bg-gray-800 dark:border-gray-700">
-                <DialogHeader>
-                  <DialogTitle className="dark:text-gray-100">
-                    {editingZona ? "Editar Zona" : "Crear Nueva Zona"}
-                  </DialogTitle>
-                  <DialogDescription className="dark:text-gray-300">
-                    {editingZona
-                      ? "Modifique los campos necesarios para actualizar la zona."
-                      : "Complete los campos para crear una nueva zona geográfica."}
-                  </DialogDescription>
-                </DialogHeader>
-                <ZonaForm
-                  zona={editingZona}
-                  onSubmit={handleSubmit}
-                  onCancel={handleCancel}
-                  isEditing={!!editingZona}
-                />
-              </DialogContent>
-            </Dialog>
+    <div className="container mx-auto py-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.history.back()}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Regresar
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Zonas</h1>
+            <p className="text-muted-foreground">
+              Gestión de zonas geográficas
+            </p>
           </div>
         </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNewZona}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Zona
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md mx-4 sm:mx-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingZona ? "Editar Zona" : "Crear Nueva Zona"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingZona
+                  ? "Modifique los campos necesarios para actualizar la zona."
+                  : "Complete los campos para crear una nueva zona geográfica."}
+              </DialogDescription>
+            </DialogHeader>
+            <ZonaForm
+              zona={editingZona}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              isEditing={!!editingZona}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
 
-        <Tabs defaultValue="lista" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="lista" className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              Lista de Zonas
-            </TabsTrigger>
-            <TabsTrigger
-              value="estadisticas"
-              className="flex items-center gap-2"
-            >
-              <BarChart3 className="w-4 h-4" />
-              Estadísticas
-            </TabsTrigger>
-            <TabsTrigger value="mapa" className="flex items-center gap-2">
-              <MapPin className="w-4 h-4" />
-              Mapa
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="lista" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="lista" className="flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Lista de Zonas
+          </TabsTrigger>
+          <TabsTrigger value="estadisticas" className="flex items-center gap-2">
+            <BarChart3 className="w-4 h-4" />
+            Estadísticas
+          </TabsTrigger>
+          <TabsTrigger value="mapa" className="flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Mapa
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="lista" className="mt-6">
-            <Card className="dark:bg-gray-800 dark:border-gray-700">
-              <CardHeader>
-                <CardTitle className="dark:text-gray-100 flex items-center gap-2">
-                  Lista de Zonas
-                  <span className="text-sm font-normal bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
-                    {zonas.length} {zonas.length === 1 ? "zona" : "zonas"}
-                  </span>
-                </CardTitle>
-                <CardDescription className="dark:text-gray-300">
-                  Gestiona todas las zonas geográficas con funciones de
-                  búsqueda, filtrado y ordenamiento
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="text-center">
-                      <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Cargando zonas...
+        <TabsContent value="lista" className="mt-0">
+          {/* Search */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                Buscar Zonas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-4 items-center">
+                <Input
+                  placeholder="Buscar por código, descripción o ubicación..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="flex-1"
+                />
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="pl-10 w-auto"
+                    placeholder="Filtrar por fecha"
+                  />
+                </div>
+                {hasActiveFilters && (
+                  <Button
+                    variant="outline"
+                    onClick={handleClearFilters}
+                    className="flex items-center gap-2"
+                  >
+                    Limpiar
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  onClick={() => setShowStats(!showStats)}
+                  className="flex items-center gap-2"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Estadísticas
+                  {showStats ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Stats - Collapsible */}
+          {showStats && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="h-8 w-8 text-blue-600" />
+                    <div>
+                      <p className="text-2xl font-bold">{zonas.length}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Total Zonas
                       </p>
                     </div>
                   </div>
-                ) : zonas.length === 0 ? (
-                  <div className="text-center py-8">
-                    <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                      No hay zonas registradas
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      Comienza creando tu primera zona geográfica
-                    </p>
-                    <Button onClick={handleNewZona}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Crear Primera Zona
-                    </Button>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center space-x-2">
+                    <Activity className="h-8 w-8 text-green-600" />
+                    <div>
+                      <p className="text-2xl font-bold">
+                        {zonas.filter((z) => z.latitud && z.longitud).length}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Con Coordenadas
+                      </p>
+                    </div>
                   </div>
-                ) : (
-                  <ZonasTable
-                    zonas={zonas}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onViewMap={handleViewMap}
-                    initialPageSize={10}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center space-x-2">
+                    <Users className="h-8 w-8 text-purple-600" />
+                    <div>
+                      <p className="text-2xl font-bold">
+                        {
+                          zonas.filter((z) => z.codigo && z.codigo.length > 0)
+                            .length
+                        }
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Con Código
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center space-x-2">
+                    <Info className="h-8 w-8 text-orange-600" />
+                    <div>
+                      <p className="text-2xl font-bold">
+                        {zonas.filter((z) => z.descripcion?.length > 0).length}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Con Descripción
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
-          <TabsContent value="estadisticas" className="mt-6">
-            <ZonaEstadisticas />
-          </TabsContent>
+          {/* Table */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de Zonas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-4">Cargando zonas...</div>
+              ) : zonas.length === 0 ? (
+                <div className="text-center py-8">
+                  <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    No hay zonas registradas
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Comienza creando tu primera zona geográfica
+                  </p>
+                  <Button onClick={handleNewZona}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Crear Primera Zona
+                  </Button>
+                </div>
+              ) : (
+                <ZonasTable
+                  zonas={zonas}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onViewMap={handleViewMap}
+                  initialPageSize={10}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <TabsContent value="mapa" className="mt-6">
-            <ZonaMapa
-              zonas={zonas}
-              selectedZona={selectedZona}
-              onZonaSelect={setSelectedZona}
-            />
-          </TabsContent>
-        </Tabs>
-      </div>
+        <TabsContent value="estadisticas" className="mt-6">
+          <ZonaEstadisticas />
+        </TabsContent>
+
+        <TabsContent value="mapa" className="mt-6">
+          <ZonaMapa
+            zonas={zonas}
+            selectedZona={selectedZona}
+            onZonaSelect={setSelectedZona}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

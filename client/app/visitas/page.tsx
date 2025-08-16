@@ -17,12 +17,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, ArrowLeft, FileText } from "lucide-react";
+import {
+  Plus,
+  ArrowLeft,
+  FileText,
+  Search,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Package,
+  Users,
+  Calendar,
+  CheckCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { VisitasTable } from "@/components/tables/visitas-table";
 import { VisitaForm } from "@/components/forms/visita-form";
 import { useVisitas, type Visita } from "@/hooks/use-visitas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { Input } from "@/components/ui/input";
 
 export default function VisitasPage() {
   const {
@@ -36,6 +49,8 @@ export default function VisitasPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVisita, setEditingVisita] = useState<Visita | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showStats, setShowStats] = useState(false);
 
   const handleSubmit = async (visitaData: Omit<Visita, "id_visita">) => {
     try {
@@ -117,99 +132,182 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
     setIsDialogOpen(true);
   };
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-4 sm:py-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button
-                variant="outline"
-                size="sm"
-                className="dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 bg-transparent"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Volver
-              </Button>
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-pink-500 rounded-full flex items-center justify-center">
-                <FileText className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  Gestión de Visitas
-                </h1>
-                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
-                  Registra las visitas a clientes durante los viajes
-                </p>
-              </div>
-            </div>
-          </div>
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    // Aquí puedes implementar la lógica de búsqueda
+  };
 
-          <div className="flex items-center gap-3">
-            <Dialog
-              open={isDialogOpen}
-              onOpenChange={(open) => {
-                setIsDialogOpen(open);
-                if (!open) {
-                  // Si se cierra el dialog, limpiar el estado
-                  setEditingVisita(null);
-                }
-              }}
-            >
-              <DialogTrigger asChild>
-                <Button
-                  onClick={handleNewVisita}
-                  className="w-full sm:w-auto mobile-button"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nueva Visita
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl mx-4 sm:mx-auto max-h-[90vh] overflow-y-auto dark:bg-gray-800 dark:border-gray-700">
-                <DialogHeader>
-                  <DialogTitle className="dark:text-gray-100">
-                    {editingVisita ? "Editar Visita" : "Registrar Nueva Visita"}
-                  </DialogTitle>
-                  <DialogDescription className="dark:text-gray-300">
-                    {editingVisita
-                      ? "Modifique los campos necesarios para actualizar la visita."
-                      : "Complete los campos para registrar una visita a cliente."}
-                  </DialogDescription>
-                </DialogHeader>
-                <VisitaForm
-                  key={editingVisita?.id_visita || "new"}
-                  visita={editingVisita}
-                  onSubmit={handleSubmit}
-                  onCancel={handleCancel}
-                  isEditing={!!editingVisita}
-                />
-              </DialogContent>
-            </Dialog>
+  const clearFilters = () => {
+    setSearchQuery("");
+  };
+
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.history.back()}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Regresar
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Visitas</h1>
+            <p className="text-muted-foreground">
+              Gestión de visitas a clientes
+            </p>
           </div>
         </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNewVisita}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Visita
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingVisita ? "Editar Visita" : "Crear Nueva Visita"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingVisita
+                  ? "Modifique los campos necesarios para actualizar la visita."
+                  : "Complete los campos para crear una nueva visita."}
+              </DialogDescription>
+            </DialogHeader>
+            <VisitaForm
+              visita={editingVisita}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              isEditing={!!editingVisita}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
 
-        <Card className="dark:bg-gray-800 dark:border-gray-700">
-          <CardHeader>
-            <CardTitle className="dark:text-gray-100">
-              Lista de Visitas
-            </CardTitle>
-            <CardDescription className="dark:text-gray-300">
-              Gestiona todas las visitas con funciones de búsqueda, filtrado y
-              ordenamiento
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+      {/* Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Search className="h-5 w-5" />
+            Buscar Visitas
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-center">
+            <Input
+              placeholder="Buscar por cliente, viaje o número de pedidos..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="flex-1"
+            />
+            {searchQuery && (
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="flex items-center gap-2"
+              >
+                Limpiar
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => setShowStats(!showStats)}
+              className="flex items-center gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Estadísticas
+              {showStats ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats - Collapsible */}
+      {showStats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <FileText className="h-8 w-8 text-blue-600" />
+                <div>
+                  <p className="text-2xl font-bold">{visitas.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Visitas</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Package className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {visitas.reduce((sum, v) => sum + (v.pedidos || 0), 0)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Total Pedidos</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Users className="h-8 w-8 text-purple-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {new Set(visitas.map((v) => v.id_cliente)).size}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Clientes Únicos
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-8 w-8 text-orange-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {new Set(visitas.map((v) => v.id_viaje)).size}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Viajes Únicos</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Visitas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-4">Cargando visitas...</div>
+          ) : (
             <VisitasTable
               visitas={visitas}
               onEdit={handleEdit}
               onDelete={handleDelete}
               initialPageSize={10}
             />
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
