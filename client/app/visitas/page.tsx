@@ -118,14 +118,14 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
   };
 
   const columns: Column<Visita>[] = [
-    {
-      key: "id_visita",
-      header: "ID",
-      sortable: true,
-      render: (visita) => (
-        <span className="font-medium">{visita.id_visita}</span>
-      ),
-    },
+      // {
+    //   key: "id_visita",
+    //   header: "ID",
+    //   sortable: true,
+    //   render: (visita) => (
+    //     <span className="font-medium">{visita.id_visita}</span>
+    //   ),
+    // },
     {
       key: "id_viaje",
       header: "Viaje",
@@ -270,7 +270,6 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle />
             <Dialog
               open={isDialogOpen}
               onOpenChange={(open) => {

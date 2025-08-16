@@ -135,14 +135,15 @@ export default function VehiculosPage() {
   };
 
   const columns: Column<Vehiculo>[] = [
-    {
-      key: "id_vehiculo",
-      header: "ID",
-      sortable: true,
-      render: (vehiculo) => (
-        <span className="font-medium">{vehiculo.id_vehiculo}</span>
-      ),
-    },
+// {
+//   key: "id_vehiculo",
+//   header: "ID",
+//   sortable: true,
+//   render: (vehiculo) => (
+//     <span className="font-medium">{vehiculo.id_vehiculo}</span>
+//   ),
+// },
+
     {
       key: "placa",
       header: "Placa",
@@ -309,7 +310,6 @@ export default function VehiculosPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={handleNewVehiculo} className="mobile-button">

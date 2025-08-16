@@ -168,14 +168,14 @@ export default function ViajesPage() {
   };
 
   const columns: Column<Viaje>[] = [
-    {
-      key: "id_viaje",
-      header: "ID",
-      sortable: true,
-      render: (viaje) => (
-        <span className="font-mono text-sm">#{viaje.id_viaje || viaje.id}</span>
-      ),
-    },
+    // {
+    //   key: "id_viaje",
+    //   header: "ID",
+    //   sortable: true,
+    //   render: (viaje) => (
+    //     <span className="font-mono text-sm">#{viaje.id_viaje || viaje.id}</span>
+    //   ),
+    // },
     {
       key: "fecha",
       header: "Fecha",
@@ -375,7 +375,6 @@ export default function ViajesPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button

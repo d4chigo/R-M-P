@@ -153,14 +153,14 @@ export default function ClientesPage() {
   };
 
   const columns: Column<Cliente>[] = [
-    {
-      key: "id_cliente",
-      header: "ID",
-      sortable: true,
-      render: (cliente) => (
-        <span className="font-medium">{cliente.id_cliente}</span>
-      ),
-    },
+     // {
+  //   key: "id_cliente",
+  //   header: "ID",
+  //   sortable: true,
+  //   render: (cliente) => (
+  //     <span className="font-medium">{cliente.id_cliente}</span>
+  //   ),
+  // },
     {
       key: "codigo",
       header: "Código",
