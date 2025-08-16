@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff, Truck, AlertCircle, User } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, User } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -76,15 +76,15 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-gray-100">
-      {/* Columna Izquierda */}
-      <div className="flex flex-col justify-center items-center px-4 lg:px-12">
-        <div className="w-full max-w-md">
-          <Card className="bg-white border border-gray-300 shadow-lg">
+      {/* Columna Izquierda - Formulario centrado */}
+      <div className="flex items-center justify-center px-4">
+        <div className="w-full max-w-xl">
+          <Card className="bg-white border border-gray-300 shadow-2xl rounded-3xl p-8 transform transition hover:-translate-y-3 hover:shadow-4xl h-[620px] flex flex-col justify-between">
             <CardHeader className="text-center">
               <img
-                src="/logo_empresa.png"
+                src="/Fondo1.png"
                 alt="Logo Empresa"
-                className="mx-auto h-16 w-auto object-contain mb-3"
+                className="mx-auto max-h-40 w-full object-contain mb-4"
               />
               <CardTitle className="text-2xl text-gray-900">
                 Iniciar Sesión
@@ -93,8 +93,9 @@ export default function LoginPage() {
                 Ingrese sus credenciales para acceder al sistema
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+
+            <CardContent className="flex-1 flex flex-col justify-center">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
@@ -102,6 +103,7 @@ export default function LoginPage() {
                   </Alert>
                 )}
 
+                {/* Email */}
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-gray-800">
                     Email
@@ -125,6 +127,7 @@ export default function LoginPage() {
                   </p>
                 </div>
 
+                {/* Password */}
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-gray-800">
                     Contraseña
@@ -176,45 +179,18 @@ export default function LoginPage() {
                   )}
                 </Button>
               </form>
-
-              <div className="mt-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 text-sm mb-2">
-                    Credenciales de Prueba:
-                  </h4>
-                  <div className="space-y-1 text-xs text-blue-800">
-                    <p>
-                      <strong>Administrador:</strong> admin@rmp.com / admin123
-                    </p>
-                    <p>
-                      <strong>Usuario Demo:</strong> demo@rmp.com / demo123
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 text-center">
-                <p className="text-sm text-gray-600">
-                  ¿Problemas para acceder?{" "}
-                  <span className="text-blue-600 cursor-pointer hover:underline">
-                    Contacte al administrador
-                  </span>
-                </p>
-              </div>
             </CardContent>
           </Card>
-
         </div>
       </div>
 
-      {/* Columna Derecha - Imagen */}
-      <div className="hidden lg:block relative">
+      {/* Columna Derecha - Imagen decorativa */}
+      <div className="hidden lg:block">
         <img
-          src="/imagen_login.jpg"
+          src="/Fondo4.jpg"
           alt="Imagen decorativa"
-          className="w-full h-full object-cover"
+          className="w-full h-screen object-cover object-center"
         />
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
     </div>
   );
