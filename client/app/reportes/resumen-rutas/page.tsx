@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,94 +22,248 @@ import {
 import { ArrowLeft, BarChart3, Download, Filter } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useReportes } from "@/hooks/use-reportes";
+import { useToast } from "@/hooks/use-toast";
 
 interface ResumenRuta {
-  fecha: string;
-  placa: string;
-  vehiculo: string;
-  repartidor: string;
-  nro_viajes: number;
-  territorio: string;
-  distancia: number;
-  salida_cd: string;
-  llegada_cd: string;
-  tiempo: string;
-  nro_clientes: number;
-  nro_pedidos: number;
-  entrega_cf: number;
-  recojo_cf: number;
-  peso_kg: number;
+  Fecha: string;
+  Placa: string;
+  Vehiculo: string;
+  Repartidor: string;
+  "Nro de viajes": number;
+  Zona: number;
+  "Zonas Visitadas": string;
+  Distancia: number;
+  "Salida del CD": string;
+  "Llegada al CD": string;
+  Tiempo: string;
+  "Nro de clientes": number;
+  "Nro de pedidos": number;
+  "Entrega (CF)": number;
+  "Recojo (CF)": number;
+  "Peso (Kg)": number;
 }
 
 export default function ResumenRutasPage() {
-  const [filtroFecha, setFiltroFecha] = useState("");
-  const [filtroPlaca, setFiltroPlaca] = useState("");
+  const { loading, getResumenRutas, getResumenRutasRango } = useReportes();
+  const { toast } = useToast();
 
-  const [resumenRutas] = useState<ResumenRuta[]>([
-    {
-      fecha: "2024-02-15",
-      placa: "ABC-123",
-      vehiculo: "Volvo FH16",
-      repartidor: "Carlos Mendoza",
-      nro_viajes: 3,
-      territorio: "Lima Norte",
-      distancia: 145.5,
-      salida_cd: "06:30",
-      llegada_cd: "18:45",
-      tiempo: "12:15",
-      nro_clientes: 15,
-      nro_pedidos: 28,
-      entrega_cf: 15750.8,
-      recojo_cf: 8420.5,
-      peso_kg: 18500,
-    },
-    {
-      fecha: "2024-02-15",
-      placa: "DEF-456",
-      vehiculo: "Mercedes Actros",
-      repartidor: "Ana García",
-      nro_viajes: 2,
-      territorio: "Lima Sur",
-      distancia: 98.2,
-      salida_cd: "07:00",
-      llegada_cd: "16:30",
-      tiempo: "09:30",
-      nro_clientes: 12,
-      nro_pedidos: 22,
-      entrega_cf: 12300.45,
-      recojo_cf: 6750.25,
-      peso_kg: 14200,
-    },
-    {
-      fecha: "2024-02-16",
-      placa: "ABC-123",
-      vehiculo: "Volvo FH16",
-      repartidor: "Carlos Mendoza",
-      nro_viajes: 4,
-      territorio: "Lima Este",
-      distancia: 167.8,
-      salida_cd: "06:15",
-      llegada_cd: "19:20",
-      tiempo: "13:05",
-      nro_clientes: 18,
-      nro_pedidos: 35,
-      entrega_cf: 18950.75,
-      recojo_cf: 9850.3,
-      peso_kg: 21300,
-    },
-  ]);
+  const [filtroFecha, setFiltroFecha] = useState(new Date().toISOString().split("T")[0]);
+  const [filtroPlaca, setFiltroPlaca] = useState("");
+  const [filtroFechaFin, setFiltroFechaFin] = useState("");
+  const [tipoFiltro, setTipoFiltro] = useState<"dia" | "rango">("dia");
+  const [resumenRutas, setResumenRutas] = useState<ResumenRuta[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+
+  useEffect(() => {
+    cargarDatos();
+  }, []);
+
+  const cargarDatos = async () => {
+    setIsLoadingData(true);
+    try {
+      const datos = await getResumenRutas(filtroFecha);
+      setResumenRutas(datos);
+    } catch (error) {
+      console.error("Error cargando datos:", error);
+      toast({
+        title: "Error",
+        description: "Error al cargar los datos",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  const handleFiltrar = async () => {
+    if (tipoFiltro === "dia") {
+      if (!filtroFecha) {
+        toast({
+          title: "Error",
+          description: "Selecciona una fecha",
+          variant: "destructive",
+        });
+        return;
+      }
+      setIsLoadingData(true);
+      try {
+        const datos = await getResumenRutas(filtroFecha);
+        setResumenRutas(datos);
+        toast({
+          title: "Datos actualizados",
+          description: `Resumen cargado para ${formatDate(filtroFecha)}`,
+        });
+      } catch (error) {
+        console.error("Error filtrando por día:", error);
+        toast({
+          title: "Error",
+          description: "Error al cargar los datos",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoadingData(false);
+      }
+    } else {
+      handleFiltrarPorRango();
+    }
+  };
+
+  const handleFiltrarPorRango = async () => {
+    if (!filtroFecha || !filtroFechaFin) {
+      toast({
+        title: "Error",
+        description: "Selecciona ambas fechas",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (new Date(filtroFecha) > new Date(filtroFechaFin)) {
+      toast({
+        title: "Error",
+        description: "La fecha de inicio debe ser anterior a la fecha fin",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoadingData(true);
+    try {
+      const datos = await getResumenRutasRango(filtroFecha, filtroFechaFin);
+      setResumenRutas(datos);
+      toast({
+        title: "Datos actualizados",
+        description: `Resumen cargado del ${formatDate(filtroFecha)} al ${formatDate(filtroFechaFin)}`,
+      });
+    } catch (error) {
+      console.error("Error filtrando por rango:", error);
+      toast({
+        title: "Error",
+        description: "Error al cargar los datos del rango",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
   const rutasFiltradas = resumenRutas.filter((ruta) => {
-    const matchFecha = !filtroFecha || ruta.fecha.includes(filtroFecha);
     const matchPlaca =
       !filtroPlaca ||
-      ruta.placa.toLowerCase().includes(filtroPlaca.toLowerCase());
-    return matchFecha && matchPlaca;
+      ruta.Placa.toLowerCase().includes(filtroPlaca.toLowerCase());
+    return matchPlaca;
   });
 
+  const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+
+    // Backend now consistently sends dates in YYYY-MM-DD format
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateString.split("-");
+      return `${day}/${month}/${year}`;
+    }
+
+    // Fallback for any other format (shouldn't happen with current backend)
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("es-PE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatTime = (timeString: string) => {
+    if (!timeString) return "-";
+    if (typeof timeString === "string" && timeString.match(/^\d{1,2}:\d{2}:\d{2}$/)) {
+      return timeString.substring(0, 5);
+    }
+    try {
+      return new Date(timeString).toLocaleTimeString("es-PE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "America/Lima",
+      });
+    } catch {
+      return timeString;
+    }
+  };
+
+  const formatNumber = (value: number) => {
+    if (value === null || value === undefined) return "-";
+    return typeof value === "number" ? value.toLocaleString() : value;
+  };
+
+
+
   const exportarExcel = () => {
-    // Aquí iría la lógica para exportar a Excel
-    alert("Exportando a Excel...");
+    if (rutasFiltradas.length === 0) {
+      toast({
+        title: "No hay datos",
+        description: "No hay datos para exportar",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const headers = [
+      "Fecha",
+      "Placa",
+      "Vehículo",
+      "Repartidor",
+      "Nro de viajes",
+      "Zona/Territorio",
+      "Distancia (km)",
+      "Salida del CD",
+      "Llegada al CD",
+      "Tiempo",
+      "Nro de clientes",
+      "Nro de pedidos",
+      "Entrega (CF)",
+      "Recojo (CF)",
+      "Peso (Kg)",
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...rutasFiltradas.map((row) =>
+        [
+          formatDate(row.Fecha),
+          row.Placa,
+          `"${row.Vehiculo}"`,
+          `"${row.Repartidor}"`,
+          row["Nro de viajes"],
+          `"${row.Zona || row["Zonas Visitadas"] || "-"}"`,
+          row.Distancia,
+          formatTime(row["Salida del CD"]),
+          formatTime(row["Llegada al CD"]),
+          formatTime(row.Tiempo),
+          row["Nro de clientes"],
+          row["Nro de pedidos"],
+          row["Entrega (CF)"],
+          row["Recojo (CF)"],
+          row["Peso (Kg)"],
+        ].join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    const fileName = tipoFiltro === "dia"
+      ? `resumen_rutas_${filtroFecha}.csv`
+      : `resumen_rutas_${filtroFecha}_${filtroFechaFin}.csv`;
+    link.download = fileName;
+    link.click();
+
+    toast({
+      title: "Exportación exitosa",
+      description: `Se exportaron ${rutasFiltradas.length} registros`,
+    });
   };
 
   return (
@@ -136,7 +290,7 @@ export default function ResumenRutasPage() {
                   Resumen de Rutas
                 </h1>
                 <p className="text-gray-600 dark:text-gray-300">
-                  Análisis completo de rutas por fecha y vehículo
+                  Análisis completo de rutas - {tipoFiltro === "dia" ? formatDate(filtroFecha) : `${formatDate(filtroFecha)} - ${formatDate(filtroFechaFin)}`}
                 </p>
               </div>
             </div>
@@ -144,7 +298,7 @@ export default function ResumenRutasPage() {
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Button onClick={exportarExcel}>
+            <Button onClick={exportarExcel} disabled={loading || rutasFiltradas.length === 0}>
               <Download className="w-4 h-4 mr-2" />
               Exportar Excel
             </Button>
@@ -160,10 +314,24 @@ export default function ResumenRutasPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <div>
+                <Label htmlFor="tipo-filtro" className="dark:text-gray-300">
+                  Tipo de Filtro
+                </Label>
+                <select
+                  id="tipo-filtro"
+                  value={tipoFiltro}
+                  onChange={(e) => setTipoFiltro(e.target.value as "dia" | "rango")}
+                  className="w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                >
+                  <option value="dia">Por Día</option>
+                  <option value="rango">Por Rango</option>
+                </select>
+              </div>
               <div>
                 <Label htmlFor="filtro-fecha" className="dark:text-gray-300">
-                  Fecha
+                  {tipoFiltro === "dia" ? "Fecha" : "Fecha Inicio"}
                 </Label>
                 <Input
                   id="filtro-fecha"
@@ -173,6 +341,20 @@ export default function ResumenRutasPage() {
                   className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                 />
               </div>
+              {tipoFiltro === "rango" && (
+                <div>
+                  <Label htmlFor="filtro-fecha-fin" className="dark:text-gray-300">
+                    Fecha Fin
+                  </Label>
+                  <Input
+                    id="filtro-fecha-fin"
+                    type="date"
+                    value={filtroFechaFin}
+                    onChange={(e) => setFiltroFechaFin(e.target.value)}
+                    className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                  />
+                </div>
+              )}
               <div>
                 <Label htmlFor="filtro-placa" className="dark:text-gray-300">
                   Placa
@@ -185,16 +367,24 @@ export default function ResumenRutasPage() {
                   className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                 />
               </div>
-              <div className="flex items-end">
+              <div className="flex items-end gap-2">
+                <Button
+                  onClick={handleFiltrar}
+                  disabled={loading || isLoadingData}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isLoadingData ? "Cargando..." : "Filtrar"}
+                </Button>
                 <Button
                   variant="outline"
                   onClick={() => {
-                    setFiltroFecha("");
+                    setFiltroFecha(new Date().toISOString().split("T")[0]);
                     setFiltroPlaca("");
+                    setFiltroFechaFin("");
                   }}
                   className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                 >
-                  Limpiar Filtros
+                  Limpiar
                 </Button>
               </div>
             </div>
@@ -206,7 +396,7 @@ export default function ResumenRutasPage() {
           <Card className="dark:bg-gray-800 dark:border-gray-700">
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-blue-600">
-                {rutasFiltradas.reduce((sum, ruta) => sum + ruta.nro_viajes, 0)}
+                {rutasFiltradas.reduce((sum, ruta) => sum + (ruta["Nro de viajes"] || 0), 0)}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-300">
                 Total Viajes
@@ -217,7 +407,7 @@ export default function ResumenRutasPage() {
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-green-600">
                 {rutasFiltradas.reduce(
-                  (sum, ruta) => sum + ruta.nro_clientes,
+                  (sum, ruta) => sum + (ruta["Nro de clientes"] || 0),
                   0,
                 )}
               </div>
@@ -230,7 +420,7 @@ export default function ResumenRutasPage() {
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-purple-600">
                 {rutasFiltradas
-                  .reduce((sum, ruta) => sum + ruta.distancia, 0)
+                  .reduce((sum, ruta) => sum + (ruta.Distancia || 0), 0)
                   .toFixed(1)}{" "}
                 km
               </div>
@@ -243,7 +433,7 @@ export default function ResumenRutasPage() {
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-orange-600">
                 {rutasFiltradas
-                  .reduce((sum, ruta) => sum + ruta.peso_kg, 0)
+                  .reduce((sum, ruta) => sum + (ruta["Peso (Kg)"] || 0), 0)
                   .toLocaleString()}{" "}
                 kg
               </div>
@@ -253,6 +443,23 @@ export default function ResumenRutasPage() {
             </CardContent>
           </Card>
         </div>
+</parameter>
+
+<old_text line=250>
+        <Card className="dark:bg-gray-800 dark:border-gray-700">
+          <CardHeader>
+            <CardTitle className="dark:text-gray-100">
+              Resumen Detallado de Rutas
+            </CardTitle>
+            <CardDescription className="dark:text-gray-300">
+              {rutasFiltradas.length} registro
+              {rutasFiltradas.length !== 1 ? "s" : ""} encontrado
+              {rutasFiltradas.length !== 1 ? "s" : ""}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
 
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
@@ -312,60 +519,82 @@ export default function ResumenRutasPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rutasFiltradas.map((ruta, index) => (
-                    <TableRow
-                      key={index}
-                      className="dark:border-gray-700 dark:hover:bg-gray-800"
-                    >
-                      <TableCell className="dark:text-gray-300">
-                        {new Date(ruta.fecha).toLocaleDateString("es-PE", {
-                          timeZone: "America/Lima",
-                        })}
-                      </TableCell>
-                      <TableCell className="font-semibold dark:text-gray-100">
-                        {ruta.placa}
-                      </TableCell>
-                      <TableCell className="dark:text-gray-300">
-                        {ruta.vehiculo}
-                      </TableCell>
-                      <TableCell className="dark:text-gray-300">
-                        {ruta.repartidor}
-                      </TableCell>
-                      <TableCell className="text-center dark:text-gray-300">
-                        {ruta.nro_viajes}
-                      </TableCell>
-                      <TableCell className="dark:text-gray-300">
-                        {ruta.territorio}
-                      </TableCell>
-                      <TableCell className="dark:text-gray-300">
-                        {ruta.distancia} km
-                      </TableCell>
-                      <TableCell className="dark:text-gray-300">
-                        {ruta.salida_cd}
-                      </TableCell>
-                      <TableCell className="dark:text-gray-300">
-                        {ruta.llegada_cd}
-                      </TableCell>
-                      <TableCell className="dark:text-gray-300">
-                        {ruta.tiempo}
-                      </TableCell>
-                      <TableCell className="text-center dark:text-gray-300">
-                        {ruta.nro_clientes}
-                      </TableCell>
-                      <TableCell className="text-center dark:text-gray-300">
-                        {ruta.nro_pedidos}
-                      </TableCell>
-                      <TableCell className="text-green-600 dark:text-green-400 font-medium">
-                        {ruta.entrega_cf.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-blue-600 dark:text-blue-400 font-medium">
-                        {ruta.recojo_cf.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="font-medium dark:text-gray-300">
-                        {ruta.peso_kg.toLocaleString()}
+                  {(loading || isLoadingData) ? (
+                    <TableRow>
+                      <TableCell colSpan={15} className="text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+                        <p className="mt-2">Cargando datos...</p>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : rutasFiltradas.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={15} className="text-center py-8">
+                        <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground">
+                          No se encontraron datos para el período seleccionado
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {tipoFiltro === "dia"
+                            ? `Fecha consultada: ${formatDate(filtroFecha)}`
+                            : `Rango consultado: ${formatDate(filtroFecha)} - ${formatDate(filtroFechaFin)}`
+                          }
+                        </p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rutasFiltradas.map((ruta, index) => (
+                      <TableRow
+                        key={index}
+                        className="dark:border-gray-700 dark:hover:bg-gray-800"
+                      >
+                        <TableCell className="dark:text-gray-300">
+                          {formatDate(ruta.Fecha)}
+                        </TableCell>
+                        <TableCell className="font-semibold dark:text-gray-100">
+                          {ruta.Placa}
+                        </TableCell>
+                        <TableCell className="dark:text-gray-300">
+                          {ruta.Vehiculo}
+                        </TableCell>
+                        <TableCell className="dark:text-gray-300">
+                          {ruta.Repartidor}
+                        </TableCell>
+                        <TableCell className="text-center dark:text-gray-300">
+                          {ruta["Nro de viajes"]}
+                        </TableCell>
+                        <TableCell className="dark:text-gray-300">
+                          {ruta.Zona || ruta["Zonas Visitadas"] || "-"}
+                        </TableCell>
+                        <TableCell className="dark:text-gray-300">
+                          {formatNumber(ruta.Distancia)} km
+                        </TableCell>
+                        <TableCell className="dark:text-gray-300">
+                          {formatTime(ruta["Salida del CD"])}
+                        </TableCell>
+                        <TableCell className="dark:text-gray-300">
+                          {formatTime(ruta["Llegada al CD"])}
+                        </TableCell>
+                        <TableCell className="dark:text-gray-300">
+                          {formatTime(ruta.Tiempo)}
+                        </TableCell>
+                        <TableCell className="text-center dark:text-gray-300">
+                          {ruta["Nro de clientes"]}
+                        </TableCell>
+                        <TableCell className="text-center dark:text-gray-300">
+                          {ruta["Nro de pedidos"]}
+                        </TableCell>
+                        <TableCell className="text-green-600 dark:text-green-400 font-medium">
+                          {formatNumber(ruta["Entrega (CF)"])}
+                        </TableCell>
+                        <TableCell className="text-blue-600 dark:text-blue-400 font-medium">
+                          {formatNumber(ruta["Recojo (CF)"])}
+                        </TableCell>
+                        <TableCell className="font-medium dark:text-gray-300">
+                          {formatNumber(ruta["Peso (Kg)"])}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </div>
