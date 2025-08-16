@@ -17,21 +17,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, ArrowLeft, MapPin, Edit, Trash2, BarChart3 } from "lucide-react";
 import Link from "next/link";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { ZonasTable } from "@/components/tables/zonas-table";
 import { ZonaForm } from "@/components/forms/zona-form";
 import { useZonas, type Zona } from "@/hooks/use-zonas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ZonaEstadisticas } from "@/components/zona-estadisticas";
 import { ZonaMapa } from "@/components/zona-mapa";
-
 
 export default function ZonasPage() {
   const { zonas, createZona, updateZona, deleteZona, isLoading, error } =
@@ -61,10 +55,15 @@ export default function ZonasPage() {
   };
 
   const handleDelete = async (zona: Zona) => {
-    const descripcionCorta = zona.descripcion.length > 50
-      ? zona.descripcion.substring(0, 50) + "..."
-      : zona.descripcion;
-    if (confirm(`¿Está seguro de eliminar la zona ${zona.codigo}?\n\n${descripcionCorta}`)) {
+    const descripcionCorta =
+      zona.descripcion.length > 50
+        ? zona.descripcion.substring(0, 50) + "..."
+        : zona.descripcion;
+    if (
+      confirm(
+        `¿Está seguro de eliminar la zona ${zona.codigo}?\n\n${descripcionCorta}`,
+      )
+    ) {
       if (zona.id_zona) {
         await deleteZona(zona.id_zona);
       }
@@ -90,57 +89,10 @@ export default function ZonasPage() {
     });
   };
 
-  const columns: Column<Zona>[] = [
-    {
-      key: "codigo",
-      header: "Código",
-      sortable: true,
-      render: (zona) => (
-        <span className="font-bold text-blue-600 dark:text-blue-400">
-          {zona.codigo}
-        </span>
-      ),
-    },
-    {
-      key: "descripcion",
-      header: "Descripción",
-      sortable: true,
-      render: (zona) => (
-        <div className="max-w-md">
-          <p className="font-semibold text-sm line-clamp-2">{zona.descripcion}</p>
-        </div>
-      ),
-    },
-    {
-      key: "coordenadas",
-      header: "Coordenadas",
-      render: (zona) => (
-        <div className="text-xs">
-          {zona.latitud && zona.longitud ? (
-            <div className="space-y-1">
-              <div className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-300 px-2 py-1 rounded text-center">
-                <div>📍 {Number(zona.latitud).toFixed(4)}</div>
-                <div>{Number(zona.longitud).toFixed(4)}</div>
-              </div>
-            </div>
-          ) : (
-            <span className="text-gray-400 text-xs">Sin coordenadas</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "created_at",
-      header: "Creada",
-      sortable: true,
-      render: (zona) => (
-        <span className="text-sm text-gray-600 dark:text-gray-400">
-          {formatDate(zona.created_at)}
-        </span>
-      ),
-    },
-
-  ];
+  const handleViewMap = (zona: Zona) => {
+    setSelectedZona(zona);
+    // You can implement map view logic here
+  };
 
   if (error) {
     return (
@@ -229,7 +181,10 @@ export default function ZonasPage() {
               <MapPin className="w-4 h-4" />
               Lista de Zonas
             </TabsTrigger>
-            <TabsTrigger value="estadisticas" className="flex items-center gap-2">
+            <TabsTrigger
+              value="estadisticas"
+              className="flex items-center gap-2"
+            >
               <BarChart3 className="w-4 h-4" />
               Estadísticas
             </TabsTrigger>
@@ -249,8 +204,8 @@ export default function ZonasPage() {
                   </span>
                 </CardTitle>
                 <CardDescription className="dark:text-gray-300">
-                  Gestiona todas las zonas geográficas con funciones de búsqueda,
-                  filtrado y ordenamiento
+                  Gestiona todas las zonas geográficas con funciones de
+                  búsqueda, filtrado y ordenamiento
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -278,13 +233,12 @@ export default function ZonasPage() {
                     </Button>
                   </div>
                 ) : (
-                  <DataTable
-                    data={zonas}
-                    columns={columns}
-                    searchPlaceholder="Buscar por código o descripción..."
+                  <ZonasTable
+                    zonas={zonas}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
-                    searchKeys={["codigo", "descripcion"]}
+                    onViewMap={handleViewMap}
+                    initialPageSize={10}
                   />
                 )}
               </CardContent>

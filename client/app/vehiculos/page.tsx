@@ -30,7 +30,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, ArrowLeft, Truck, AlertTriangle, Info } from "lucide-react";
 import Link from "next/link";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { VehiculosTable } from "@/components/tables/vehiculos-table";
 import { VehiculoFormSimple } from "@/components/forms/vehiculo-form-simple";
 import {
   useVehiculos,
@@ -133,84 +133,6 @@ export default function VehiculosPage() {
     setEditingVehiculo(null);
     setIsDialogOpen(true);
   };
-
-  const columns: Column<Vehiculo>[] = [
-// {
-//   key: "id_vehiculo",
-//   header: "ID",
-//   sortable: true,
-//   render: (vehiculo) => (
-//     <span className="font-medium">{vehiculo.id_vehiculo}</span>
-//   ),
-// },
-
-    {
-      key: "placa",
-      header: "Placa",
-      sortable: true,
-      render: (vehiculo) => (
-        <span className="font-semibold">{vehiculo.placa}</span>
-      ),
-    },
-    {
-      key: "marca",
-      header: "Marca/Modelo",
-      sortable: true,
-      render: (vehiculo) => `${vehiculo.marca} ${vehiculo.modelo}`,
-    },
-    {
-      key: "anio",
-      header: "Año",
-      sortable: true,
-      render: (vehiculo) => vehiculo.anio || "N/A",
-    },
-    {
-      key: "capacidad_kg",
-      header: "Capacidad (kg)",
-      sortable: true,
-      render: (vehiculo) => {
-        const capacidad = vehiculo.capacidad_kg;
-        if (capacidad == null || capacidad === "") return "N/A";
-        const numero =
-          typeof capacidad === "string" ? parseFloat(capacidad) : capacidad;
-        return isNaN(numero) ? "N/A" : numero.toLocaleString();
-      },
-    },
-    {
-      key: "capacidad_cajas",
-      header: "Capacidad Cajas",
-      sortable: true,
-      render: (vehiculo) => {
-        const cajas = vehiculo.capacidad_cajas;
-        return cajas != null ? cajas.toLocaleString() : "N/A";
-      },
-    },
-    {
-      key: "activo",
-      header: "Estado",
-      sortable: true,
-      render: (vehiculo) => {
-        const isActive = normalizeBoolean(vehiculo.activo);
-        return (
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${
-              isActive
-                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-            }`}
-          >
-            {isActive ? "Activo" : "Inactivo"}
-          </span>
-        );
-      },
-    },
-    {
-      key: "created_at",
-      header: "Fecha Registro",
-      sortable: true,
-      render: (vehiculo) => formatDateForDisplay(vehiculo.created_at),
-    },
-  ];
 
   if (error) {
     return (
@@ -362,15 +284,11 @@ export default function VehiculosPage() {
                 </div>
               </div>
             ) : (
-              <DataTable
-                data={vehiculos}
-                columns={columns}
-                searchPlaceholder="Buscar por placa, marca, modelo..."
+              <VehiculosTable
+                vehiculos={vehiculos}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                showDateFilter={true}
-                dateFilterKey="created_at"
-                searchKeys={["placa", "marca", "modelo"]}
+                initialPageSize={10}
               />
             )}
           </CardContent>

@@ -16,14 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ResumenRutasTable } from "@/components/tables/resumen-rutas-table";
 import {
   Select,
   SelectContent,
@@ -919,70 +912,12 @@ export default function ResumenRutasPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Placa</TableHead>
-                    <TableHead>Vehículo</TableHead>
-                    <TableHead>Repartidor</TableHead>
-                    <TableHead className="text-center">Viajes</TableHead>
-                    <TableHead className="text-center">Zona</TableHead>
-                    <TableHead className="text-right">Distancia</TableHead>
-                    <TableHead>Salida CD</TableHead>
-                    <TableHead>Llegada CD</TableHead>
-                    <TableHead>Tiempo</TableHead>
-                    <TableHead className="text-center">Clientes</TableHead>
-                    <TableHead className="text-center">Pedidos</TableHead>
-                    <TableHead className="text-right">Entrega (CF)</TableHead>
-                    <TableHead className="text-right">Recojo (CF)</TableHead>
-                    <TableHead className="text-right">Peso (Kg)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {resumenData.map((row, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{formatDate(row.Fecha)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{row.Placa}</Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {row.Vehiculo}
-                      </TableCell>
-                      <TableCell>{row.Repartidor}</TableCell>
-                      <TableCell className="text-center">
-                        {row["Nro de viajes"]}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {row.Zona || 0}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatNumber(row.Distancia)} km
-                      </TableCell>
-                      <TableCell>{formatTime(row["Salida del CD"])}</TableCell>
-                      <TableCell>{formatTime(row["Llegada al CD"])}</TableCell>
-                      <TableCell>{formatTime(row.Tiempo)}</TableCell>
-                      <TableCell className="text-center">
-                        {row["Nro de clientes"]}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {row["Nro de pedidos"]}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatNumber(row["Entrega (CF)"])}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatNumber(row["Recojo (CF)"])}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatNumber(row["Peso (Kg)"])}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <ResumenRutasTable
+              resumenData={resumenData}
+              loading={loading}
+              isLoadingData={isLoadingData}
+              initialPageSize={15}
+            />
           )}
 
           {!loading && !isLoadingData && resumenData.length === 0 && (
