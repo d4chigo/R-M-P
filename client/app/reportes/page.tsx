@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, Download, Filter, BarChart3, TrendingUp, Users, Truck } from "lucide-react";
+import {
+  Calendar,
+  Download,
+  Filter,
+  BarChart3,
+  TrendingUp,
+  Users,
+  Truck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,10 +47,10 @@ export default function ReportesPage() {
   const [metricas, setMetricas] = useState<any>(null);
   const [cumplimiento, setCumplimiento] = useState<any>(null);
   const [filtros, setFiltros] = useState({
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: new Date().toISOString().split("T")[0],
     fechaInicio: "",
     fechaFin: "",
-    tipoReporte: "dia" // "dia" | "rango"
+    tipoReporte: "dia", // "dia" | "rango"
   });
 
   useEffect(() => {
@@ -106,7 +114,10 @@ export default function ReportesPage() {
     }
 
     try {
-      const resumen = await getResumenRutasRango(filtros.fechaInicio, filtros.fechaFin);
+      const resumen = await getResumenRutasRango(
+        filtros.fechaInicio,
+        filtros.fechaFin,
+      );
       setResumenData(resumen);
 
       // Para rango, calcular métricas agregadas
@@ -120,48 +131,95 @@ export default function ReportesPage() {
   const exportarExcel = () => {
     // Crear CSV simple
     const headers = [
-      "Fecha", "Placa", "Vehiculo", "Repartidor", "Nro de viajes",
-      "Territorio", "Distancia", "Salida del CD", "Llegada al CD",
-      "Tiempo", "Nro de clientes", "Nro de pedidos", "Entrega (CF)",
-      "Recojo (CF)", "Peso (Kg)"
+      "Fecha",
+      "Placa",
+      "Vehiculo",
+      "Repartidor",
+      "Nro de viajes",
+      "Zona",
+      "Distancia",
+      "Salida del CD",
+      "Llegada al CD",
+      "Tiempo",
+      "Nro de clientes",
+      "Nro de pedidos",
+      "Entrega (CF)",
+      "Recojo (CF)",
+      "Peso (Kg)",
     ];
 
     const csvContent = [
       headers.join(","),
-      ...resumenData.map(row => [
-        row.Fecha,
-        row.Placa,
-        `"${row.Vehiculo}"`,
-        `"${row.Repartidor}"`,
-        row["Nro de viajes"],
-        row.Territorio,
-        row.Distancia,
-        row["Salida del CD"],
-        row["Llegada al CD"],
-        row.Tiempo,
-        row["Nro de clientes"],
-        row["Nro de pedidos"],
-        row["Entrega (CF)"],
-        row["Recojo (CF)"],
-        row["Peso (Kg)"]
-      ].join(","))
+      ...resumenData.map((row) =>
+        [
+          new Date(row.Fecha).toLocaleDateString("es-PE"),
+          row.Placa,
+          `"${row.Vehiculo}"`,
+          `"${row.Repartidor}"`,
+          row["Nro de viajes"],
+          row.Zona,
+          row.Distancia,
+          row["Salida del CD"],
+          row["Llegada al CD"],
+          row.Tiempo,
+          row["Nro de clientes"],
+          row["Nro de pedidos"],
+          row["Entrega (CF)"],
+          row["Recojo (CF)"],
+          row["Peso (Kg)"],
+        ].join(","),
+      ),
     ].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `resumen_rutas_${filtros.fecha || 'rango'}.csv`;
+    link.download = `resumen_rutas_${filtros.fecha || "rango"}.csv`;
     link.click();
   };
 
   const formatTime = (timeString: string) => {
     if (!timeString) return "-";
-    return timeString;
+
+    // Si es un valor TIME de MySQL (formato HH:MM:SS)
+    if (
+      typeof timeString === "string" &&
+      timeString.match(/^\d{1,2}:\d{2}:\d{2}$/)
+    ) {
+      // Retornar solo HH:MM
+      return timeString.substring(0, 5);
+    }
+
+    // Si es un timestamp completo, intentar parsearlo
+    try {
+      return new Date(timeString).toLocaleTimeString("es-PE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "America/Lima",
+      });
+    } catch {
+      return timeString;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString("es-PE", {
+        timeZone: "America/Lima",
+      });
+    } catch {
+      return dateString;
+    }
   };
 
   const formatNumber = (value: number) => {
     if (value === null || value === undefined) return "-";
-    return typeof value === 'number' ? value.toLocaleString() : value;
+    return typeof value === "number" ? value.toLocaleString() : value;
+  };
+
+  const formatZonasVisitadas = (zonasString: string) => {
+    if (!zonasString || zonasString.trim() === "") return "-";
+    return zonasString;
   };
 
   return (
@@ -174,7 +232,10 @@ export default function ReportesPage() {
             Dashboard principal con métricas de rutas y performance
           </p>
         </div>
-        <Button onClick={exportarExcel} disabled={loading || resumenData.length === 0}>
+        <Button
+          onClick={exportarExcel}
+          disabled={loading || resumenData.length === 0}
+        >
           <Download className="h-4 w-4 mr-2" />
           Exportar Excel
         </Button>
@@ -194,7 +255,9 @@ export default function ReportesPage() {
               <Label htmlFor="tipoReporte">Tipo de Reporte</Label>
               <Select
                 value={filtros.tipoReporte}
-                onValueChange={(value) => setFiltros({...filtros, tipoReporte: value})}
+                onValueChange={(value) =>
+                  setFiltros({ ...filtros, tipoReporte: value })
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -214,7 +277,9 @@ export default function ReportesPage() {
                     id="fecha"
                     type="date"
                     value={filtros.fecha}
-                    onChange={(e) => setFiltros({...filtros, fecha: e.target.value})}
+                    onChange={(e) =>
+                      setFiltros({ ...filtros, fecha: e.target.value })
+                    }
                   />
                 </div>
                 <div className="flex items-end">
@@ -232,7 +297,9 @@ export default function ReportesPage() {
                     id="fechaInicio"
                     type="date"
                     value={filtros.fechaInicio}
-                    onChange={(e) => setFiltros({...filtros, fechaInicio: e.target.value})}
+                    onChange={(e) =>
+                      setFiltros({ ...filtros, fechaInicio: e.target.value })
+                    }
                   />
                 </div>
                 <div>
@@ -241,7 +308,9 @@ export default function ReportesPage() {
                     id="fechaFin"
                     type="date"
                     value={filtros.fechaFin}
-                    onChange={(e) => setFiltros({...filtros, fechaFin: e.target.value})}
+                    onChange={(e) =>
+                      setFiltros({ ...filtros, fechaFin: e.target.value })
+                    }
                   />
                 </div>
                 <div className="flex items-end">
@@ -263,14 +332,26 @@ export default function ReportesPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Cumplimiento VH</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Cumplimiento VH
+                  </p>
                   <div className="flex items-center space-x-2">
-                    <p className="text-2xl font-bold">{cumplimiento.cumplimiento_vh.real}</p>
-                    <Badge variant={cumplimiento.cumplimiento_vh.porcentaje >= 95 ? "default" : "destructive"}>
+                    <p className="text-2xl font-bold">
+                      {cumplimiento.cumplimiento_vh.real}
+                    </p>
+                    <Badge
+                      variant={
+                        cumplimiento.cumplimiento_vh.porcentaje >= 95
+                          ? "default"
+                          : "destructive"
+                      }
+                    >
                       {cumplimiento.cumplimiento_vh.porcentaje}%
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">Meta: {cumplimiento.cumplimiento_vh.meta}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Meta: {cumplimiento.cumplimiento_vh.meta}
+                  </p>
                 </div>
                 <BarChart3 className="h-8 w-8 text-blue-600" />
               </div>
@@ -281,14 +362,26 @@ export default function ReportesPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Utilización Flota</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Utilización Flota
+                  </p>
                   <div className="flex items-center space-x-2">
-                    <p className="text-2xl font-bold">{cumplimiento.utilizacion_flota.real.toFixed(1)}%</p>
-                    <Badge variant={cumplimiento.utilizacion_flota.porcentaje >= 80 ? "default" : "secondary"}>
+                    <p className="text-2xl font-bold">
+                      {cumplimiento.utilizacion_flota.real.toFixed(1)}%
+                    </p>
+                    <Badge
+                      variant={
+                        cumplimiento.utilizacion_flota.porcentaje >= 80
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
                       {cumplimiento.utilizacion_flota.porcentaje.toFixed(1)}%
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">Meta: {cumplimiento.utilizacion_flota.meta}%</p>
+                  <p className="text-xs text-muted-foreground">
+                    Meta: {cumplimiento.utilizacion_flota.meta}%
+                  </p>
                 </div>
                 <Truck className="h-8 w-8 text-green-600" />
               </div>
@@ -299,14 +392,20 @@ export default function ReportesPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Distancia Promedio</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Distancia Promedio
+                  </p>
                   <div className="flex items-center space-x-2">
-                    <p className="text-2xl font-bold">{cumplimiento.distancia_promedio.real} km</p>
+                    <p className="text-2xl font-bold">
+                      {cumplimiento.distancia_promedio.real} km
+                    </p>
                     <Badge variant="outline">
                       {cumplimiento.distancia_promedio.porcentaje.toFixed(0)}%
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">Meta: {cumplimiento.distancia_promedio.meta} km</p>
+                  <p className="text-xs text-muted-foreground">
+                    Meta: {cumplimiento.distancia_promedio.meta} km
+                  </p>
                 </div>
                 <TrendingUp className="h-8 w-8 text-purple-600" />
               </div>
@@ -317,9 +416,15 @@ export default function ReportesPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Productividad</p>
-                  <p className="text-2xl font-bold">{cumplimiento.productividad_camion} CF/camión</p>
-                  <p className="text-xs text-muted-foreground">Eficiencia: {cumplimiento.eficiencia_ruta} km/cliente</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Productividad
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {cumplimiento.productividad_camion} CF/camión
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Eficiencia: {cumplimiento.eficiencia_ruta} km/cliente
+                  </p>
                 </div>
                 <Users className="h-8 w-8 text-orange-600" />
               </div>
@@ -332,28 +437,40 @@ export default function ReportesPage() {
       {metricas && (
         <Card>
           <CardHeader>
-            <CardTitle>Resumen de Métricas - {metricas.Fecha}</CardTitle>
+            <CardTitle>
+              Resumen de Métricas - {formatDate(metricas.Fecha)}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">{metricas.Total_Vehiculos}</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {metricas.Total_Vehiculos}
+                </p>
                 <p className="text-sm text-muted-foreground">Vehículos</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">{metricas.Total_Viajes}</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {metricas.Total_Viajes}
+                </p>
                 <p className="text-sm text-muted-foreground">Viajes</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">{metricas.Total_Clientes}</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {metricas.Total_Clientes}
+                </p>
                 <p className="text-sm text-muted-foreground">Clientes</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-orange-600">{formatNumber(metricas.Total_Entrega_CF)}</p>
+                <p className="text-2xl font-bold text-orange-600">
+                  {formatNumber(metricas.Total_Entrega_CF)}
+                </p>
                 <p className="text-sm text-muted-foreground">Entrega CF</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-red-600">{formatNumber(metricas.Total_Peso_Kg)} kg</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {formatNumber(metricas.Total_Peso_Kg)} kg
+                </p>
                 <p className="text-sm text-muted-foreground">Peso Total</p>
               </div>
             </div>
@@ -385,7 +502,7 @@ export default function ReportesPage() {
                     <TableHead>Vehículo</TableHead>
                     <TableHead>Repartidor</TableHead>
                     <TableHead className="text-center">Viajes</TableHead>
-                    <TableHead className="text-center">Territorio</TableHead>
+                    <TableHead className="text-center">Zona</TableHead>
                     <TableHead className="text-right">Distancia</TableHead>
                     <TableHead>Salida CD</TableHead>
                     <TableHead>Llegada CD</TableHead>
@@ -400,23 +517,41 @@ export default function ReportesPage() {
                 <TableBody>
                   {resumenData.map((row, index) => (
                     <TableRow key={index}>
-                      <TableCell>{row.Fecha}</TableCell>
+                      <TableCell>{formatDate(row.Fecha)}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{row.Placa}</Badge>
                       </TableCell>
-                      <TableCell className="font-medium">{row.Vehiculo}</TableCell>
+                      <TableCell className="font-medium">
+                        {row.Vehiculo}
+                      </TableCell>
                       <TableCell>{row.Repartidor}</TableCell>
-                      <TableCell className="text-center">{row["Nro de viajes"]}</TableCell>
-                      <TableCell className="text-center">{row.Territorio}</TableCell>
-                      <TableCell className="text-right">{formatNumber(row.Distancia)} km</TableCell>
+                      <TableCell className="text-center">
+                        {row["Nro de viajes"]}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {row.Zona || 0}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatNumber(row.Distancia)} km
+                      </TableCell>
                       <TableCell>{formatTime(row["Salida del CD"])}</TableCell>
                       <TableCell>{formatTime(row["Llegada al CD"])}</TableCell>
                       <TableCell>{formatTime(row.Tiempo)}</TableCell>
-                      <TableCell className="text-center">{row["Nro de clientes"]}</TableCell>
-                      <TableCell className="text-center">{row["Nro de pedidos"]}</TableCell>
-                      <TableCell className="text-right">{formatNumber(row["Entrega (CF)"])}</TableCell>
-                      <TableCell className="text-right">{formatNumber(row["Recojo (CF)"])}</TableCell>
-                      <TableCell className="text-right">{formatNumber(row["Peso (Kg)"])}</TableCell>
+                      <TableCell className="text-center">
+                        {row["Nro de clientes"]}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {row["Nro de pedidos"]}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatNumber(row["Entrega (CF)"])}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatNumber(row["Recojo (CF)"])}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {formatNumber(row["Peso (Kg)"])}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
