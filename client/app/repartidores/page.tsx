@@ -14,6 +14,9 @@ import {
   Power,
   UserCheck,
   ArrowLeft,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +53,18 @@ interface RepartidorFormData {
   activo?: boolean;
 }
 
+interface Repartidor {
+  id_repartidor: number;
+  codigo: string;
+  nombre: string;
+  dni?: string;
+  licencia_conducir?: string;
+  telefono?: string;
+  activo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export default function RepartidoresPage() {
   const router = useRouter();
   const {
@@ -67,6 +82,7 @@ export default function RepartidoresPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedRepartidor, setSelectedRepartidor] = useState<any>(null);
+  const [showStats, setShowStats] = useState(false);
 
   const [formData, setFormData] = useState<RepartidorFormData>({
     codigo: "",
@@ -74,7 +90,7 @@ export default function RepartidoresPage() {
     dni: "",
     licencia_conducir: "",
     telefono: "",
-    estado_disponibilidad: "DISPONIBLE",
+    activo: true,
   });
 
   const handleSearch = async (query: string) => {
@@ -115,7 +131,7 @@ export default function RepartidoresPage() {
     }
   };
 
-  const handleEdit = (repartidor: any) => {
+  const handleEdit = (repartidor: Repartidor) => {
     setSelectedRepartidor(repartidor);
     setFormData({
       codigo: repartidor.codigo,
@@ -159,7 +175,7 @@ export default function RepartidoresPage() {
     }
   };
 
-  const openDeleteDialog = (repartidor: any) => {
+  const openDeleteDialog = (repartidor: Repartidor) => {
     setSelectedRepartidor(repartidor);
     setDeleteDialogOpen(true);
   };
@@ -292,72 +308,87 @@ export default function RepartidoresPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
             <Input
               placeholder="Buscar por código, nombre, DNI o licencia..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="flex-1"
             />
+            <Button
+              variant="outline"
+              onClick={() => setShowStats(!showStats)}
+              className="flex items-center gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Estadísticas
+              {showStats ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <User className="h-8 w-8 text-blue-600" />
-              <div>
-                <p className="text-2xl font-bold">{repartidores.length}</p>
-                <p className="text-sm text-muted-foreground">
-                  Total Repartidores
-                </p>
+      {/* Stats - Collapsible */}
+      {showStats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <User className="h-8 w-8 text-blue-600" />
+                <div>
+                  <p className="text-2xl font-bold">{repartidores.length}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Total Repartidores
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <CreditCard className="h-8 w-8 text-green-600" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {repartidores.filter((r) => r.licencia_conducir).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Con Licencia</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <CreditCard className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {repartidores.filter((r) => r.licencia_conducir).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Con Licencia</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <UserCheck className="h-8 w-8 text-green-600" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {repartidores.filter((r) => r.activo).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Activos</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <UserCheck className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {repartidores.filter((r) => r.activo).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Activos</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Phone className="h-8 w-8 text-purple-600" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {repartidores.filter((r) => r.telefono).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Con Teléfono</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Phone className="h-8 w-8 text-purple-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {repartidores.filter((r) => r.telefono).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Con Teléfono</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Table */}
       <Card>

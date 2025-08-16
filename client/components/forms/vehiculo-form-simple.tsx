@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import type { Vehiculo } from "@/hooks/use-vehiculos";
 import { normalizeBoolean } from "@/hooks/use-vehiculos";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { Loader2 } from "lucide-react";
 
 interface VehiculoFormSimpleProps {
@@ -30,7 +30,6 @@ export function VehiculoFormSimple({
   isEditing = false,
 }: VehiculoFormSimpleProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     placa: "",
@@ -59,7 +58,6 @@ export function VehiculoFormSimple({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setFormError(null);
 
     try {
       // Validaciones básicas
@@ -88,11 +86,7 @@ export function VehiculoFormSimple({
       });
     } catch (error) {
       console.error("Error submitting form:", error);
-      setFormError(
-        error instanceof Error
-          ? error.message
-          : "Error al guardar el vehículo. Por favor intenta nuevamente.",
-      );
+      // Los errores se manejan en los hooks con toasts
     } finally {
       setIsSubmitting(false);
     }
@@ -104,12 +98,6 @@ export function VehiculoFormSimple({
 
   return (
     <div className="space-y-4">
-      {formError && (
-        <Alert variant="destructive">
-          <AlertDescription>{formError}</AlertDescription>
-        </Alert>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Placa - Campo requerido */}
         <div>

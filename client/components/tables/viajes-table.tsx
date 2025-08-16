@@ -6,8 +6,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, MapPin, Truck, User } from "lucide-react";
+import { Clock, MapPin, Truck, User, Edit, Trash2 } from "lucide-react";
 import {
   TablePagination,
   usePagination,
@@ -38,11 +39,15 @@ interface Viaje {
 
 interface ViajesTableProps {
   viajes: Viaje[];
+  onEdit?: (viaje: Viaje) => void;
+  onDelete?: (viaje: Viaje) => void;
   initialPageSize?: number;
 }
 
 export function ViajesTable({
   viajes,
+  onEdit,
+  onDelete,
   initialPageSize = 10,
 }: ViajesTableProps) {
   const {
@@ -89,6 +94,9 @@ export function ViajesTable({
               <TableHead>Repartidor</TableHead>
               <TableHead>Horarios</TableHead>
               <TableHead>Detalles</TableHead>
+              {(onEdit || onDelete) && (
+                <TableHead className="text-right">Acciones</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -210,6 +218,32 @@ export function ViajesTable({
                       </div>
                     </div>
                   </TableCell>
+                  {(onEdit || onDelete) && (
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-2">
+                        {onEdit && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEdit(viaje)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onDelete && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onDelete(viaje)}
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}

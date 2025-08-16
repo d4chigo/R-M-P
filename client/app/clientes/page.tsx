@@ -84,9 +84,12 @@ export default function ClientesPage() {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (cliente: Cliente) => {
-    setClienteToDelete(cliente);
-    setDeleteDialogOpen(true);
+  const handleDelete = (id: number) => {
+    const cliente = clientes.find((c) => c.id_cliente === id);
+    if (cliente) {
+      setClienteToDelete(cliente);
+      setDeleteDialogOpen(true);
+    }
   };
 
   const confirmDelete = async () => {
@@ -147,7 +150,6 @@ export default function ClientesPage() {
 
   const handleNewCliente = async () => {
     setEditingCliente(null);
-    setCliente(null);
     // Recargar zonas antes de abrir el diálogo
     await fetchZonas();
     setIsDialogOpen(true);

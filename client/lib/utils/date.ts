@@ -10,7 +10,7 @@
  * @returns Formatted date string
  */
 export function formatDateForDisplay(
-  dateString: string,
+  dateString: string | undefined,
   locale: string = "es-PE",
 ): string {
   if (!dateString) return "";

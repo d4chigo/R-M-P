@@ -10,7 +10,7 @@ interface Repartidor {
   dni?: string;
   licencia_conducir?: string;
   telefono?: string;
-  activo: number | boolean;
+  activo: boolean | number;
   created_at: string;
   updated_at: string;
 }

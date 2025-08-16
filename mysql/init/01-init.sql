@@ -70,7 +70,7 @@ CREATE TABLE REPARTIDOR (
     id_repartidor INT PRIMARY KEY AUTO_INCREMENT,
     codigo VARCHAR(20) NOT NULL UNIQUE,
     nombre VARCHAR(100) NOT NULL,
-    dni VARCHAR(15),
+    dni VARCHAR(15) NOT NULL UNIQUE,
     licencia_conducir VARCHAR(20),
     telefono VARCHAR(20),
     estado_disponibilidad ENUM('DISPONIBLE', 'OCUPADO', 'EN_DESCANSO', 'NO_DISPONIBLE') DEFAULT 'DISPONIBLE',
@@ -220,8 +220,32 @@ GROUP BY
 ORDER BY v.fecha DESC, ve.placa;
 
 -- ==============================
+-- INSERCIÓN DE DATOS INICIALES
+-- ==============================
+
+-- Insertar roles básicos del sistema
+INSERT INTO ROL (nombre, descripcion) VALUES
+('ADMINISTRADOR', 'Acceso completo al sistema - gestión de usuarios, configuración y todos los módulos'),
+('USUARIO', 'Acceso estándar - gestión de operaciones diarias sin configuración del sistema');
+
+-- Insertar usuarios con contraseñas hasheadas
+-- Contraseña para 'admin': admin123 (hasheada con bcrypt)
+-- Contraseña para 'demo': demo123 (hasheada con bcrypt)
+INSERT INTO USUARIO (username, password_hash, nombre_completo, email, telefono, activo) VALUES
+('admin', '$2a$10$jdTXLdWhSMBxZ8/ZNg6PMepqh5mQM8DXZtee0RFQSph4YsTPQPM6e', 'Administrador del Sistema', 'admin@rmp.com', '+51 999 888 777', TRUE),
+('demo', '$2a$10$xz36JMqHO5dDLxJ07xdgBOeMXN8r0tqB3l8miiAKwO8jyhPTRH1ae', 'Usuario Demostración', 'demo@rmp.com', '+51 999 888 666', TRUE);
+
+-- Asignar roles a los usuarios
+INSERT INTO USUARIO_ROL (id_usuario, id_rol) VALUES
+(1, 1), -- admin con rol ADMINISTRADOR
+(2, 2); -- demo con rol USUARIO
+
+-- ==============================
 -- INICIALIZACIÓN COMPLETA
 -- ==============================
 -- Base de datos lista para uso
--- Para insertar datos de prueba, usar la interfaz web
+-- Usuarios predeterminados:
+-- - admin / admin123 (Administrador)
+-- - demo / demo123 (Usuario)
+-- Para insertar más datos de prueba, usar la interfaz web
 -- o ejecutar scripts INSERT por separado
