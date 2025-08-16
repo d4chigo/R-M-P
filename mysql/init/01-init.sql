@@ -186,7 +186,7 @@ SELECT
     CONCAT(ve.marca, ' ', ve.modelo) AS Vehiculo,
     CONCAT(r.codigo, ' - ', r.nombre) AS Repartidor,
     r.estado_disponibilidad AS `Estado Repartidor`,
-    COUNT(DISTINCT v.id_viaje) AS `Nro de viajes`,
+    SUM(v.nro_viaje) AS `Nro de viajes`,
     COUNT(DISTINCT c.id_zona) AS Zona,
     GROUP_CONCAT(DISTINCT z.descripcion ORDER BY z.descripcion SEPARATOR ', ') AS `Zonas Visitadas`,
     COALESCE(SUM(v.distancia_km), 0) AS Distancia,
