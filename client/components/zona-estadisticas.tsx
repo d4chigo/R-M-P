@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Card,
   CardContent,
@@ -10,7 +10,16 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Users, TrendingUp, RefreshCw } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  MapPin,
+  Users,
+  TrendingUp,
+  RefreshCw,
+  Search,
+  Calendar,
+  X,
+} from "lucide-react";
 import {
   TablePagination,
   usePagination,
@@ -36,6 +45,70 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
   const [zonas, setZonas] = useState<ZonaConEstadisticas[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+
+  // Función para formatear fecha para comparación
+  const formatDateForComparison = (dateStr: string): string => {
+    try {
+      if (dateStr.includes("T")) {
+        return dateStr.split("T")[0];
+      }
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return dateStr;
+      }
+      const date = new Date(dateStr);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    } catch {
+      return "";
+    }
+  };
+
+  // Función para mostrar fecha en formato peruano
+  const formatDateForDisplayLocal = (dateStr: string): string => {
+    const [year, month, day] = dateStr.split("-");
+    return `${day}/${month}/${year}`;
+  };
+
+  // Filtrar datos basado en búsqueda y fecha
+  const filteredZonas = useMemo(() => {
+    let filtered = zonas;
+
+    // Filtro de búsqueda
+    if (searchTerm) {
+      filtered = filtered.filter((zona) => {
+        const searchableFields = [
+          zona.codigo,
+          zona.descripcion,
+          zona.total_clientes?.toString(),
+          zona.clientes_activos?.toString(),
+          zona.latitud?.toString(),
+          zona.longitud?.toString(),
+          zona.total_clientes > 0 ? "activa" : "sin clientes",
+          zona.latitud != null && zona.longitud != null
+            ? "con coordenadas"
+            : "sin coordenadas",
+        ];
+
+        return searchableFields.some((field) =>
+          field?.toLowerCase().includes(searchTerm.toLowerCase()),
+        );
+      });
+    }
+
+    // Filtro de fecha
+    if (dateFilter) {
+      filtered = filtered.filter((zona) => {
+        const zonaDate = formatDateForComparison(zona.created_at);
+        return zonaDate === dateFilter;
+      });
+    }
+
+    return filtered;
+  }, [zonas, searchTerm, dateFilter]);
 
   // Pagination for zona details
   const {
@@ -46,7 +119,7 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
     paginatedData,
     handlePageChange,
     handlePageSizeChange,
-  } = usePagination(zonas, 8);
+  } = usePagination(filteredZonas, 8);
 
   const fetchEstadisticas = async () => {
     setIsLoading(true);
@@ -142,6 +215,11 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
   const zonasConClientes = zonas.filter(
     (zona) => (Number(zona.total_clientes) || 0) > 0,
   ).length;
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setDateFilter("");
+  };
 
   if (error) {
     return (
@@ -283,6 +361,49 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
           </Button>
         </CardHeader>
         <CardContent>
+          {/* Filtros */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
+              <Input
+                placeholder="Buscar por código, descripción, clientes o coordenadas..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 mobile-input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
+              />
+            </div>
+
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                placeholder="Filtrar por fecha de creación"
+                className="pl-10 w-full sm:w-auto mobile-input dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              />
+            </div>
+
+            {(searchTerm || dateFilter) && (
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="mobile-button dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Limpiar Filtros
+              </Button>
+            )}
+          </div>
+
+          {/* Información de resultados */}
+          <div className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            Mostrando {filteredZonas.length} de {zonas.length} zonas
+            {searchTerm && ` para "${searchTerm}"`}
+            {dateFilter &&
+              ` creadas el ${formatDateForDisplayLocal(dateFilter)}`}
+          </div>
+
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="text-center">
@@ -292,11 +413,13 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
                 </p>
               </div>
             </div>
-          ) : zonas.length === 0 ? (
+          ) : filteredZonas.length === 0 ? (
             <div className="text-center py-8">
               <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 dark:text-gray-400">
-                No hay zonas registradas
+                {zonas.length === 0
+                  ? "No hay zonas registradas"
+                  : "No se encontraron zonas que coincidan con los filtros"}
               </p>
             </div>
           ) : (
@@ -374,7 +497,7 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
                 ))}
               </div>
 
-              {zonas.length > 0 && (
+              {filteredZonas.length > 0 && (
                 <TablePagination
                   currentPage={currentPage}
                   totalPages={totalPages}

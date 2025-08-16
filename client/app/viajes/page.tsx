@@ -274,7 +274,12 @@ export default function ViajesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ViajesTable viajes={viajes} initialPageSize={10} />
+            <ViajesTable
+              viajes={viajes}
+              onEdit={handleEdit}
+              onDelete={handleDeleteClick}
+              initialPageSize={10}
+            />
           </CardContent>
         </Card>
 

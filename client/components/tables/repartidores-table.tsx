@@ -21,7 +21,7 @@ interface Repartidor {
   dni?: string;
   licencia_conducir?: string;
   telefono?: string;
-  activo: boolean;
+  activo: number | boolean;
   created_at: string;
   updated_at: string;
 }
@@ -69,7 +69,9 @@ export function RepartidoresTable({
               <TableHead>Licencia</TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Estado</TableHead>
-              {(onEdit || onDelete) && <TableHead className="text-right">Acciones</TableHead>}
+              {(onEdit || onDelete) && (
+                <TableHead className="text-right">Acciones</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
