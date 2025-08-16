@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Plus, ArrowLeft, Users, Info } from "lucide-react";
 import Link from "next/link";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { ClientesTable } from "@/components/tables/clientes-table";
 import { ClienteForm } from "@/components/forms/cliente-form";
 import { useClientes, type Cliente } from "@/hooks/use-clientes";
 
@@ -147,94 +147,19 @@ export default function ClientesPage() {
 
   const handleNewCliente = async () => {
     setEditingCliente(null);
+    setCliente(null);
     // Recargar zonas antes de abrir el diálogo
     await fetchZonas();
     setIsDialogOpen(true);
   };
 
-  const columns: Column<Cliente>[] = [
-     // {
-  //   key: "id_cliente",
-  //   header: "ID",
-  //   sortable: true,
-  //   render: (cliente) => (
-  //     <span className="font-medium">{cliente.id_cliente}</span>
-  //   ),
-  // },
-    {
-      key: "codigo",
-      header: "Código",
-      sortable: true,
-      render: (cliente) => (
-        <span className="font-semibold">{cliente.codigo}</span>
-      ),
-    },
-    {
-      key: "nombre",
-      header: "Nombre",
-      sortable: true,
-    },
-    {
-      key: "direccion",
-      header: "Dirección",
-      sortable: true,
-      render: (cliente) => (
-        <span
-          className="max-w-[200px] truncate block"
-          title={cliente.direccion || "Sin dirección"}
-        >
-          {cliente.direccion || (
-            <span className="text-gray-400 italic">Sin dirección</span>
-          )}
-        </span>
-      ),
-    },
-    {
-      key: "zona_nombre",
-      header: "Zona",
-      sortable: true,
-      render: (cliente) => (
-        <div className="space-y-1">
-          {cliente.zona_nombre ? (
-            <>
-              <div className="text-sm bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded">
-                {cliente.zona_nombre}
-              </div>
-              {cliente.zona_codigo && (
-                <div className="text-xs text-gray-500 font-mono">
-                  {cliente.zona_codigo}
-                </div>
-              )}
-            </>
-          ) : (
-            <span className="text-gray-400 italic">Sin zona</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "activo",
-      header: "Estado",
-      sortable: true,
-      render: (cliente) => (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            cliente.activo
-              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-          }`}
-        >
-          {cliente.activo ? "Activo" : "Inactivo"}
-        </span>
-      ),
-    },
-    {
-      key: "created_at",
-      header: "Fecha Registro",
-      sortable: true,
-      render: (cliente) => formatDateForDisplay(cliente.created_at || ""),
-    },
-  ];
+  const handleToggleActivo = async (id: number, currentActivo: boolean) => {
+    try {
+      await updateCliente(id, { activo: !currentActivo });
+    } catch (error) {
+      console.error("Error al cambiar estado del cliente:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -376,21 +301,12 @@ export default function ClientesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <DataTable
-              data={clientes}
-              columns={columns}
-              searchPlaceholder="Buscar por nombre, código, dirección, zona..."
+            <ClientesTable
+              clientes={clientes}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              showDateFilter={true}
-              dateFilterKey="created_at"
-              searchKeys={[
-                "nombre",
-                "codigo",
-                "direccion",
-                "zona_nombre",
-                "zona_codigo",
-              ]}
+              onToggleActivo={handleToggleActivo}
+              initialPageSize={10}
             />
           </CardContent>
         </Card>

@@ -1,6 +1,6 @@
 -- ==============================
 -- SCRIPT SQL - RMP (Route Management Platform)
--- Archivo: 02-init.sql
+-- Archivo: 01-init.sql
 -- Descripción: Inicialización completa del sistema con todas las tablas maestras,
 -- transaccionales y de soporte necesarias para alimentar RESUMEN DE RUTAS
 -- ==============================
@@ -186,9 +186,8 @@ SELECT
     CONCAT(ve.marca, ' ', ve.modelo) AS Vehiculo,
     CONCAT(r.codigo, ' - ', r.nombre) AS Repartidor,
     r.estado_disponibilidad AS `Estado Repartidor`,
-    SUM(v.nro_viaje) AS `Nro de viajes`,
+    COUNT(DISTINCT v.id_viaje) AS `Nro de viajes`,
     COUNT(DISTINCT c.id_zona) AS Zona,
-    GROUP_CONCAT(DISTINCT z.descripcion ORDER BY z.descripcion SEPARATOR ', ') AS `Zonas Visitadas`,
     COALESCE(SUM(v.distancia_km), 0) AS Distancia,
     MIN(v.salida_cd) AS `Salida del CD`,
     MAX(v.llegada_cd) AS `Llegada al CD`,
@@ -221,16 +220,8 @@ GROUP BY
 ORDER BY v.fecha DESC, ve.placa;
 
 -- ==============================
--- INSERT PARA USUARIO
+-- INICIALIZACIÓN COMPLETA
 -- ==============================
-
-INSERT INTO USUARIO (
-    username,
-    password_hash,
-    nombre_completo,
-    email,
-    telefono,
-    activo
-) VALUES
-('admin', '$2a$10$iUbSmL2uwaU5sIryjMYRVect6MhXSBNx85f5plAEF3p2GSwbxFXoa', 'Administrador del Sistema', 'admin@rmp.com', NULL, TRUE),
-('demo', '$2a$10$S16xtRVcad4th4ktbcUuY.RsU8rscIx02AXu17S1xBoKvhPSVRS6W', 'Usuario Demo', 'demo@rmp.com', NULL, TRUE);
+-- Base de datos lista para uso
+-- Para insertar datos de prueba, usar la interfaz web
+-- o ejecutar scripts INSERT por separado

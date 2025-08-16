@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, ArrowLeft, FileText } from "lucide-react";
 import Link from "next/link";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { VisitasTable } from "@/components/tables/visitas-table";
 import { VisitaForm } from "@/components/forms/visita-form";
 import { useVisitas, type Visita } from "@/hooks/use-visitas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -117,128 +117,6 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
     setIsDialogOpen(true);
   };
 
-  const columns: Column<Visita>[] = [
-      // {
-    //   key: "id_visita",
-    //   header: "ID",
-    //   sortable: true,
-    //   render: (visita) => (
-    //     <span className="font-medium">{visita.id_visita}</span>
-    //   ),
-    // },
-    {
-      key: "id_viaje",
-      header: "Viaje",
-      sortable: true,
-      render: (visita) => (
-        <div className="text-sm">
-          <div className="font-medium">
-            Viaje #{visita.viaje_nro || visita.id_viaje}
-          </div>
-          <div className="text-gray-500 dark:text-gray-400">
-            {visita.viaje_fecha || "Sin fecha"}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "id_cliente",
-      header: "Cliente",
-      sortable: true,
-      render: (visita) => (
-        <div className="text-sm">
-          <div className="font-medium">
-            {visita.cliente_nombre || "Sin nombre"}
-          </div>
-          <div className="text-gray-500 dark:text-gray-400">
-            Código: {visita.cliente_codigo || "N/A"}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "pedidos",
-      header: "Pedidos",
-      sortable: true,
-      render: (visita) => (
-        <span className="font-medium text-center">{visita.pedidos || 0}</span>
-      ),
-    },
-    {
-      key: "entrega_cf",
-      header: "Entrega (CF)",
-      sortable: true,
-      render: (visita) => (
-        <span className="text-green-600 dark:text-green-400 font-medium">
-          {visita.entrega_cf
-            ? visita.entrega_cf.toLocaleString("es-PE", {
-                minimumFractionDigits: 2,
-              })
-            : "0.00"}
-        </span>
-      ),
-    },
-    {
-      key: "recojo_cf",
-      header: "Recojo (CF)",
-      sortable: true,
-      render: (visita) => (
-        <span className="text-blue-600 dark:text-blue-400 font-medium">
-          {visita.recojo_cf
-            ? visita.recojo_cf.toLocaleString("es-PE", {
-                minimumFractionDigits: 2,
-              })
-            : "0.00"}
-        </span>
-      ),
-    },
-    {
-      key: "peso_kg",
-      header: "Peso (Kg)",
-      sortable: true,
-      render: (visita) => (
-        <span className="text-purple-600 dark:text-purple-400 font-medium">
-          {visita.peso_kg
-            ? `${visita.peso_kg.toLocaleString("es-PE", { minimumFractionDigits: 2 })} kg`
-            : "0.00 kg"}
-        </span>
-      ),
-    },
-    {
-      key: "distancia_km",
-      header: "Distancia (Km)",
-      sortable: true,
-      render: (visita) => (
-        <span className="text-orange-600 dark:text-orange-400 font-medium">
-          {visita.distancia_km
-            ? `${visita.distancia_km.toLocaleString("es-PE", { minimumFractionDigits: 2 })} km`
-            : "0.00 km"}
-        </span>
-      ),
-    },
-    {
-      key: "vehiculo_placa",
-      header: "Vehículo",
-      render: (visita) => (
-        <span className="text-sm font-mono">
-          {visita.vehiculo_placa || "N/A"}
-        </span>
-      ),
-    },
-    {
-      key: "repartidor_nombre",
-      header: "Repartidor",
-      render: (visita) => (
-        <div className="text-sm">
-          <div className="font-medium">{visita.repartidor_nombre || "N/A"}</div>
-          <div className="text-gray-500 dark:text-gray-400">
-            {visita.repartidor_codigo || "N/A"}
-          </div>
-        </div>
-      ),
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-4 sm:py-8">
@@ -323,19 +201,11 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <DataTable
-              data={visitas}
-              columns={columns}
-              searchPlaceholder="Buscar por cliente, código, vehículo..."
+            <VisitasTable
+              visitas={visitas}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              searchKeys={[
-                "cliente_nombre",
-                "cliente_codigo",
-                "vehiculo_placa",
-                "repartidor_nombre",
-                "viaje_nro",
-              ]}
+              initialPageSize={10}
             />
           </CardContent>
         </Card>

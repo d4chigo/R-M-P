@@ -40,7 +40,7 @@ import {
   Truck,
 } from "lucide-react";
 import Link from "next/link";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { ViajesTable } from "@/components/tables/viajes-table";
 import { ViajeForm } from "@/components/forms/viaje-form";
 import { useViajes, type Viaje } from "@/hooks/use-viajes";
 import { useVehiculos } from "@/hooks/use-vehiculos";
@@ -189,176 +189,6 @@ export default function ViajesPage() {
     }
   };
 
-  const columns: Column<Viaje>[] = [
-    // {
-    //   key: "id_viaje",
-    //   header: "ID",
-    //   sortable: true,
-    //   render: (viaje) => (
-    //     <span className="font-mono text-sm">#{viaje.id_viaje || viaje.id}</span>
-    //   ),
-    // },
-    {
-      key: "fecha",
-      header: "Fecha",
-      sortable: true,
-      render: (viaje) => {
-        const { estado, variant } = getEstadoViaje(viaje.fecha);
-        return (
-          <div className="space-y-1">
-            <div className="font-medium">{formatDate(viaje.fecha)}</div>
-            <Badge variant={variant} className="text-xs">
-              {estado}
-            </Badge>
-          </div>
-        );
-      },
-    },
-    {
-      key: "nro_viaje",
-      header: "N° Viaje",
-      sortable: true,
-      render: (viaje) => (
-        <Badge variant="outline" className="font-mono">
-          Viaje {viaje.nro_viaje}
-        </Badge>
-      ),
-    },
-    {
-      key: "vehiculo",
-      header: "Vehículo",
-      sortable: true,
-      render: (viaje) => (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Truck className="w-4 h-4 text-blue-500" />
-            <span className="font-medium text-blue-700 dark:text-blue-300">
-              {viaje.vehiculo_placa || "Sin placa"}
-            </span>
-          </div>
-          <div className="text-xs text-gray-500">
-            {viaje.vehiculo_marca} {viaje.vehiculo_modelo}
-          </div>
-          {(viaje.vehiculo_capacidad_kg || viaje.vehiculo_capacidad_cajas) && (
-            <div className="text-xs text-gray-400">
-              {viaje.vehiculo_capacidad_kg &&
-                `${viaje.vehiculo_capacidad_kg}kg`}
-              {viaje.vehiculo_capacidad_cajas &&
-                ` • ${viaje.vehiculo_capacidad_cajas} cajas`}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "repartidor",
-      header: "Repartidor",
-      sortable: true,
-      render: (viaje) => (
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-green-500" />
-            <span className="font-medium">
-              {viaje.repartidor_nombre || "Sin asignar"}
-            </span>
-          </div>
-          {viaje.repartidor_codigo && (
-            <div className="text-xs text-gray-500">
-              Código: {viaje.repartidor_codigo}
-            </div>
-          )}
-          {viaje.repartidor_telefono && (
-            <div className="text-xs text-gray-400">
-              Tel: {viaje.repartidor_telefono}
-            </div>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "horarios",
-      header: "Horarios",
-      render: (viaje) => (
-        <div className="space-y-1 text-xs">
-          <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3 text-green-600" />
-            <span className="text-green-600">
-              Salida:{" "}
-              {viaje.salida_cd
-                ? new Date(viaje.salida_cd).toLocaleTimeString("es-PE", {
-                    timeZone: "America/Lima",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "No definida"}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Clock className="w-3 h-3 text-red-600" />
-            <span className="text-red-600">
-              Llegada:{" "}
-              {viaje.llegada_cd
-                ? new Date(viaje.llegada_cd).toLocaleTimeString("es-PE", {
-                    timeZone: "America/Lima",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "No definida"}
-            </span>
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "detalles",
-      header: "Detalles",
-      render: (viaje) => (
-        <div className="space-y-1 text-xs">
-          <div className="flex items-center gap-1">
-            <MapPin className="w-3 h-3 text-blue-500" />
-            <span>
-              {viaje.distancia_km ? `${viaje.distancia_km} km` : "Sin definir"}
-            </span>
-          </div>
-          {viaje.tipo_viaje && (
-            <Badge variant="secondary" className="text-xs">
-              {viaje.tipo_viaje}
-            </Badge>
-          )}
-          <div className="grid grid-cols-2 gap-1 mt-1">
-            {viaje.tiempo_manejo_min && (
-              <div className="text-gray-500">
-                Manejo: {formatTime(viaje.tiempo_manejo_min)}
-              </div>
-            )}
-            {viaje.tiempo_servicio_min && (
-              <div className="text-gray-500">
-                Servicio: {formatTime(viaje.tiempo_servicio_min)}
-              </div>
-            )}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "tiempos_extra",
-      header: "Tiempos Extra",
-      render: (viaje) => (
-        <div className="space-y-1 text-xs text-gray-500">
-          {viaje.recarga_min && (
-            <div>Recarga: {formatTime(viaje.recarga_min)}</div>
-          )}
-          {viaje.refrigerio_min && (
-            <div>Refrigerio: {formatTime(viaje.refrigerio_min)}</div>
-          )}
-          {!viaje.recarga_min && !viaje.refrigerio_min && (
-            <span className="text-gray-400">Sin tiempos extra</span>
-          )}
-        </div>
-      ),
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-4 sm:py-8">
@@ -444,24 +274,7 @@ export default function ViajesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <DataTable
-              data={viajes}
-              columns={columns}
-              searchPlaceholder="Buscar por placa, repartidor, tipo..."
-              onEdit={handleEdit}
-              onDelete={handleDeleteClick}
-              showDateFilter={true}
-              dateFilterKey="fecha"
-              searchKeys={[
-                "vehiculo_placa",
-                "vehiculo_marca",
-                "vehiculo_modelo",
-                "repartidor_nombre",
-                "repartidor_codigo",
-                "tipo_viaje",
-                "nro_viaje",
-              ]}
-            />
+            <ViajesTable viajes={viajes} initialPageSize={10} />
           </CardContent>
         </Card>
 

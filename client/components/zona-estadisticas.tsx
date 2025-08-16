@@ -11,6 +11,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MapPin, Users, TrendingUp, RefreshCw } from "lucide-react";
+import {
+  TablePagination,
+  usePagination,
+} from "@/components/ui/table-pagination";
 
 interface ZonaConEstadisticas {
   id_zona: number;
@@ -33,51 +37,67 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Pagination for zona details
+  const {
+    currentPage,
+    totalPages,
+    pageSize,
+    totalItems,
+    paginatedData,
+    handlePageChange,
+    handlePageSizeChange,
+  } = usePagination(zonas, 8);
+
   const fetchEstadisticas = async () => {
     setIsLoading(true);
     setError(null);
 
     try {
       // First, try to get auth token from localStorage or session
-      const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+      const token =
+        localStorage.getItem("auth_token") ||
+        sessionStorage.getItem("auth_token");
 
       if (!token) {
         // If no token, try to login first
         const loginResponse = await fetch("/api/auth/login", {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json'
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            email: 'admin@rmp.com',
-            password: 'admin123'
-          })
+            email: "admin@rmp.com",
+            password: "admin123",
+          }),
         });
 
         const loginData = await loginResponse.json();
 
         if (!loginData.success) {
-          setError("Error de autenticación: " + (loginData.message || "No se pudo iniciar sesión"));
+          setError(
+            "Error de autenticación: " +
+              (loginData.message || "No se pudo iniciar sesión"),
+          );
           return;
         }
 
         // Store token for future requests
-        sessionStorage.setItem('auth_token', loginData.data.token);
+        sessionStorage.setItem("auth_token", loginData.data.token);
       }
 
       // Now make the authenticated request
-      const currentToken = token || sessionStorage.getItem('auth_token');
+      const currentToken = token || sessionStorage.getItem("auth_token");
       const response = await fetch("/api/zonas/estadisticas", {
         headers: {
-          'Authorization': `Bearer ${currentToken}`,
-          'Content-Type': 'application/json'
-        }
+          Authorization: `Bearer ${currentToken}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (response.status === 401) {
         // Token expired or invalid, clear it and try again
-        sessionStorage.removeItem('auth_token');
-        localStorage.removeItem('auth_token');
+        sessionStorage.removeItem("auth_token");
+        localStorage.removeItem("auth_token");
         setError("Sesión expirada. Por favor, recarga la página.");
         return;
       }
@@ -91,10 +111,15 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
       }
     } catch (err) {
       console.error("Error fetching estadísticas:", err);
-      if (err instanceof TypeError && err.message.includes('fetch')) {
-        setError("Error de conectividad - Verifica que el servidor esté funcionando");
+      if (err instanceof TypeError && err.message.includes("fetch")) {
+        setError(
+          "Error de conectividad - Verifica que el servidor esté funcionando",
+        );
       } else {
-        setError("Error de conexión: " + (err instanceof Error ? err.message : 'Error desconocido'));
+        setError(
+          "Error de conexión: " +
+            (err instanceof Error ? err.message : "Error desconocido"),
+        );
       }
     } finally {
       setIsLoading(false);
@@ -106,15 +131,25 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
   }, []);
 
   const totalZonas = zonas.length;
-  const totalClientes = zonas.reduce((sum, zona) => sum + zona.total_clientes, 0);
-  const totalClientesActivos = zonas.reduce((sum, zona) => sum + zona.clientes_activos, 0);
-  const zonasConClientes = zonas.filter(zona => zona.total_clientes > 0).length;
+  const totalClientes = zonas.reduce(
+    (sum, zona) => sum + (Number(zona.total_clientes) || 0),
+    0,
+  );
+  const totalClientesActivos = zonas.reduce(
+    (sum, zona) => sum + (Number(zona.clientes_activos) || 0),
+    0,
+  );
+  const zonasConClientes = zonas.filter(
+    (zona) => (Number(zona.total_clientes) || 0) > 0,
+  ).length;
 
   if (error) {
     return (
       <Card className={className}>
         <CardHeader>
-          <CardTitle className="text-red-600">Error al cargar estadísticas</CardTitle>
+          <CardTitle className="text-red-600">
+            Error al cargar estadísticas
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
@@ -123,7 +158,8 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
             {error.includes("autenticación") && (
               <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded">
                 <p className="text-yellow-700 dark:text-yellow-400 text-sm">
-                  💡 Sugerencia: Intenta hacer login primero en la aplicación principal.
+                  💡 Sugerencia: Intenta hacer login primero en la aplicación
+                  principal.
                 </p>
               </div>
             )}
@@ -131,7 +167,8 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
             {error.includes("conectividad") && (
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded">
                 <p className="text-blue-700 dark:text-blue-400 text-sm">
-                  🔍 Verifica que el servidor backend esté corriendo en http://localhost:4000
+                  🔍 Verifica que el servidor backend esté corriendo en
+                  http://localhost:4000
                 </p>
               </div>
             )}
@@ -180,7 +217,9 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
             <div className="flex items-center space-x-2">
               <Users className="w-8 h-8 text-blue-600" />
               <div>
-                <p className="text-2xl font-bold">{totalClientes}</p>
+                <p className="text-2xl font-bold">
+                  {totalClientes.toLocaleString()}
+                </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Total Clientes
                 </p>
@@ -194,7 +233,9 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
             <div className="flex items-center space-x-2">
               <TrendingUp className="w-8 h-8 text-emerald-600" />
               <div>
-                <p className="text-2xl font-bold">{totalClientesActivos}</p>
+                <p className="text-2xl font-bold">
+                  {totalClientesActivos.toLocaleString()}
+                </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Clientes Activos
                 </p>
@@ -208,7 +249,9 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
             <div className="flex items-center space-x-2">
               <MapPin className="w-8 h-8 text-purple-600" />
               <div>
-                <p className="text-2xl font-bold">{zonasConClientes}</p>
+                <p className="text-2xl font-bold">
+                  {zonasConClientes.toLocaleString()}
+                </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Zonas con Clientes
                 </p>
@@ -233,7 +276,9 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
             size="sm"
             disabled={isLoading}
           >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+            />
             Actualizar
           </Button>
         </CardHeader>
@@ -256,62 +301,92 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
             </div>
           ) : (
             <div className="space-y-4">
-              {zonas.map((zona) => (
-                <div
-                  key={zona.id_zona}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
-                      <MapPin className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-                        {zona.codigo}
-                      </h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                        {zona.descripcion.length > 80
-                          ? zona.descripcion.substring(0, 80) + "..."
-                          : zona.descripcion}
-                      </p>
-                      {zona.latitud && zona.longitud && (
-                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                          📍 {Number(zona.latitud).toFixed(4)}, {Number(zona.longitud).toFixed(4)}
+              <div className="space-y-4">
+                {paginatedData.map((zona) => (
+                  <div
+                    key={zona.id_zona}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center">
+                        <MapPin className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                          {zona.codigo}
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                          {zona.descripcion.length > 80
+                            ? zona.descripcion.substring(0, 80) + "..."
+                            : zona.descripcion}
                         </p>
-                      )}
+                        {zona.latitud != null &&
+                          zona.longitud != null &&
+                          !isNaN(Number(zona.latitud)) &&
+                          !isNaN(Number(zona.longitud)) && (
+                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                              📍 {Number(zona.latitud).toFixed(4)},{" "}
+                              {Number(zona.longitud).toFixed(4)}
+                            </p>
+                          )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-4">
+                      <div className="text-right">
+                        <p className="text-sm font-medium">
+                          {(Number(zona.total_clientes) || 0).toLocaleString()}{" "}
+                          clientes
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          {(
+                            Number(zona.clientes_activos) || 0
+                          ).toLocaleString()}{" "}
+                          activos
+                        </p>
+                      </div>
+
+                      <div className="flex space-x-2">
+                        {zona.total_clientes > 0 ? (
+                          <Badge
+                            variant="default"
+                            className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                          >
+                            Activa
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">Sin clientes</Badge>
+                        )}
+
+                        {(Number(zona.clientes_activos) || 0) ===
+                          (Number(zona.total_clientes) || 0) &&
+                          (Number(zona.total_clientes) || 0) > 0 && (
+                            <Badge
+                              variant="default"
+                              className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300"
+                            >
+                              100% Activos
+                            </Badge>
+                          )}
+                      </div>
                     </div>
                   </div>
+                ))}
+              </div>
 
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <p className="text-sm font-medium">
-                        {zona.total_clientes} clientes
-                      </p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {zona.clientes_activos} activos
-                      </p>
-                    </div>
-
-                    <div className="flex space-x-2">
-                      {zona.total_clientes > 0 ? (
-                        <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                          Activa
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">
-                          Sin clientes
-                        </Badge>
-                      )}
-
-                      {zona.clientes_activos === zona.total_clientes && zona.total_clientes > 0 && (
-                        <Badge variant="default" className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
-                          100% Activos
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {zonas.length > 0 && (
+                <TablePagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalItems={totalItems}
+                  onPageChange={handlePageChange}
+                  onPageSizeChange={handlePageSizeChange}
+                  pageSizeOptions={[4, 8, 12, 20]}
+                  showPageSizeSelector={true}
+                  showPageInfo={true}
+                />
+              )}
             </div>
           )}
         </CardContent>

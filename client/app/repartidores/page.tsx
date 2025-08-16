@@ -26,14 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { RepartidoresTable } from "@/components/tables/repartidores-table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,7 +59,6 @@ export default function RepartidoresPage() {
     updateRepartidor,
     deleteRepartidor,
     searchRepartidores,
-
   } = useRepartidores();
 
   const { toast } = useToast();
@@ -171,8 +163,6 @@ export default function RepartidoresPage() {
     setSelectedRepartidor(repartidor);
     setDeleteDialogOpen(true);
   };
-
-
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -378,85 +368,12 @@ export default function RepartidoresPage() {
           {loading ? (
             <div className="text-center py-4">Cargando repartidores...</div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>DNI</TableHead>
-                  <TableHead>Licencia</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Activo</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {repartidores.map((repartidor) => (
-                  <TableRow
-                    key={repartidor.id_repartidor}
-                    className={!repartidor.activo ? "opacity-60" : ""}
-                  >
-                    <TableCell>
-                      <Badge variant="outline">{repartidor.codigo}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {repartidor.nombre}
-                    </TableCell>
-                    <TableCell>
-                      {repartidor.dni || (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {repartidor.licencia_conducir || (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {repartidor.telefono || (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        repartidor.activo
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}>
-                        {repartidor.activo ? "Activo" : "Inactivo"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(repartidor)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openDeleteDialog(repartidor)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-
-          {!loading && repartidores.length === 0 && (
-            <div className="text-center py-8">
-              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                No se encontraron repartidores
-              </p>
-            </div>
+            <RepartidoresTable
+              repartidores={repartidores}
+              onEdit={handleEdit}
+              onDelete={openDeleteDialog}
+              initialPageSize={10}
+            />
           )}
         </CardContent>
       </Card>
