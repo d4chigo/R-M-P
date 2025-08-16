@@ -26,20 +26,18 @@ export default function LoginPage() {
   const { login, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
-  // Redirigir si ya está autenticado
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       router.push("/");
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Mostrar loading mientras verifica autenticación
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Cargando...</p>
+          <p className="text-gray-700">Cargando...</p>
         </div>
       </div>
     );
@@ -50,7 +48,6 @@ export default function LoginPage() {
     setError("");
     setIsSubmitting(true);
 
-    // Validaciones básicas
     if (!email || !password) {
       setError("Por favor, complete todos los campos");
       setIsSubmitting(false);
@@ -65,13 +62,12 @@ export default function LoginPage() {
 
     try {
       const result = await login(email, password);
-
       if (result.success) {
         router.push("/");
       } else {
         setError(result.message || "Error en el login");
       }
-    } catch (error) {
+    } catch {
       setError("Error de conexión con el servidor");
     } finally {
       setIsSubmitting(false);
@@ -79,141 +75,146 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="mx-auto w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-4">
-            <Truck className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-            R-M-P
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-2">
-            Sistema de Gestión de Transporte
-          </p>
-        </div>
-
-        <Card className="dark:bg-gray-800 dark:border-gray-700">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl dark:text-gray-100">
-              Iniciar Sesión
-            </CardTitle>
-            <CardDescription className="dark:text-gray-300">
-              Ingrese sus credenciales para acceder al sistema
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="dark:text-gray-200">
-                  Email
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="Ingrese su email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={isSubmitting}
-                    className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 pl-10"
-                    autoComplete="email"
-                    required
-                  />
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Credenciales de prueba: admin@rmp.com / demo@rmp.com
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" className="dark:text-gray-200">
-                  Contraseña
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isSubmitting}
-                    className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 pr-10"
-                    autoComplete="current-password"
-                    required
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent dark:hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                    disabled={isSubmitting}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-500" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-500" />
-                    )}
-                  </Button>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Contraseñas de prueba: admin123 / demo123
-                </p>
-              </div>
-
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Iniciando sesión...
-                  </>
-                ) : (
-                  "Iniciar Sesión"
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-gray-100">
+      {/* Columna Izquierda */}
+      <div className="flex flex-col justify-center items-center px-4 lg:px-12">
+        <div className="w-full max-w-md">
+          <Card className="bg-white border border-gray-300 shadow-lg">
+            <CardHeader className="text-center">
+              <img
+                src="/logo_empresa.png"
+                alt="Logo Empresa"
+                className="mx-auto h-16 w-auto object-contain mb-3"
+              />
+              <CardTitle className="text-2xl text-gray-900">
+                Iniciar Sesión
+              </CardTitle>
+              <CardDescription className="text-gray-600">
+                Ingrese sus credenciales para acceder al sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
                 )}
-              </Button>
-            </form>
 
-            <div className="mt-6">
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <h4 className="font-semibold text-blue-900 dark:text-blue-100 text-sm mb-2">
-                  Credenciales de Prueba:
-                </h4>
-                <div className="space-y-1 text-xs text-blue-800 dark:text-blue-200">
-                  <p>
-                    <strong>Administrador:</strong> admin@rmp.com / admin123
-                  </p>
-                  <p>
-                    <strong>Usuario Demo:</strong> demo@rmp.com / demo123
+                <div className="space-y-2">
+                  <Label htmlFor="email" className="text-gray-800">
+                    Email
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="Ingrese su email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      disabled={isSubmitting}
+                      className="bg-gray-50 border-gray-300 text-gray-900 pl-10"
+                      autoComplete="email"
+                      required
+                    />
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Credenciales de prueba: admin@rmp.com / demo@rmp.com
                   </p>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-gray-800">
+                    Contraseña
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isSubmitting}
+                      className="bg-gray-50 border-gray-300 text-gray-900 pr-10"
+                      autoComplete="current-password"
+                      required
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                      disabled={isSubmitting}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4 text-gray-500" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-gray-500" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Contraseñas de prueba: admin123 / demo123
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Iniciando sesión...
+                    </>
+                  ) : (
+                    "Iniciar Sesión"
+                  )}
+                </Button>
+              </form>
+
+              <div className="mt-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 text-sm mb-2">
+                    Credenciales de Prueba:
+                  </h4>
+                  <div className="space-y-1 text-xs text-blue-800">
+                    <p>
+                      <strong>Administrador:</strong> admin@rmp.com / admin123
+                    </p>
+                    <p>
+                      <strong>Usuario Demo:</strong> demo@rmp.com / demo123
+                    </p>
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                ¿Problemas para acceder?{" "}
-                <span className="text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">
-                  Contacte al administrador
-                </span>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="mt-6 text-center">
+                <p className="text-sm text-gray-600">
+                  ¿Problemas para acceder?{" "}
+                  <span className="text-blue-600 cursor-pointer hover:underline">
+                    Contacte al administrador
+                  </span>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
-        <div className="mt-8 text-center">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            © 2024 R-M-P. Todos los derechos reservados.
-          </p>
         </div>
+      </div>
+
+      {/* Columna Derecha - Imagen */}
+      <div className="hidden lg:block relative">
+        <img
+          src="/imagen_login.jpg"
+          alt="Imagen decorativa"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
     </div>
   );

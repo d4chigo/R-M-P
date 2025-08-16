@@ -191,7 +191,6 @@ export default function ZonasPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            <ThemeToggle />
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button
