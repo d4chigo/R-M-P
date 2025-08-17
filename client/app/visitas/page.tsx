@@ -36,6 +36,7 @@ import { VisitaForm } from "@/components/forms/visita-form";
 import { useVisitas, type Visita } from "@/hooks/use-visitas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 export default function VisitasPage() {
   const {
@@ -46,6 +47,8 @@ export default function VisitasPage() {
     isLoading,
     error,
   } = useVisitas();
+
+  const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVisita, setEditingVisita] = useState<Visita | null>(null);
@@ -63,16 +66,32 @@ export default function VisitasPage() {
       }
 
       if (result && result.success) {
+        toast({
+          title: editingVisita ? "Visita actualizada" : "Visita creada",
+          description: editingVisita
+            ? "Se actualizó la información de la visita"
+            : "Se registró exitosamente la nueva visita",
+          variant: "default",
+        });
         setIsDialogOpen(false);
         setEditingVisita(null);
       } else {
-        alert(
-          `Error al guardar visita: ${result?.error || "Error desconocido"}`,
-        );
+        toast({
+          title: "Error al guardar",
+          description:
+            result?.error ||
+            "No se pudo guardar la visita. Inténtelo nuevamente.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error al guardar visita:", error);
-      alert("Error al guardar visita. Por favor, inténtelo nuevamente.");
+      toast({
+        title: "Error de conexión",
+        description:
+          "No se pudo conectar con el servidor. Verifique su conexión a internet.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -107,17 +126,27 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
         if (visita.id_visita) {
           const result = await deleteVisita(visita.id_visita);
           if (result.success) {
-            // Mostrar mensaje de éxito
-            alert(
-              `✅ Visita eliminada exitosamente\n\nSe eliminó la visita del cliente "${clienteInfo}" del ${viajeInfo}.`,
-            );
+            toast({
+              title: "Visita eliminada",
+              description: `Se eliminó la visita del cliente "${clienteInfo}" del ${viajeInfo}`,
+              variant: "default",
+            });
+          } else {
+            toast({
+              title: "Error al eliminar",
+              description: result.error || "No se pudo eliminar la visita",
+              variant: "destructive",
+            });
           }
         }
       } catch (error) {
         console.error("Error al eliminar visita:", error);
-        alert(
-          `❌ Error al eliminar la visita\n\nNo se pudo eliminar la visita. Por favor, inténtelo nuevamente.`,
-        );
+        toast({
+          title: "Error de conexión",
+          description:
+            "No se pudo conectar con el servidor. Inténtelo nuevamente.",
+          variant: "destructive",
+        });
       }
     }
   };

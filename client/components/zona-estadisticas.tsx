@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Cookies from "js-cookie";
 import {
   Card,
   CardContent,
@@ -126,43 +127,19 @@ export function ZonaEstadisticas({ className }: ZonaEstadisticasProps) {
     setError(null);
 
     try {
-      // First, try to get auth token from localStorage or session
-      const token =
-        localStorage.getItem("auth_token") ||
-        sessionStorage.getItem("auth_token");
+      // Obtener el token de las cookies
+      const token = Cookies.get("auth_token");
 
       if (!token) {
-        // If no token, try to login first
-        const loginResponse = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email: "admin@rmp.com",
-            password: "admin123",
-          }),
-        });
-
-        const loginData = await loginResponse.json();
-
-        if (!loginData.success) {
-          setError(
-            "Error de autenticación: " +
-              (loginData.message || "No se pudo iniciar sesión"),
-          );
-          return;
-        }
-
-        // Store token for future requests
-        sessionStorage.setItem("auth_token", loginData.data.token);
+        setError("No se ha iniciado sesión");
+        setIsLoading(false);
+        return;
       }
 
-      // Now make the authenticated request
-      const currentToken = token || sessionStorage.getItem("auth_token");
+      // Make the authenticated request
       const response = await fetch("/api/zonas/estadisticas", {
         headers: {
-          Authorization: `Bearer ${currentToken}`,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       });

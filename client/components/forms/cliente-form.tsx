@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import type { Cliente } from "@/hooks/use-clientes";
 import { useZonas } from "@/hooks/use-zonas";
+import { useToast } from "@/hooks/use-toast";
 
 interface ClienteFormProps {
   cliente?: Cliente | null;
@@ -38,6 +39,7 @@ export function ClienteForm({
   isEditing = false,
 }: ClienteFormProps) {
   const { zonas, fetchZonas, isLoading: zonasLoading, error } = useZonas();
+  const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     codigo: "",
@@ -47,40 +49,64 @@ export function ClienteForm({
     activo: true,
   });
 
-  // Cargar zonas al montar el componente
-  useEffect(() => {
-    console.log("🔍 ClienteForm: Componente montado, cargando zonas...");
-    fetchZonas();
-  }, []);
+  const [initialLoad, setInitialLoad] = useState(false);
+  const [originalIdZona, setOriginalIdZona] = useState<number | undefined>(
+    undefined,
+  );
 
-  // Debug: Log cuando cambien las zonas
+  // Cargar zonas al montar el componente
+  const loadZonas = useCallback(async () => {
+    if (!initialLoad) {
+      console.log("🔍 ClienteForm: Cargando zonas iniciales...");
+      try {
+        await fetchZonas();
+        setInitialLoad(true);
+      } catch (error) {
+        console.error("Error al cargar zonas:", error);
+        toast({
+          title: "Error al cargar zonas",
+          description: "No se pudieron cargar las zonas disponibles",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [fetchZonas, initialLoad, toast]);
+
   useEffect(() => {
-    console.log("📊 ClienteForm: Estado de zonas:", {
-      count: zonas.length,
-      isLoading: zonasLoading,
-      error: error,
-      zonas: zonas.map((z) => ({
-        id: z.id_zona,
-        codigo: z.codigo,
-        descripcion: z.descripcion,
-      })),
-    });
-  }, [zonas, zonasLoading, error]);
+    loadZonas();
+  }, [loadZonas]);
 
   // Llenar el formulario cuando se edita un cliente
   useEffect(() => {
-    if (cliente && !zonasLoading) {
+    if (cliente) {
+      console.log(
+        "📝 ClienteForm: Actualizando formulario con datos del cliente:",
+        cliente,
+      );
+      console.log("📝 ClienteForm: id_zona del cliente:", cliente.id_zona);
+
+      // Guardar la zona original para preservarla
+      setOriginalIdZona(cliente.id_zona);
+
+      const newIdZona =
+        cliente.id_zona && cliente.id_zona > 0
+          ? cliente.id_zona.toString()
+          : "0";
+      console.log(
+        "📝 ClienteForm: id_zona convertido para formulario:",
+        newIdZona,
+      );
+
       setFormData({
         codigo: cliente.codigo || "",
         nombre: cliente.nombre || "",
         direccion: cliente.direccion || "",
-        id_zona:
-          cliente.id_zona && cliente.id_zona > 0
-            ? cliente.id_zona.toString()
-            : "0",
+        id_zona: newIdZona,
         activo: Boolean(cliente.activo),
       });
-    } else if (!cliente) {
+    } else if (!isEditing) {
+      // Solo resetear si no estamos editando
+      setOriginalIdZona(undefined);
       setFormData({
         codigo: "",
         nombre: "",
@@ -89,48 +115,116 @@ export function ClienteForm({
         activo: true,
       });
     }
-  }, [cliente, zonasLoading]);
+  }, [cliente, isEditing]);
+
+  // Debug: Log cuando cambien las zonas
+  useEffect(() => {
+    console.log("📊 ClienteForm: Estado de zonas:", {
+      count: zonas.length,
+      isLoading: zonasLoading,
+      error: error,
+      zonas: zonas.slice(0, 3).map((z) => ({
+        id: z.id_zona,
+        codigo: z.codigo,
+        descripcion: z.descripcion,
+      })),
+    });
+  }, [zonas, zonasLoading, error]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validaciones básicas
     if (!formData.codigo.trim()) {
-      alert("El código es obligatorio");
+      toast({
+        title: "Campo requerido",
+        description: "El código es obligatorio",
+        variant: "destructive",
+      });
       return;
     }
 
     if (!formData.nombre.trim()) {
-      alert("El nombre es obligatorio");
+      toast({
+        title: "Campo requerido",
+        description: "El nombre es obligatorio",
+        variant: "destructive",
+      });
       return;
     }
 
     // Validación de formato de código
     if (formData.codigo.length > 20) {
-      alert("El código no puede exceder 20 caracteres");
+      toast({
+        title: "Código muy largo",
+        description: "El código no puede exceder 20 caracteres",
+        variant: "destructive",
+      });
       return;
     }
 
     // Validación de formato de nombre
     if (formData.nombre.length > 100) {
-      alert("El nombre no puede exceder 100 caracteres");
+      toast({
+        title: "Nombre muy largo",
+        description: "El nombre no puede exceder 100 caracteres",
+        variant: "destructive",
+      });
       return;
     }
 
-    onSubmit({
+    // Solo enviar campos que realmente cambiaron
+    const submitData: any = {
       codigo: formData.codigo.trim(),
       nombre: formData.nombre.trim(),
-      direccion: formData.direccion.trim() || undefined,
-      id_zona:
+      activo: formData.activo,
+    };
+
+    // Solo incluir dirección si hay valor o estamos creando
+    if (formData.direccion.trim() || !isEditing) {
+      submitData.direccion = formData.direccion.trim() || undefined;
+    }
+
+    // Solo incluir id_zona si realmente cambió o estamos creando
+    if (isEditing && cliente) {
+      // Solo enviar id_zona si es diferente al original
+      const newIdZona =
         formData.id_zona && formData.id_zona !== "0"
           ? Number.parseInt(formData.id_zona)
-          : undefined,
-      activo: formData.activo,
-    });
+          : undefined;
+
+      if (newIdZona !== originalIdZona) {
+        submitData.id_zona = newIdZona;
+        console.log(
+          "🔄 ClienteForm: Zona cambió de",
+          originalIdZona,
+          "a",
+          newIdZona,
+        );
+      } else {
+        console.log("🔄 ClienteForm: Zona no cambió, no se envía");
+      }
+    } else {
+      // Para creación nueva, siempre incluir
+      submitData.id_zona =
+        formData.id_zona && formData.id_zona !== "0"
+          ? Number.parseInt(formData.id_zona)
+          : undefined;
+    }
+
+    console.log("📤 ClienteForm: Enviando datos:", submitData);
+    console.log("📤 ClienteForm: Cliente original completo:", cliente);
+    console.log("📤 ClienteForm: FormData completo:", formData);
+    onSubmit(submitData);
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    console.log(`📝 ClienteForm: Actualizando ${field}:`, value);
+    setFormData((prev) => {
+      const newData = { ...prev, [field]: value };
+      console.log("📊 ClienteForm: Nuevo estado del formulario:", newData);
+      return newData;
+    });
   };
 
   return (
@@ -194,7 +288,18 @@ export function ClienteForm({
         <Label htmlFor="id_zona">Zona</Label>
         <Select
           value={formData.id_zona || "0"}
-          onValueChange={(value) => handleInputChange("id_zona", value)}
+          onValueChange={(value) => {
+            console.log("🏷️ ClienteForm: Zona seleccionada:", value);
+            console.log(
+              "🏷️ ClienteForm: Cliente original id_zona:",
+              cliente?.id_zona,
+            );
+            console.log(
+              "🏷️ ClienteForm: Formdata actual id_zona:",
+              formData.id_zona,
+            );
+            handleInputChange("id_zona", value);
+          }}
           disabled={zonasLoading}
         >
           <SelectTrigger>
@@ -223,9 +328,10 @@ export function ClienteForm({
             ) : (
               zonas
                 .filter((zona) => zona.id_zona && zona.id_zona > 0)
+                .sort((a, b) => a.codigo.localeCompare(b.codigo))
                 .map((zona) => (
                   <SelectItem
-                    key={zona.id_zona}
+                    key={`zona-${zona.id_zona}`}
                     value={zona.id_zona!.toString()}
                   >
                     {zona.codigo} - {zona.descripcion}
