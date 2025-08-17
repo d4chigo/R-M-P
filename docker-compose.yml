@@ -1,7 +1,7 @@
 services:
   # Base de datos MySQL
   mysql:
-    image: mysql:9.0
+    image: mysql:8.0
     container_name: rmp_mysql
     restart: unless-stopped
     environment:
@@ -88,8 +88,26 @@ services:
     networks:
       - rmp_network
 
+# Proxy reverso con SSL (Nginx Proxy Manager)
+  # Nginx Proxy Manager
+  nginx-proxy:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: rmp_nginx
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT}:80"
+      - "${NPM_PORT}:81"
+      - "${HTTPS_PORT}:443"
+    volumes:
+      - nginx_data:/data
+      - nginx_letsencrypt:/etc/letsencrypt
+    networks:
+      - rmp_network
+
 volumes:
   mysql_data:
+  nginx_data:
+  nginx_letsencrypt:
 
 networks:
   rmp_network:
