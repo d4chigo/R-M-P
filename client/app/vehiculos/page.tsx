@@ -52,7 +52,6 @@ import {
   type Vehiculo,
   normalizeBoolean,
 } from "@/hooks/use-vehiculos";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { formatDateForDisplay } from "@/lib/utils/date";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -69,6 +68,7 @@ export default function VehiculosPage() {
     error,
   } = useVehiculos();
 
+  // Estados de diálogo y edición
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehiculo, setEditingVehiculo] = useState<Vehiculo | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -85,6 +85,16 @@ export default function VehiculosPage() {
   const [dateFilter, setDateFilter] = useState("");
   const [showStats, setShowStats] = useState(false);
 
+  // Estados de paginación
+  const [pagina, setPagina] = useState(1);
+  const [tamanoPagina, setTamanoPagina] = useState(10);
+  const totalPaginas = Math.ceil(vehiculos.length / tamanoPagina);
+  const vehiculosPaginados = vehiculos.slice(
+    (pagina - 1) * tamanoPagina,
+    pagina * tamanoPagina
+  );
+
+  // Manejo de creación/actualización
   const handleSubmit = async (vehiculoData: Omit<Vehiculo, "id_vehiculo">) => {
     let result;
     if (editingVehiculo && editingVehiculo.id_vehiculo) {
@@ -133,11 +143,9 @@ export default function VehiculosPage() {
 
   const confirmDelete = async () => {
     if (!vehiculoToDelete?.id_vehiculo) return;
-
     try {
       const result = await deleteVehiculo(vehiculoToDelete.id_vehiculo);
       if (result.success) {
-        // Guardar el resultado para mostrar la alerta correspondiente
         setLastDeleteResult({
           type: (result as any).type || "deleted",
           message: result.message || "Operación completada",

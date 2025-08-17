@@ -51,7 +51,6 @@ import { ViajeForm } from "@/components/forms/viaje-form";
 import { useViajes, type Viaje } from "@/hooks/use-viajes";
 import { useVehiculos } from "@/hooks/use-vehiculos";
 import { useRepartidores } from "@/hooks/use-repartidores";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -71,6 +70,15 @@ export default function ViajesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [showStats, setShowStats] = useState(false);
+
+  // Estados de paginación
+  const [pagina, setPagina] = useState(1);
+  const [tamanoPagina, setTamanoPagina] = useState(10);
+  const totalPaginas = Math.ceil(viajes.length / tamanoPagina);
+  const viajesPaginados = viajes.slice(
+    (pagina - 1) * tamanoPagina,
+    pagina * tamanoPagina
+  );
 
   const handleSubmit = async (viajeData: Omit<Viaje, "id">) => {
     try {
@@ -153,12 +161,11 @@ export default function ViajesPage() {
         setViajeToDelete(null);
         setDeleteError(null);
       } else {
-        // Mostrar error específico si hay referencias
         if (result.hasReferences) {
           setDeleteError(
             "No se puede eliminar este viaje porque tiene visitas asociadas. " +
               "Para eliminar el viaje, primero debe eliminar todas las visitas relacionadas " +
-              "o transferirlas a otro viaje.",
+              "o transferirlas a otro viaje."
           );
         } else {
           setDeleteError(result.error || "Error al eliminar el viaje");
@@ -206,22 +213,6 @@ export default function ViajesPage() {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
-      });
-    } catch {
-      return "Fecha inválida";
-    }
-  };
-
-  const formatDateTime = (dateTime: string | undefined) => {
-    if (!dateTime) return "No definido";
-    try {
-      return new Date(dateTime).toLocaleString("es-PE", {
-        timeZone: "America/Lima",
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
       });
     } catch {
       return "Fecha inválida";
