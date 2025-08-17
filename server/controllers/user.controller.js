@@ -1,3 +1,6 @@
+const bcrypt = require('bcryptjs');
+const db = require('../config/db');
+
 // Crear nuevo usuario
 exports.createUser = async (req, res) => {
   try {
@@ -10,7 +13,10 @@ exports.createUser = async (req, res) => {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Generar una contraseña temporal
+    const tempPassword = Math.random().toString(36).slice(-8);
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();

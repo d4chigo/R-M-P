@@ -193,29 +193,18 @@ class EmailService {
   // Enviar email con nueva contraseña
   async sendNewPassword(email, userName, tempPassword, isReset = false) {
     try {
+      console.log('[EMAIL] Intentando enviar correo a:', email);
       if (!this.transporter) {
-        console.warn(
-          "⚠️ Email no configurado - Contraseña generada pero no enviada:",
-          tempPassword,
-        );
+        console.warn("⚠️ Email no configurado - Contraseña generada pero no enviada:", tempPassword);
         return {
           success: false,
-          message:
-            "Email no configurado. Contraseña temporal generada pero no enviada.",
+          message: "Email no configurado. Contraseña temporal generada pero no enviada.",
           temporaryPassword: tempPassword,
         };
       }
 
-      const subject = isReset
-        ? "RMP - Contraseña Restablecida"
-        : "RMP - Credenciales de Acceso";
-
-      const htmlContent = this.getNewPasswordTemplate(
-        userName,
-        tempPassword,
-        isReset,
-      );
-
+      const subject = isReset ? "RMP - Contraseña Restablecida" : "RMP - Credenciales de Acceso";
+      const htmlContent = this.getNewPasswordTemplate(userName, tempPassword, isReset);
       const mailOptions = {
         from: {
           name: "RMP - Route Management Platform",
@@ -248,13 +237,11 @@ RMP - Route Management Platform
       };
 
       const result = await this.transporter.sendMail(mailOptions);
-
       console.log("✅ Email enviado exitosamente:", {
         messageId: result.messageId,
         to: email,
         subject: subject,
       });
-
       return {
         success: true,
         messageId: result.messageId,
@@ -262,10 +249,8 @@ RMP - Route Management Platform
       };
     } catch (error) {
       console.error("❌ Error al enviar email:", error);
-
       // Log con la contraseña temporal para desarrollo
       console.warn("⚠️ Contraseña temporal generada:", tempPassword);
-
       return {
         success: false,
         message: "Error al enviar email. Contraseña temporal: " + tempPassword,

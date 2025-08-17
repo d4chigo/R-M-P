@@ -7,6 +7,7 @@
 const db = require("../config/db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const emailService = require("../services/email.service");
 
 // Constantes
 const JWT_SECRET = process.env.JWT_SECRET || 'rmp_secret_key_2024';
@@ -202,6 +203,8 @@ const getUsers = exports.getUsers = async (req, res) => {
 // Crear nuevo usuario (solo administradores)
 const createUser = exports.createUser = async (req, res) => {
   try {
+    console.log('📝 Datos recibidos para crear usuario:', req.body);
+    
     const {
       username,
       nombre_completo,
@@ -248,7 +251,16 @@ const createUser = exports.createUser = async (req, res) => {
     }
 
     // Generar contraseña temporal
-    const tempPassword = emailService.generateTemporaryPassword();
+    console.log('🔑 Generando contraseña temporal...');
+    let tempPassword;
+    try {
+      tempPassword = emailService.generateTemporaryPassword();
+    } catch (error) {
+      console.error('Error al generar contraseña temporal:', error);
+      tempPassword = 'Temp' + Math.random().toString(36).slice(-8) + '!';
+    }
+    console.log('Contraseña temporal generada');
+
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(tempPassword, saltRounds);
 
@@ -350,6 +362,8 @@ const updateUser = exports.updateUser = async (req, res) => {
     const { username, nombre_completo, email, telefono, roles, activo } = req.body;
 
     console.log(`✏️ Actualizando usuario ID: ${id}`);
+    console.log('Datos recibidos:', { username, nombre_completo, email, telefono, roles, activo });
+    console.log('Headers:', req.headers);
 
     // Verificar que el usuario existe
     const [existingUser] = await db.query(
@@ -522,24 +536,35 @@ const deleteUser = exports.deleteUser = async (req, res) => {
       });
     }
 
-    // Iniciar transacción
-    await db.query("START TRANSACTION");
+    // Verificar si tiene registros asociados (viajes o visitas)
+    const [viajes] = await db.query(
+      "SELECT COUNT(*) as count FROM VIAJE WHERE created_by = ? OR updated_by = ?",
+      [id, id]
+    );
+    const [visitas] = await db.query(
+      "SELECT COUNT(*) as count FROM VISITA WHERE created_by = ? OR updated_by = ?",
+      [id, id]
+    );
 
+    await db.query("START TRANSACTION");
     try {
       // Eliminar roles del usuario
       await db.query("DELETE FROM USUARIO_ROL WHERE id_usuario = ?", [id]);
 
-      // Marcar usuario como inactivo en lugar de eliminarlo físicamente
-      await db.query(
-        "UPDATE USUARIO SET activo = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id_usuario = ?",
-        [id]
-      );
+      if (viajes[0].count === 0 && visitas[0].count === 0) {
+        // Borrado físico si no tiene registros asociados
+        await db.query("DELETE FROM USUARIO WHERE id_usuario = ?", [id]);
+        console.log(`✅ Usuario ${id} eliminado completamente (borrado físico)`);
+      } else {
+        // Soft delete si tiene registros asociados
+        await db.query(
+          "UPDATE USUARIO SET activo = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id_usuario = ?",
+          [id]
+        );
+        console.log(`✅ Usuario ${id} desactivado (soft delete)`);
+      }
 
-      // Confirmar transacción
       await db.query("COMMIT");
-
-      console.log(`✅ Usuario ${id} eliminado exitosamente`);
-
       res.json({
         success: true,
         message: "Usuario eliminado exitosamente",
