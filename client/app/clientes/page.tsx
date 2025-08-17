@@ -33,7 +33,6 @@ import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ClienteForm } from "@/components/forms/cliente-form";
 import { useClientes, type Cliente } from "@/hooks/use-clientes";
-
 import { useZonas } from "@/hooks/use-zonas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { formatDateForDisplay } from "@/lib/utils/date";
@@ -57,6 +56,17 @@ export default function ClientesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clienteToDelete, setClienteToDelete] = useState<Cliente | null>(null);
 
+  // Estados para paginación
+  const [pagina, setPagina] = useState(1);
+  const [tamanoPagina, setTamanoPagina] = useState(10);
+
+  const totalPaginas = Math.ceil(clientes.length / tamanoPagina);
+
+  const clientesPaginados = clientes.slice(
+    (pagina - 1) * tamanoPagina,
+    pagina * tamanoPagina
+  );
+
   const handleSubmit = async (clienteData: {
     codigo: string;
     nombre: string;
@@ -79,7 +89,6 @@ export default function ClientesPage() {
 
   const handleEdit = async (cliente: Cliente) => {
     setEditingCliente(cliente);
-    // Recargar zonas antes de abrir el diálogo de edición
     await fetchZonas();
     setIsDialogOpen(true);
   };
@@ -147,20 +156,11 @@ export default function ClientesPage() {
 
   const handleNewCliente = async () => {
     setEditingCliente(null);
-    // Recargar zonas antes de abrir el diálogo
     await fetchZonas();
     setIsDialogOpen(true);
   };
 
   const columns: Column<Cliente>[] = [
-     // {
-  //   key: "id_cliente",
-  //   header: "ID",
-  //   sortable: true,
-  //   render: (cliente) => (
-  //     <span className="font-medium">{cliente.id_cliente}</span>
-  //   ),
-  // },
     {
       key: "codigo",
       header: "Código",
@@ -377,7 +377,7 @@ export default function ClientesPage() {
           </CardHeader>
           <CardContent>
             <DataTable
-              data={clientes}
+              data={clientesPaginados}
               columns={columns}
               searchPlaceholder="Buscar por nombre, código, dirección, zona..."
               onEdit={handleEdit}
@@ -392,6 +392,47 @@ export default function ClientesPage() {
                 "zona_codigo",
               ]}
             />
+
+            {/* Controles de paginación */}
+            <div className="flex flex-col md:flex-row items-center justify-between mt-4 gap-2">
+              <div>
+                Mostrando página {pagina} de {totalPaginas} ({clientes.length} clientes)
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  className="px-2 py-1 border rounded disabled:opacity-50"
+                  onClick={() => setPagina(p => Math.max(1, p - 1))}
+                  disabled={pagina === 1}
+                >
+                  Anterior
+                </button>
+                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(num => (
+                  <button
+                    key={num}
+                    className={`px-2 py-1 border rounded ${pagina === num ? 'bg-blue-600 text-white' : ''}`}
+                    onClick={() => setPagina(num)}
+                  >
+                    {num}
+                  </button>
+                ))}
+                <button
+                  className="px-2 py-1 border rounded disabled:opacity-50"
+                  onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                  disabled={pagina === totalPaginas}
+                >
+                  Siguiente
+                </button>
+                <select
+                  className="ml-2 border rounded px-2 py-1"
+                  value={tamanoPagina}
+                  onChange={e => { setTamanoPagina(Number(e.target.value)); setPagina(1); }}
+                >
+                  {[5, 10, 20, 50].map(size => (
+                    <option key={size} value={size}>{size} por página</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

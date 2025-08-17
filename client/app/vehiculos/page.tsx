@@ -37,7 +37,6 @@ import {
   type Vehiculo,
   normalizeBoolean,
 } from "@/hooks/use-vehiculos";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { formatDateForDisplay } from "@/lib/utils/date";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -52,6 +51,7 @@ export default function VehiculosPage() {
     error,
   } = useVehiculos();
 
+  // Estados de diálogo y edición
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehiculo, setEditingVehiculo] = useState<Vehiculo | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -65,6 +65,16 @@ export default function VehiculosPage() {
     relatedCount?: number;
   } | null>(null);
 
+  // Estados de paginación
+  const [pagina, setPagina] = useState(1);
+  const [tamanoPagina, setTamanoPagina] = useState(10);
+  const totalPaginas = Math.ceil(vehiculos.length / tamanoPagina);
+  const vehiculosPaginados = vehiculos.slice(
+    (pagina - 1) * tamanoPagina,
+    pagina * tamanoPagina
+  );
+
+  // Manejo de creación/actualización
   const handleSubmit = async (vehiculoData: Omit<Vehiculo, "id_vehiculo">) => {
     try {
       if (editingVehiculo && editingVehiculo.id_vehiculo) {
@@ -91,11 +101,9 @@ export default function VehiculosPage() {
 
   const confirmDelete = async () => {
     if (!vehiculoToDelete?.id_vehiculo) return;
-
     try {
       const result = await deleteVehiculo(vehiculoToDelete.id_vehiculo);
       if (result.success) {
-        // Guardar el resultado para mostrar la alerta correspondiente
         setLastDeleteResult({
           type: (result as any).type || "deleted",
           message: result.message || "Operación completada",
@@ -134,16 +142,8 @@ export default function VehiculosPage() {
     setIsDialogOpen(true);
   };
 
+  // Columnas de la tabla
   const columns: Column<Vehiculo>[] = [
-// {
-//   key: "id_vehiculo",
-//   header: "ID",
-//   sortable: true,
-//   render: (vehiculo) => (
-//     <span className="font-medium">{vehiculo.id_vehiculo}</span>
-//   ),
-// },
-
     {
       key: "placa",
       header: "Placa",
@@ -362,16 +362,59 @@ export default function VehiculosPage() {
                 </div>
               </div>
             ) : (
-              <DataTable
-                data={vehiculos}
-                columns={columns}
-                searchPlaceholder="Buscar por placa, marca, modelo..."
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                showDateFilter={true}
-                dateFilterKey="created_at"
-                searchKeys={["placa", "marca", "modelo"]}
-              />
+              <>
+                <DataTable
+                  data={vehiculosPaginados}
+                  columns={columns}
+                  searchPlaceholder="Buscar por placa, marca, modelo..."
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  showDateFilter={true}
+                  dateFilterKey="created_at"
+                  searchKeys={["placa", "marca", "modelo"]}
+                />
+
+                {/* Controles de Paginación */}
+                <div className="flex flex-col md:flex-row items-center justify-between mt-4 gap-2">
+                  <div>
+                    Mostrando página {pagina} de {totalPaginas} ({vehiculos.length} vehículos)
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      className="px-2 py-1 border rounded disabled:opacity-50"
+                      onClick={() => setPagina(p => Math.max(1, p - 1))}
+                      disabled={pagina === 1}
+                    >
+                      Anterior
+                    </button>
+                    {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(num => (
+                      <button
+                        key={num}
+                        className={`px-2 py-1 border rounded ${pagina === num ? 'bg-blue-600 text-white' : ''}`}
+                        onClick={() => setPagina(num)}
+                      >
+                        {num}
+                      </button>
+                    ))}
+                    <button
+                      className="px-2 py-1 border rounded disabled:opacity-50"
+                      onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                      disabled={pagina === totalPaginas}
+                    >
+                      Siguiente
+                    </button>
+                    <select
+                      className="ml-2 border rounded px-2 py-1"
+                      value={tamanoPagina}
+                      onChange={e => { setTamanoPagina(Number(e.target.value)); setPagina(1); }}
+                    >
+                      {[5, 10, 20, 50].map(size => (
+                        <option key={size} value={size}>{size} por página</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
