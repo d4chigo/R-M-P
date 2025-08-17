@@ -149,7 +149,7 @@ export default function UserManagement() {
       setIsLoading(true);
       setError("");
 
-      const response = await fetch(`${API_BASE_URL}/admin/usuarios`, {
+      const response = await fetch(`${API_BASE_URL}/admin/users`, {
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",

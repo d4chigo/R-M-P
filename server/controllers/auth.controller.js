@@ -89,6 +89,8 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    console.log("👤 Intento de login para:", email);
+
     // Validar que se proporcionen email y contraseña
     if (!email || !password) {
       return res.status(400).json({
@@ -97,11 +99,19 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Buscar usuario por email
-    const [rows] = await db.query(
-      "SELECT * FROM USUARIO WHERE email = ? AND activo = TRUE",
-      [email],
-    );
+    // Buscar usuario por email y obtener sus roles en una sola consulta
+    const [rows] = await db.query(`
+      SELECT 
+        u.*,
+        GROUP_CONCAT(DISTINCT r.nombre) as roles_list
+      FROM USUARIO u
+      LEFT JOIN USUARIO_ROL ur ON u.id_usuario = ur.id_usuario
+      LEFT JOIN ROL r ON ur.id_rol = r.id_rol
+      WHERE u.email = ? AND u.activo = TRUE
+      GROUP BY u.id_usuario
+    `, [email]);
+
+    console.log("🔍 Resultado de búsqueda:", rows.length ? "Usuario encontrado" : "Usuario no encontrado");
 
     if (!rows.length) {
       return res.status(401).json({
@@ -113,10 +123,9 @@ exports.login = async (req, res) => {
     const usuario = rows[0];
 
     // Verificar contraseña
-    const isValidPassword = await bcrypt.compare(
-      password,
-      usuario.password_hash,
-    );
+    const isValidPassword = await bcrypt.compare(password, usuario.password_hash);
+
+    console.log("🔐 Validación de contraseña:", isValidPassword ? "Correcta" : "Incorrecta");
 
     if (!isValidPassword) {
       return res.status(401).json({
@@ -125,41 +134,33 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Obtener roles del usuario y respuesta completa
-    const [userWithRoles] = await db.query(`
-      SELECT 
-        u.*,
-        GROUP_CONCAT(r.nombre) as roles_list
-      FROM USUARIO u
-      LEFT JOIN USUARIO_ROL ur ON u.id_usuario = ur.id_usuario
-      LEFT JOIN ROL r ON ur.id_rol = r.id_rol
-      WHERE u.id_usuario = ?
-      GROUP BY u.id_usuario
-    `, [usuario.id_usuario]);
+    // Procesar roles del usuario
+    const roles = usuario.roles_list ? usuario.roles_list.split(',') : [];
 
-    const roles = userWithRoles.roles_list ? userWithRoles.roles_list.split(',') : [];
-
-    // Generar token JWT
+    // Generar token JWT con los roles incluidos
     const token = jwt.sign(
       {
         id_usuario: usuario.id_usuario,
-        username: usuario.username,
-        nombre_completo: usuario.nombre_completo,
         email: usuario.email,
-        roles: roles,
+        roles: roles
       },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN },
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
     // Respuesta exitosa (no incluir contraseña)
     const { password_hash: _, ...usuarioSinPassword } = usuario;
 
+    console.log("✅ Login exitoso para:", email, "Roles:", roles);
+
     res.json({
       success: true,
       message: "Login exitoso",
       data: {
-        usuario: usuarioSinPassword,
+        usuario: {
+          ...usuarioSinPassword,
+          roles_list: roles
+        },
         token,
       },
     });
