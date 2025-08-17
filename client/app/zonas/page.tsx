@@ -23,15 +23,13 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Plus, ArrowLeft, MapPin, Edit, Trash2, BarChart3 } from "lucide-react";
+import { Plus, ArrowLeft, MapPin, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { ZonaForm } from "@/components/forms/zona-form";
 import { useZonas, type Zona } from "@/hooks/use-zonas";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ZonaEstadisticas } from "@/components/zona-estadisticas";
 import { ZonaMapa } from "@/components/zona-mapa";
-
 
 export default function ZonasPage() {
   const { zonas, createZona, updateZona, deleteZona, isLoading, error } =
@@ -40,6 +38,13 @@ export default function ZonasPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingZona, setEditingZona] = useState<Zona | null>(null);
   const [selectedZona, setSelectedZona] = useState<Zona | null>(null);
+
+  // PAGINACIÓN
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const zonasPaginated = zonas.slice(startIndex, endIndex);
 
   const handleSubmit = async (zonaData: Omit<Zona, "id_zona">) => {
     try {
@@ -61,10 +66,15 @@ export default function ZonasPage() {
   };
 
   const handleDelete = async (zona: Zona) => {
-    const descripcionCorta = zona.descripcion.length > 50
-      ? zona.descripcion.substring(0, 50) + "..."
-      : zona.descripcion;
-    if (confirm(`¿Está seguro de eliminar la zona ${zona.codigo}?\n\n${descripcionCorta}`)) {
+    const descripcionCorta =
+      zona.descripcion.length > 50
+        ? zona.descripcion.substring(0, 50) + "..."
+        : zona.descripcion;
+    if (
+      confirm(
+        `¿Está seguro de eliminar la zona ${zona.codigo}?\n\n${descripcionCorta}`
+      )
+    ) {
       if (zona.id_zona) {
         await deleteZona(zona.id_zona);
       }
@@ -139,7 +149,6 @@ export default function ZonasPage() {
         </span>
       ),
     },
-
   ];
 
   if (error) {
@@ -163,6 +172,7 @@ export default function ZonasPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-4 sm:py-8">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="flex items-center gap-4">
             <Link href="/">
@@ -223,6 +233,7 @@ export default function ZonasPage() {
           </div>
         </div>
 
+        {/* Tabs */}
         <Tabs defaultValue="lista" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="lista" className="flex items-center gap-2">
@@ -278,14 +289,54 @@ export default function ZonasPage() {
                     </Button>
                   </div>
                 ) : (
-                  <DataTable
-                    data={zonas}
-                    columns={columns}
-                    searchPlaceholder="Buscar por código o descripción..."
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    searchKeys={["codigo", "descripcion"]}
-                  />
+                  <>
+                    <DataTable
+                      data={zonasPaginated}
+                      columns={columns}
+                      searchPlaceholder="Buscar por código o descripción..."
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      searchKeys={["codigo", "descripcion"]}
+                    />
+
+                    {/* Paginación */}
+                    <div className="flex justify-between items-center mt-4">
+                      <div>
+                        Mostrando {startIndex + 1} - {Math.min(endIndex, zonas.length)} de {zonas.length} zonas
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage(currentPage - 1)}
+                          className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50"
+                        >
+                          Anterior
+                        </button>
+                        <span>
+                          Página {currentPage} de {Math.ceil(zonas.length / rowsPerPage)}
+                        </span>
+                        <button
+                          disabled={currentPage === Math.ceil(zonas.length / rowsPerPage)}
+                          onClick={() => setCurrentPage(currentPage + 1)}
+                          className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50"
+                        >
+                          Siguiente
+                        </button>
+                        <select
+                          value={rowsPerPage}
+                          onChange={(e) => {
+                            setRowsPerPage(parseInt(e.target.value, 10));
+                            setCurrentPage(1);
+                          }}
+                          className="ml-4 p-1 border rounded dark:bg-gray-800 dark:border-gray-600"
+                        >
+                          {[5, 10, 20, 50].map((n) => (
+                            <option key={n} value={n}>{n} filas</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </>
                 )}
               </CardContent>
             </Card>

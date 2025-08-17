@@ -66,10 +66,10 @@ export default function RepartidoresPage() {
     updateRepartidor,
     deleteRepartidor,
     searchRepartidores,
-
   } = useRepartidores();
 
   const { toast } = useToast();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -82,18 +82,26 @@ export default function RepartidoresPage() {
     dni: "",
     licencia_conducir: "",
     telefono: "",
-    estado_disponibilidad: "DISPONIBLE",
+    activo: true,
   });
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-    if (query.trim()) {
-      await searchRepartidores(query);
-    } else {
-      // Si no hay query, recargar todos los repartidores
-      window.location.reload();
-    }
-  };
+  // Estados para paginación
+  const [pagina, setPagina] = useState(1);
+  const [tamanoPagina, setTamanoPagina] = useState(10);
+
+  const repartidoresFiltrados = repartidores.filter((r) =>
+    r.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (r.dni || "").includes(searchQuery) ||
+    (r.licencia_conducir || "").includes(searchQuery)
+  );
+
+  const totalPaginas = Math.ceil(repartidoresFiltrados.length / tamanoPagina);
+
+  const repartidoresPaginados = repartidoresFiltrados.slice(
+    (pagina - 1) * tamanoPagina,
+    pagina * tamanoPagina
+  );
 
   const resetForm = () => {
     setFormData({
@@ -104,6 +112,11 @@ export default function RepartidoresPage() {
       telefono: "",
       activo: true,
     });
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setPagina(1); // Reiniciar a página 1 al buscar
   };
 
   const handleCreate = async () => {
@@ -148,7 +161,7 @@ export default function RepartidoresPage() {
 
     const success = await updateRepartidor(
       selectedRepartidor.id_repartidor,
-      formData,
+      formData
     );
     if (success) {
       setIsEditDialogOpen(false);
@@ -171,8 +184,6 @@ export default function RepartidoresPage() {
     setSelectedRepartidor(repartidor);
     setDeleteDialogOpen(true);
   };
-
-
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -377,86 +388,101 @@ export default function RepartidoresPage() {
         <CardContent>
           {loading ? (
             <div className="text-center py-4">Cargando repartidores...</div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>DNI</TableHead>
-                  <TableHead>Licencia</TableHead>
-                  <TableHead>Teléfono</TableHead>
-                  <TableHead>Activo</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {repartidores.map((repartidor) => (
-                  <TableRow
-                    key={repartidor.id_repartidor}
-                    className={!repartidor.activo ? "opacity-60" : ""}
-                  >
-                    <TableCell>
-                      <Badge variant="outline">{repartidor.codigo}</Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {repartidor.nombre}
-                    </TableCell>
-                    <TableCell>
-                      {repartidor.dni || (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {repartidor.licencia_conducir || (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {repartidor.telefono || (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className={`px-2 py-1 text-xs rounded-full ${
-                        repartidor.activo
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}>
-                        {repartidor.activo ? "Activo" : "Inactivo"}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(repartidor)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openDeleteDialog(repartidor)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-
-          {!loading && repartidores.length === 0 && (
+          ) : repartidoresPaginados.length === 0 ? (
             <div className="text-center py-8">
               <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">
-                No se encontraron repartidores
-              </p>
+              <p className="text-muted-foreground">No se encontraron repartidores</p>
             </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>DNI</TableHead>
+                    <TableHead>Licencia</TableHead>
+                    <TableHead>Teléfono</TableHead>
+                    <TableHead>Activo</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {repartidoresPaginados.map((repartidor) => (
+                    <TableRow
+                      key={repartidor.id_repartidor}
+                      className={!repartidor.activo ? "opacity-60" : ""}
+                    >
+                      <TableCell>
+                        <Badge variant="outline">{repartidor.codigo}</Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">{repartidor.nombre}</TableCell>
+                      <TableCell>{repartidor.dni || <span className="text-muted-foreground">-</span>}</TableCell>
+                      <TableCell>{repartidor.licencia_conducir || <span className="text-muted-foreground">-</span>}</TableCell>
+                      <TableCell>{repartidor.telefono || <span className="text-muted-foreground">-</span>}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          repartidor.activo ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                        }`}>
+                          {repartidor.activo ? "Activo" : "Inactivo"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end space-x-2">
+                          <Button variant="outline" size="sm" onClick={() => handleEdit(repartidor)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="outline" size="sm" onClick={() => openDeleteDialog(repartidor)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+
+              {/* Paginación */}
+              <div className="flex flex-col md:flex-row items-center justify-between mt-4 gap-2">
+                <div>
+                  Mostrando página {pagina} de {totalPaginas} ({repartidoresFiltrados.length} repartidores)
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-2 py-1 border rounded disabled:opacity-50"
+                    onClick={() => setPagina(p => Math.max(1, p - 1))}
+                    disabled={pagina === 1}
+                  >
+                    Anterior
+                  </button>
+                  {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(num => (
+                    <button
+                      key={num}
+                      className={`px-2 py-1 border rounded ${pagina === num ? 'bg-blue-600 text-white' : ''}`}
+                      onClick={() => setPagina(num)}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                  <button
+                    className="px-2 py-1 border rounded disabled:opacity-50"
+                    onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                    disabled={pagina === totalPaginas}
+                  >
+                    Siguiente
+                  </button>
+                  <select
+                    className="ml-2 border rounded px-2 py-1"
+                    value={tamanoPagina}
+                    onChange={e => { setTamanoPagina(Number(e.target.value)); setPagina(1); }}
+                  >
+                    {[5, 10, 20, 50].map(size => (
+                      <option key={size} value={size}>{size} por página</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

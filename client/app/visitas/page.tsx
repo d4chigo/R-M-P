@@ -22,7 +22,6 @@ import Link from "next/link";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { VisitaForm } from "@/components/forms/visita-form";
 import { useVisitas, type Visita } from "@/hooks/use-visitas";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function VisitasPage() {
   const {
@@ -36,6 +35,13 @@ export default function VisitasPage() {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVisita, setEditingVisita] = useState<Visita | null>(null);
+
+  // PAGINACIÓN
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const visitasPaginated = visitas.slice(startIndex, endIndex);
 
   const handleSubmit = async (visitaData: Omit<Visita, "id_visita">) => {
     try {
@@ -83,8 +89,6 @@ export default function VisitasPage() {
 ⚠️ ADVERTENCIA:
 Esta acción es IRREVERSIBLE. La visita será eliminada permanentemente del sistema.
 
-Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede eliminar sin afectar otros registros.
-
 ¿Está seguro de continuar con la eliminación?`;
 
     if (confirm(confirmMessage)) {
@@ -92,7 +96,6 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
         if (visita.id_visita) {
           const result = await deleteVisita(visita.id_visita);
           if (result.success) {
-            // Mostrar mensaje de éxito
             alert(
               `✅ Visita eliminada exitosamente\n\nSe eliminó la visita del cliente "${clienteInfo}" del ${viajeInfo}.`,
             );
@@ -118,14 +121,6 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
   };
 
   const columns: Column<Visita>[] = [
-      // {
-    //   key: "id_visita",
-    //   header: "ID",
-    //   sortable: true,
-    //   render: (visita) => (
-    //     <span className="font-medium">{visita.id_visita}</span>
-    //   ),
-    // },
     {
       key: "id_viaje",
       header: "Viaje",
@@ -199,7 +194,9 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
       render: (visita) => (
         <span className="text-purple-600 dark:text-purple-400 font-medium">
           {visita.peso_kg
-            ? `${visita.peso_kg.toLocaleString("es-PE", { minimumFractionDigits: 2 })} kg`
+            ? `${visita.peso_kg.toLocaleString("es-PE", {
+                minimumFractionDigits: 2,
+              })} kg`
             : "0.00 kg"}
         </span>
       ),
@@ -211,7 +208,9 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
       render: (visita) => (
         <span className="text-orange-600 dark:text-orange-400 font-medium">
           {visita.distancia_km
-            ? `${visita.distancia_km.toLocaleString("es-PE", { minimumFractionDigits: 2 })} km`
+            ? `${visita.distancia_km.toLocaleString("es-PE", {
+                minimumFractionDigits: 2,
+              })} km`
             : "0.00 km"}
         </span>
       ),
@@ -242,6 +241,7 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-4 sm:py-8">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
           <div className="flex items-center gap-4">
             <Link href="/">
@@ -274,10 +274,7 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
               open={isDialogOpen}
               onOpenChange={(open) => {
                 setIsDialogOpen(open);
-                if (!open) {
-                  // Si se cierra el dialog, limpiar el estado
-                  setEditingVisita(null);
-                }
+                if (!open) setEditingVisita(null);
               }}
             >
               <DialogTrigger asChild>
@@ -312,6 +309,7 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
           </div>
         </div>
 
+        {/* Tabla de visitas con paginación */}
         <Card className="dark:bg-gray-800 dark:border-gray-700">
           <CardHeader>
             <CardTitle className="dark:text-gray-100">
@@ -324,7 +322,7 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
           </CardHeader>
           <CardContent>
             <DataTable
-              data={visitas}
+              data={visitasPaginated}
               columns={columns}
               searchPlaceholder="Buscar por cliente, código, vehículo..."
               onEdit={handleEdit}
@@ -337,6 +335,44 @@ Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede
                 "viaje_nro",
               ]}
             />
+
+            {/* Controles de paginación */}
+            <div className="flex justify-between items-center mt-4">
+              <div>
+                Mostrando {startIndex + 1} - {Math.min(endIndex, visitas.length)} de {visitas.length} visitas
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50"
+                >
+                  Anterior
+                </button>
+                <span>
+                  Página {currentPage} de {Math.ceil(visitas.length / rowsPerPage)}
+                </span>
+                <button
+                  disabled={currentPage === Math.ceil(visitas.length / rowsPerPage)}
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded disabled:opacity-50"
+                >
+                  Siguiente
+                </button>
+                <select
+                  value={rowsPerPage}
+                  onChange={(e) => {
+                    setRowsPerPage(parseInt(e.target.value, 10));
+                    setCurrentPage(1);
+                  }}
+                  className="ml-4 p-1 border rounded dark:bg-gray-800 dark:border-gray-600"
+                >
+                  {[5, 10, 20, 50].map((n) => (
+                    <option key={n} value={n}>{n} filas</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
