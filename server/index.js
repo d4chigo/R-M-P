@@ -1,4 +1,10 @@
 require("dotenv").config();
+// DEBUG SMTP ENV
+console.log('DEBUG SMTP ENV:');
+console.log('SMTP_USER:', process.env.SMTP_USER);
+console.log('SMTP_PASS:', process.env.SMTP_PASS ? '***' : undefined);
+console.log('SMTP_HOST:', process.env.SMTP_HOST);
+console.log('SMTP_PORT:', process.env.SMTP_PORT);
 const express = require("express");
 const cors = require("cors");
 

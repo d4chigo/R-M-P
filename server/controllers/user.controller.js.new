@@ -1,0 +1,55 @@
+// Toggle estado activo/inactivo del usuario
+exports.toggleUserActive = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar que no sea el último admin activo
+    const [adminCount] = await db.query(`
+      SELECT COUNT(*) as count 
+      FROM USUARIO u
+      JOIN USUARIO_ROL ur ON u.id_usuario = ur.id_usuario
+      JOIN ROL r ON ur.id_rol = r.id_rol
+      WHERE r.nombre = 'ADMINISTRADOR' 
+      AND u.activo = TRUE 
+      AND u.id_usuario != ?
+    `, [id]);
+
+    if (adminCount[0].count < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "No se puede desactivar el último administrador activo"
+      });
+    }
+
+    // Obtener estado actual
+    const [currentUser] = await db.query(
+      "SELECT activo FROM USUARIO WHERE id_usuario = ?",
+      [id]
+    );
+
+    if (!currentUser.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Usuario no encontrado"
+      });
+    }
+
+    // Cambiar estado
+    await db.query(
+      "UPDATE USUARIO SET activo = ?, updated_at = CURRENT_TIMESTAMP WHERE id_usuario = ?",
+      [!currentUser[0].activo, id]
+    );
+
+    res.json({
+      success: true,
+      message: `Usuario ${!currentUser[0].activo ? 'activado' : 'desactivado'} exitosamente`
+    });
+  } catch (error) {
+    console.error("❌ Error al cambiar estado del usuario:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al cambiar estado del usuario",
+      error: error.message
+    });
+  }
+};

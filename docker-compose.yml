@@ -47,14 +47,8 @@ services:
       dockerfile: Dockerfile
     container_name: rmp_server
     restart: unless-stopped
-    environment:
-      NODE_ENV: ${NODE_ENV:-development}
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: ${MYSQL_DATABASE}
-      DB_USER: ${MYSQL_USER}
-      DB_PASSWORD: ${MYSQL_PASSWORD}
-      PORT: ${SERVER_PORT:-4000}
+    env_file:
+      - .env
     ports:
       - "${SERVER_PORT:-4000}:${SERVER_PORT:-4000}"
     depends_on:

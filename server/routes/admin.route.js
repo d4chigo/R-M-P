@@ -22,10 +22,10 @@ router.use(requireAdmin);
 router.get("/roles", rolController.getRoles);
 
 // Gestión de usuarios
-router.get("/users", adminController.getUsers);
-router.post("/users", userController.createUser);
-router.put("/users/:id", userController.updateUser);
-router.delete("/users/:id", userController.deleteUser);
-router.post("/users/:id/reset-password", userController.resetUserPassword);
+router.get("/usuarios", adminController.getUsers);
+router.post("/usuarios", adminController.createUser);
+router.put("/usuarios/:id", adminController.updateUser);
+router.delete("/usuarios/:id", adminController.deleteUser);
+router.post("/usuarios/:id/reset-password", adminController.resetUserPassword);
 
 module.exports = router;
