@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const adminController = require("../controllers/admin.controller");
+const rolController = require("../controllers/rol.controller");
+const userController = require("../controllers/user.controller");
 const { authenticateToken, requireAdmin } = require("../middleware/auth.middleware");
 
 // ============================================
@@ -16,11 +18,14 @@ router.get("/check-users", adminController.checkUsersExist);
 router.use(authenticateToken);
 router.use(requireAdmin);
 
+// Gestión de roles
+router.get("/roles", rolController.getRoles);
+
 // Gestión de usuarios
 router.get("/users", adminController.getUsers);
-router.post("/users", adminController.createUser);
-router.put("/users/:id", adminController.updateUser);
-router.delete("/users/:id", adminController.deleteUser);
-router.post("/users/:id/reset-password", adminController.resetUserPassword);
+router.post("/users", userController.createUser);
+router.put("/users/:id", userController.updateUser);
+router.delete("/users/:id", userController.deleteUser);
+router.post("/users/:id/reset-password", userController.resetUserPassword);
 
 module.exports = router;
