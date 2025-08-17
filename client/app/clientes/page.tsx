@@ -44,7 +44,6 @@ import Link from "next/link";
 import { ClientesTable } from "@/components/tables/clientes-table";
 import { ClienteForm } from "@/components/forms/cliente-form";
 import { useClientes, type Cliente } from "@/hooks/use-clientes";
-
 import { useZonas } from "@/hooks/use-zonas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { formatDateForDisplay } from "@/lib/utils/date";
@@ -70,6 +69,17 @@ export default function ClientesPage() {
   const [clienteToDelete, setClienteToDelete] = useState<Cliente | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showStats, setShowStats] = useState(false);
+
+  // Estados para paginación
+  const [pagina, setPagina] = useState(1);
+  const [tamanoPagina, setTamanoPagina] = useState(10);
+
+  const totalPaginas = Math.ceil(clientes.length / tamanoPagina);
+
+  const clientesPaginados = clientes.slice(
+    (pagina - 1) * tamanoPagina,
+    pagina * tamanoPagina
+  );
 
   const handleSubmit = async (clienteData: {
     codigo: string;

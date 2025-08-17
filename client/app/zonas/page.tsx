@@ -39,7 +39,6 @@ import Link from "next/link";
 import { ZonasTable } from "@/components/tables/zonas-table";
 import { ZonaForm } from "@/components/forms/zona-form";
 import { useZonas, type Zona } from "@/hooks/use-zonas";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ZonaEstadisticas } from "@/components/zona-estadisticas";
 import { ZonaMapa } from "@/components/zona-mapa";
 import { useToast } from "@/hooks/use-toast";
@@ -55,6 +54,13 @@ export default function ZonasPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [showStats, setShowStats] = useState(false);
+
+  // PAGINACIÓN
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const zonasPaginated = zonas.slice(startIndex, endIndex);
 
   const handleSubmit = async (zonaData: Omit<Zona, "id_zona">) => {
     try {

@@ -65,6 +65,7 @@ export default function RepartidoresPage() {
   } = useRepartidores();
 
   const { toast } = useToast();
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -81,15 +82,23 @@ export default function RepartidoresPage() {
     activo: true,
   });
 
-  const handleSearch = async (query: string) => {
-    setSearchQuery(query);
-    if (query.trim()) {
-      await searchRepartidores(query);
-    } else {
-      // Si no hay query, recargar todos los repartidores
-      window.location.reload();
-    }
-  };
+  // Estados para paginación
+  const [pagina, setPagina] = useState(1);
+  const [tamanoPagina, setTamanoPagina] = useState(10);
+
+  const repartidoresFiltrados = repartidores.filter((r) =>
+    r.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (r.dni || "").includes(searchQuery) ||
+    (r.licencia_conducir || "").includes(searchQuery)
+  );
+
+  const totalPaginas = Math.ceil(repartidoresFiltrados.length / tamanoPagina);
+
+  const repartidoresPaginados = repartidoresFiltrados.slice(
+    (pagina - 1) * tamanoPagina,
+    pagina * tamanoPagina
+  );
 
   const resetForm = () => {
     setFormData({
@@ -100,6 +109,11 @@ export default function RepartidoresPage() {
       telefono: "",
       activo: true,
     });
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setPagina(1); // Reiniciar a página 1 al buscar
   };
 
   const handleCreate = async () => {

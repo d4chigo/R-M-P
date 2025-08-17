@@ -55,6 +55,13 @@ export default function VisitasPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showStats, setShowStats] = useState(false);
 
+  // PAGINACIÓN
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = startIndex + rowsPerPage;
+  const visitasPaginated = visitas.slice(startIndex, endIndex);
+
   const handleSubmit = async (visitaData: Omit<Visita, "id_visita">) => {
     try {
       let result;
@@ -116,8 +123,6 @@ export default function VisitasPage() {
 
 ⚠️ ADVERTENCIA:
 Esta acción es IRREVERSIBLE. La visita será eliminada permanentemente del sistema.
-
-Las visitas NO están siendo referenciadas por otras tablas, por lo que se puede eliminar sin afectar otros registros.
 
 ¿Está seguro de continuar con la eliminación?`;
 

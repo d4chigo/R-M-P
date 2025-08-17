@@ -104,15 +104,15 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-gray-100">
-      {/* Columna Izquierda */}
-      <div className="flex flex-col justify-center items-center px-4 lg:px-12">
-        <div className="w-full max-w-md">
-          <Card className="bg-white border border-gray-300 shadow-lg">
+      {/* Columna Izquierda - Formulario centrado */}
+      <div className="flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-xl">
+          <Card className="bg-white border border-gray-300 shadow-2xl rounded-3xl p-8 transform transition hover:-translate-y-3 hover:shadow-4xl flex flex-col justify-between">
             <CardHeader className="text-center">
               <img
-                src="/logo_empresa.png"
+                src="/Fondo1.png"
                 alt="Logo Empresa"
-                className="mx-auto h-16 w-auto object-contain mb-3"
+                className="mx-auto max-h-40 w-full object-contain mb-4"
               />
               <CardTitle className="text-2xl text-gray-900">
                 Iniciar Sesión
@@ -121,8 +121,9 @@ export default function LoginPage() {
                 Ingrese sus credenciales para acceder al sistema
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
+
+            <CardContent className="flex-1 flex flex-col justify-center gap-4">
+              <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
@@ -130,6 +131,7 @@ export default function LoginPage() {
                   </Alert>
                 )}
 
+                {/* Email */}
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-gray-800">
                     Email
@@ -153,6 +155,7 @@ export default function LoginPage() {
                   </p>
                 </div>
 
+                {/* Password */}
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-gray-800">
                     Contraseña
@@ -241,14 +244,13 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Columna Derecha - Imagen */}
-      <div className="hidden lg:block relative">
+      {/* Columna Derecha - Imagen decorativa */}
+      <div className="hidden lg:block">
         <img
-          src="/imagen_login.jpg"
+          src="/Fondo4.jpg"
           alt="Imagen decorativa"
-          className="w-full h-full object-cover"
+          className="w-full h-screen object-cover object-center"
         />
-        <div className="absolute inset-0 bg-black bg-opacity-30"></div>
       </div>
     </div>
   );
