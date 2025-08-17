@@ -44,6 +44,7 @@ CREATE TABLE USUARIO_ROL (
 CREATE TABLE ZONA (
     id_zona INT PRIMARY KEY AUTO_INCREMENT,
     codigo VARCHAR(20) NOT NULL UNIQUE,
+    nombre VARCHAR(255) NOT NULL,
     descripcion TEXT NOT NULL,
     latitud DECIMAL(10, 8),
     longitud DECIMAL(11, 8),
