@@ -42,10 +42,12 @@ import { useZonas, type Zona } from "@/hooks/use-zonas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ZonaEstadisticas } from "@/components/zona-estadisticas";
 import { ZonaMapa } from "@/components/zona-mapa";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ZonasPage() {
   const { zonas, createZona, updateZona, deleteZona, isLoading, error } =
     useZonas();
+  const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingZona, setEditingZona] = useState<Zona | null>(null);
@@ -56,15 +58,53 @@ export default function ZonasPage() {
 
   const handleSubmit = async (zonaData: Omit<Zona, "id_zona">) => {
     try {
+      let result;
       if (editingZona && editingZona.id_zona) {
-        await updateZona(editingZona.id_zona, zonaData);
+        result = await updateZona(editingZona.id_zona, zonaData);
       } else {
-        await createZona(zonaData);
+        result = await createZona(zonaData);
       }
-      setIsDialogOpen(false);
-      setEditingZona(null);
+
+      if (result.success) {
+        toast({
+          title: editingZona ? "Zona actualizada" : "Zona creada",
+          description: editingZona
+            ? `Se actualizó la zona ${zonaData.codigo}`
+            : `Se registró exitosamente la zona ${zonaData.codigo}`,
+          variant: "default",
+        });
+        setIsDialogOpen(false);
+        setEditingZona(null);
+      } else {
+        // Manejar error específico de código duplicado
+        if (
+          result.error?.includes("código") ||
+          result.error?.includes("duplicado") ||
+          result.error?.includes("existe")
+        ) {
+          toast({
+            title: "Código duplicado",
+            description: `El código "${zonaData.codigo}" ya está en uso. Por favor, utilice un código diferente.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Error al guardar",
+            description:
+              result.error ||
+              "No se pudo guardar la zona. Inténtelo nuevamente.",
+            variant: "destructive",
+          });
+        }
+      }
     } catch (error) {
       console.error("Error al guardar zona:", error);
+      toast({
+        title: "Error de conexión",
+        description:
+          "No se pudo conectar con el servidor. Verifique su conexión a internet.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -84,7 +124,29 @@ export default function ZonasPage() {
       )
     ) {
       if (zona.id_zona) {
-        await deleteZona(zona.id_zona);
+        try {
+          const result = await deleteZona(zona.id_zona);
+          if (result.success) {
+            toast({
+              title: "Zona eliminada",
+              description: `Se eliminó exitosamente la zona ${zona.codigo}`,
+              variant: "default",
+            });
+          } else {
+            toast({
+              title: "Error al eliminar",
+              description: result.error || "No se pudo eliminar la zona",
+              variant: "destructive",
+            });
+          }
+        } catch (error) {
+          toast({
+            title: "Error de conexión",
+            description:
+              "No se pudo conectar con el servidor. Inténtelo nuevamente.",
+            variant: "destructive",
+          });
+        }
       }
     }
   };

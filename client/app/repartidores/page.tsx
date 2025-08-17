@@ -50,19 +50,7 @@ interface RepartidorFormData {
   dni?: string;
   licencia_conducir?: string;
   telefono?: string;
-  activo?: boolean;
-}
-
-interface Repartidor {
-  id_repartidor: number;
-  codigo: string;
-  nombre: string;
-  dni?: string;
-  licencia_conducir?: string;
-  telefono?: string;
-  activo: boolean;
-  created_at: string;
-  updated_at: string;
+  activo?: boolean | number;
 }
 
 export default function RepartidoresPage() {
@@ -124,7 +112,15 @@ export default function RepartidoresPage() {
       return;
     }
 
-    const success = await createRepartidor(formData);
+    const normalizedData = {
+      codigo: formData.codigo,
+      nombre: formData.nombre,
+      dni: formData.dni,
+      licencia_conducir: formData.licencia_conducir,
+      telefono: formData.telefono,
+      activo: Boolean(formData.activo),
+    };
+    const success = await createRepartidor(normalizedData);
     if (success) {
       setIsCreateDialogOpen(false);
       resetForm();
@@ -139,7 +135,10 @@ export default function RepartidoresPage() {
       dni: repartidor.dni || "",
       licencia_conducir: repartidor.licencia_conducir || "",
       telefono: repartidor.telefono || "",
-      activo: repartidor.activo,
+      activo:
+        typeof repartidor.activo === "boolean"
+          ? repartidor.activo
+          : Boolean(repartidor.activo),
     });
     setIsEditDialogOpen(true);
   };
@@ -154,9 +153,17 @@ export default function RepartidoresPage() {
       return;
     }
 
+    const normalizedData = {
+      codigo: formData.codigo,
+      nombre: formData.nombre,
+      dni: formData.dni,
+      licencia_conducir: formData.licencia_conducir,
+      telefono: formData.telefono,
+      activo: Boolean(formData.activo),
+    };
     const success = await updateRepartidor(
       selectedRepartidor.id_repartidor,
-      formData,
+      normalizedData,
     );
     if (success) {
       setIsEditDialogOpen(false);
@@ -275,9 +282,12 @@ export default function RepartidoresPage() {
                 <input
                   type="checkbox"
                   id="activo"
-                  checked={formData.activo}
+                  checked={Boolean(formData.activo)}
                   onChange={(e) =>
-                    setFormData({ ...formData, activo: e.target.checked })
+                    setFormData({
+                      ...formData,
+                      activo: e.target.checked as boolean,
+                    })
                   }
                   className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
@@ -401,8 +411,8 @@ export default function RepartidoresPage() {
           ) : (
             <RepartidoresTable
               repartidores={repartidores}
-              onEdit={handleEdit}
-              onDelete={openDeleteDialog}
+              onEdit={(rep: any) => handleEdit(rep)}
+              onDelete={(rep: any) => openDeleteDialog(rep)}
               initialPageSize={10}
             />
           )}
@@ -478,9 +488,12 @@ export default function RepartidoresPage() {
               <input
                 type="checkbox"
                 id="edit-activo"
-                checked={formData.activo}
+                checked={Boolean(formData.activo)}
                 onChange={(e) =>
-                  setFormData({ ...formData, activo: e.target.checked })
+                  setFormData({
+                    ...formData,
+                    activo: e.target.checked as boolean,
+                  })
                 }
                 className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />

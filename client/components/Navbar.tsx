@@ -13,11 +13,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { LogOut, User, Settings, Truck } from "lucide-react";
+import { LogOut, User, Settings, Truck, Shield } from "lucide-react";
 import Link from "next/link";
 
 export const Navbar: React.FC = () => {
-  const { usuario, logout, isAuthenticated } = useAuth();
+  const { usuario, logout, isAuthenticated, isAdmin } = useAuth();
 
   if (!isAuthenticated || !usuario) {
     return null;
@@ -102,6 +102,14 @@ export const Navbar: React.FC = () => {
                     <Settings className="mr-2 h-4 w-4" />
                     <span>Configuración</span>
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem className="cursor-pointer" asChild>
+                      <Link href="/admin">
+                        <Shield className="mr-2 h-4 w-4" />
+                        <span>Administración</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="cursor-pointer text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"

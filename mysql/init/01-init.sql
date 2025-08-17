@@ -40,11 +40,17 @@ CREATE TABLE USUARIO_ROL (
     FOREIGN KEY (id_rol) REFERENCES ROL(id_rol)
 );
 
+-- Insertar roles básicos del sistema
+INSERT INTO ROL (nombre, descripcion) VALUES
+('ADMINISTRADOR', 'Administrador del sistema con acceso total'),
+('OPERADOR', 'Usuario con acceso a gestión de rutas y reportes'),
+('REPARTIDOR', 'Usuario con acceso limitado a sus rutas asignadas');
+
 -- Tabla ZONA: áreas geográficas
 CREATE TABLE ZONA (
     id_zona INT PRIMARY KEY AUTO_INCREMENT,
     codigo VARCHAR(20) NOT NULL UNIQUE,
-    descripcion TEXT NOT NULL,
+    descripcion TEXT,
     latitud DECIMAL(10, 8),
     longitud DECIMAL(11, 8),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -224,21 +230,21 @@ ORDER BY v.fecha DESC, ve.placa;
 -- ==============================
 
 -- Insertar roles básicos del sistema
-INSERT INTO ROL (nombre, descripcion) VALUES
-('ADMINISTRADOR', 'Acceso completo al sistema - gestión de usuarios, configuración y todos los módulos'),
-('USUARIO', 'Acceso estándar - gestión de operaciones diarias sin configuración del sistema');
+-- INSERT INTO ROL (nombre, descripcion) VALUES
+-- ('ADMINISTRADOR', 'Acceso completo al sistema - gestión de usuarios, configuración y todos los módulos'),
+-- ('USUARIO', 'Acceso estándar - gestión de operaciones diarias sin configuración del sistema');
 
 -- Insertar usuarios con contraseñas hasheadas
 -- Contraseña para 'admin': admin123 (hasheada con bcrypt)
 -- Contraseña para 'demo': demo123 (hasheada con bcrypt)
-INSERT INTO USUARIO (username, password_hash, nombre_completo, email, telefono, activo) VALUES
-('admin', '$2a$10$jdTXLdWhSMBxZ8/ZNg6PMepqh5mQM8DXZtee0RFQSph4YsTPQPM6e', 'Administrador del Sistema', 'admin@rmp.com', '+51 999 888 777', TRUE),
-('demo', '$2a$10$xz36JMqHO5dDLxJ07xdgBOeMXN8r0tqB3l8miiAKwO8jyhPTRH1ae', 'Usuario Demostración', 'demo@rmp.com', '+51 999 888 666', TRUE);
+-- INSERT INTO USUARIO (username, password_hash, nombre_completo, email, telefono, activo) VALUES
+-- ('admin', '$2a$10$jdTXLdWhSMBxZ8/ZNg6PMepqh5mQM8DXZtee0RFQSph4YsTPQPM6e', 'Administrador del Sistema', 'admin@rmp.com', '+51 999 888 777', TRUE),
+-- ('demo', '$2a$10$xz36JMqHO5dDLxJ07xdgBOeMXN8r0tqB3l8miiAKwO8jyhPTRH1ae', 'Usuario Demostración', 'demo@rmp.com', '+51 999 888 666', TRUE);
 
 -- Asignar roles a los usuarios
-INSERT INTO USUARIO_ROL (id_usuario, id_rol) VALUES
-(1, 1), -- admin con rol ADMINISTRADOR
-(2, 2); -- demo con rol USUARIO
+-- INSERT INTO USUARIO_ROL (id_usuario, id_rol) VALUES
+-- (1, 1), -- admin con rol ADMINISTRADOR
+-- (2, 2); -- demo con rol USUARIO
 
 -- ==============================
 -- INICIALIZACIÓN COMPLETA

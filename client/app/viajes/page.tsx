@@ -54,12 +54,14 @@ import { useRepartidores } from "@/hooks/use-repartidores";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ViajesPage() {
   const { viajes, createViaje, updateViaje, deleteViaje, isLoading, error } =
     useViajes();
   const { fetchVehiculos } = useVehiculos();
   const { fetchRepartidores } = useRepartidores();
+  const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingViaje, setEditingViaje] = useState<Viaje | null>(null);
@@ -72,24 +74,58 @@ export default function ViajesPage() {
 
   const handleSubmit = async (viajeData: Omit<Viaje, "id">) => {
     try {
+      let result;
       if (editingViaje && (editingViaje.id || editingViaje.id_viaje)) {
         const id = editingViaje.id || editingViaje.id_viaje!;
-        await updateViaje(id, viajeData);
+        result = await updateViaje(id, viajeData);
       } else {
-        await createViaje(viajeData);
+        result = await createViaje(viajeData);
       }
-      setIsDialogOpen(false);
-      setEditingViaje(null);
+
+      if (result.success) {
+        toast({
+          title: editingViaje ? "Viaje actualizado" : "Viaje creado",
+          description: editingViaje
+            ? `Se actualizó el viaje del ${viajeData.fecha}`
+            : `Se registró exitosamente el viaje #${viajeData.nro_viaje}`,
+          variant: "default",
+        });
+        setIsDialogOpen(false);
+        setEditingViaje(null);
+      } else {
+        toast({
+          title: "Error al guardar",
+          description:
+            result.error ||
+            "No se pudo guardar el viaje. Inténtelo nuevamente.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error al guardar viaje:", error);
+      toast({
+        title: "Error de conexión",
+        description:
+          "No se pudo conectar con el servidor. Verifique su conexión a internet.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleEdit = async (viaje: Viaje) => {
-    setEditingViaje(viaje);
-    // Recargar datos antes de abrir el diálogo de edición
-    await Promise.all([fetchVehiculos(), fetchRepartidores()]);
-    setIsDialogOpen(true);
+    try {
+      setEditingViaje(viaje);
+      // Recargar datos antes de abrir el diálogo de edición
+      await Promise.all([fetchVehiculos(), fetchRepartidores()]);
+      setIsDialogOpen(true);
+    } catch (error) {
+      toast({
+        title: "Error al cargar datos",
+        description:
+          "No se pudieron cargar los datos necesarios. Inténtelo nuevamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteClick = (viaje: Viaje) => {
@@ -108,6 +144,11 @@ export default function ViajesPage() {
       const result = await deleteViaje(id);
 
       if (result.success) {
+        toast({
+          title: "Viaje eliminado",
+          description: `Se eliminó exitosamente el viaje #${viajeToDelete.nro_viaje}`,
+          variant: "default",
+        });
         setDeleteDialogOpen(false);
         setViajeToDelete(null);
         setDeleteError(null);
@@ -134,10 +175,19 @@ export default function ViajesPage() {
   };
 
   const handleNewViaje = async () => {
-    setEditingViaje(null);
-    // Recargar datos antes de abrir el diálogo
-    await Promise.all([fetchVehiculos(), fetchRepartidores()]);
-    setIsDialogOpen(true);
+    try {
+      setEditingViaje(null);
+      // Recargar datos antes de abrir el diálogo
+      await Promise.all([fetchVehiculos(), fetchRepartidores()]);
+      setIsDialogOpen(true);
+    } catch (error) {
+      toast({
+        title: "Error al cargar datos",
+        description:
+          "No se pudieron cargar los datos necesarios. Inténtelo nuevamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const formatDate = (dateString: string | undefined) => {

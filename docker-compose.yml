@@ -1,7 +1,7 @@
 services:
   # Base de datos MySQL
   mysql:
-    image: mysql:9.0
+    image: mysql:8.0
     container_name: rmp_mysql
     restart: unless-stopped
     environment:
@@ -48,15 +48,15 @@ services:
     container_name: rmp_server
     restart: unless-stopped
     environment:
-      NODE_ENV: ${NODE_ENV}
+      NODE_ENV: ${NODE_ENV:-development}
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: ${MYSQL_DATABASE}
       DB_USER: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
-      PORT: ${SERVER_PORT}
+      PORT: ${SERVER_PORT:-4000}
     ports:
-      - "${SERVER_PORT}:${SERVER_PORT}"
+      - "${SERVER_PORT:-4000}:${SERVER_PORT:-4000}"
     depends_on:
       mysql:
         condition: service_healthy

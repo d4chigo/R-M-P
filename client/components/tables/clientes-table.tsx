@@ -12,16 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Edit,
-  Trash2,
-  Eye,
-  ToggleLeft,
-  ToggleRight,
-  Search,
-  Calendar,
-  X,
-} from "lucide-react";
+import { Edit, Trash2, Eye, Search, Calendar, X } from "lucide-react";
 import {
   TablePagination,
   usePagination,
@@ -33,7 +24,6 @@ interface ClientesTableProps {
   onEdit?: (cliente: Cliente) => void;
   onDelete?: (id: number) => void;
   onView?: (cliente: Cliente) => void;
-  onToggleActivo?: (id: number, currentActivo: boolean) => void;
   isLoading?: boolean;
   initialPageSize?: number;
 }
@@ -43,7 +33,6 @@ export function ClientesTable({
   onEdit,
   onDelete,
   onView,
-  onToggleActivo,
   isLoading = false,
   initialPageSize = 10,
 }: ClientesTableProps) {
@@ -381,31 +370,7 @@ export function ClientesTable({
                           <Edit className="h-4 w-4" />
                         </Button>
                       )}
-                      {onToggleActivo && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            onToggleActivo(cliente.id_cliente!, cliente.activo)
-                          }
-                          className={`h-8 w-8 p-0 ${
-                            cliente.activo
-                              ? "text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-900/20"
-                              : "text-green-600 hover:text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/20"
-                          }`}
-                          title={
-                            cliente.activo
-                              ? "Desactivar cliente"
-                              : "Activar cliente"
-                          }
-                        >
-                          {cliente.activo ? (
-                            <ToggleLeft className="h-4 w-4" />
-                          ) : (
-                            <ToggleRight className="h-4 w-4" />
-                          )}
-                        </Button>
-                      )}
+
                       {onDelete && (
                         <Button
                           variant="outline"

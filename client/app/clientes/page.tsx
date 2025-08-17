@@ -79,23 +79,31 @@ export default function ClientesPage() {
     activo: boolean;
   }) => {
     try {
+      let result;
       if (editingCliente && editingCliente.id_cliente) {
-        await updateCliente(editingCliente.id_cliente, clienteData);
+        result = await updateCliente(editingCliente.id_cliente, clienteData);
       } else {
-        await createCliente(clienteData);
+        result = await createCliente(clienteData);
       }
-      setIsDialogOpen(false);
-      setEditingCliente(null);
+
+      if (result.success) {
+        setIsDialogOpen(false);
+        setEditingCliente(null);
+      }
     } catch (error) {
       console.error("Error al guardar cliente:", error);
     }
   };
 
   const handleEdit = async (cliente: Cliente) => {
-    setEditingCliente(cliente);
-    // Recargar zonas antes de abrir el diálogo de edición
-    await fetchZonas();
-    setIsDialogOpen(true);
+    try {
+      setEditingCliente(cliente);
+      // Recargar zonas antes de abrir el diálogo de edición
+      await fetchZonas();
+      setIsDialogOpen(true);
+    } catch (error) {
+      console.error("Error al cargar datos:", error);
+    }
   };
 
   const handleDelete = (id: number) => {
@@ -111,27 +119,7 @@ export default function ClientesPage() {
       try {
         const result = await deleteCliente(clienteToDelete.id_cliente);
 
-        if (result.success) {
-          if (result.isDeactivated) {
-            toast({
-              title: "Cliente desactivado",
-              description: `${clienteToDelete.nombre} tenía visitas registradas, por lo que se desactivó en lugar de eliminarse. Los datos históricos se han preservado.`,
-              variant: "default",
-            });
-          } else if (result.isDeleted) {
-            toast({
-              title: "Cliente eliminado",
-              description: `${clienteToDelete.nombre} se eliminó completamente del sistema al no tener visitas registradas.`,
-              variant: "default",
-            });
-          } else {
-            toast({
-              title: "Operación completada",
-              description: result.message || "Cliente procesado exitosamente",
-              variant: "default",
-            });
-          }
-        } else {
+        if (!result.success) {
           toast({
             title: "Error al eliminar",
             description:
@@ -163,17 +151,13 @@ export default function ClientesPage() {
   };
 
   const handleNewCliente = async () => {
-    setEditingCliente(null);
-    // Recargar zonas antes de abrir el diálogo
-    await fetchZonas();
-    setIsDialogOpen(true);
-  };
-
-  const handleToggleActivo = async (id: number, currentActivo: boolean) => {
     try {
-      await updateCliente(id, { activo: !currentActivo });
+      setEditingCliente(null);
+      // Recargar zonas antes de abrir el diálogo
+      await fetchZonas();
+      setIsDialogOpen(true);
     } catch (error) {
-      console.error("Error al cambiar estado del cliente:", error);
+      console.error("Error al cargar datos:", error);
     }
   };
 
@@ -348,7 +332,6 @@ export default function ClientesPage() {
               clientes={clientes}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              onToggleActivo={handleToggleActivo}
               initialPageSize={10}
             />
           )}

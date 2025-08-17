@@ -20,20 +20,34 @@ const authenticateToken = async (req, res, next) => {
     const decoded = jwt.verify(token, JWT_SECRET);
 
     // Verificar que el usuario aún existe y está activo
-    const [rows] = await db.query(
-      "SELECT id_usuario, username, nombre_completo, email, telefono, activo FROM USUARIO WHERE id_usuario = ? AND activo = TRUE",
-      [decoded.id_usuario],
-    );
+    const [userRows] = await db.query(`
+      SELECT 
+        u.id_usuario, 
+        u.username, 
+        u.nombre_completo, 
+        u.email, 
+        u.telefono, 
+        u.activo,
+        GROUP_CONCAT(r.nombre) as roles
+      FROM USUARIO u
+      LEFT JOIN USUARIO_ROL ur ON u.id_usuario = ur.id_usuario
+      LEFT JOIN ROL r ON ur.id_rol = r.id_rol
+      WHERE u.id_usuario = ? AND u.activo = TRUE
+      GROUP BY u.id_usuario
+    `, [decoded.id_usuario]);
 
-    if (!rows.length) {
+    if (!userRows.length) {
       return res.status(401).json({
         success: false,
         message: "Usuario no encontrado o inactivo",
       });
     }
 
+    const user = userRows[0];
+    user.roles = user.roles ? user.roles.split(',') : [];
+
     // Agregar información del usuario al request
-    req.usuario = rows[0];
+    req.usuario = user;
     req.token = token;
 
     next();
@@ -101,15 +115,19 @@ const requireRole = (roles) => {
 
       // Obtener roles del usuario
       const [userRoles] = await db.query(
-        `SELECT r.nombre as rol_nombre
+        `SELECT r.nombre as rol_nombre, r.id_rol
          FROM USUARIO_ROL ur
          JOIN ROL r ON ur.id_rol = r.id_rol
          WHERE ur.id_usuario = ?`,
         [req.usuario.id_usuario],
       );
 
-      const userRoleNames = userRoles.map((role) => role.rol_nombre);
-      const hasRequiredRole = roles.some((role) =>
+      const userRoleNames = userRoles.map((role) =>
+        role.rol_nombre.toUpperCase(),
+      );
+      const normalizedRequiredRoles = roles.map((role) => role.toUpperCase());
+
+      const hasRequiredRole = normalizedRequiredRoles.some((role) =>
         userRoleNames.includes(role),
       );
 
@@ -117,10 +135,13 @@ const requireRole = (roles) => {
         return res.status(403).json({
           success: false,
           message: "No tienes permisos suficientes para realizar esta acción",
+          requiredRoles: roles,
+          userRoles: userRoleNames,
         });
       }
 
       req.userRoles = userRoleNames;
+      req.userRoleDetails = userRoles;
       next();
     } catch (error) {
       console.error("Error en verificación de roles:", error);
@@ -133,10 +154,43 @@ const requireRole = (roles) => {
 };
 
 // Middleware para verificar si es administrador
-const requireAdmin = requireRole(["administrador", "admin"]);
+const requireAdmin = requireRole(["ADMINISTRADOR"]);
 
 // Middleware para verificar si es operador o superior
-const requireOperator = requireRole(["administrador", "admin", "operador"]);
+const requireOperator = requireRole(["ADMINISTRADOR", "OPERADOR"]);
+
+// Middleware para obtener roles del usuario sin bloquear (informativo)
+const getUserRoles = async (req, res, next) => {
+  try {
+    if (req.usuario) {
+      const [userRoles] = await db.query(
+        `SELECT r.nombre as rol_nombre, r.id_rol
+         FROM USUARIO_ROL ur
+         JOIN ROL r ON ur.id_rol = r.id_rol
+         WHERE ur.id_usuario = ?`,
+        [req.usuario.id_usuario],
+      );
+
+      req.userRoles = userRoles.map((role) => role.rol_nombre.toUpperCase());
+      req.userRoleDetails = userRoles;
+    }
+    next();
+  } catch (error) {
+    console.error("Error obteniendo roles del usuario:", error);
+    next(); // Continuar sin roles
+  }
+};
+
+// Función helper para verificar si el usuario tiene un rol específico
+const hasRole = (userRoles, roleName) => {
+  if (!userRoles) return false;
+  return userRoles.includes(roleName.toUpperCase());
+};
+
+// Función helper para verificar si es administrador
+const isAdmin = (userRoles) => {
+  return hasRole(userRoles, "ADMINISTRADOR");
+};
 
 module.exports = {
   authenticateToken,
@@ -144,4 +198,7 @@ module.exports = {
   requireRole,
   requireAdmin,
   requireOperator,
+  getUserRoles,
+  hasRole,
+  isAdmin,
 };
