@@ -77,9 +77,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-gray-100">
       {/* Columna Izquierda - Formulario centrado */}
-      <div className="flex items-center justify-center px-4">
+      <div className="flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-xl">
-          <Card className="bg-white border border-gray-300 shadow-2xl rounded-3xl p-8 transform transition hover:-translate-y-3 hover:shadow-4xl h-[620px] flex flex-col justify-between">
+          <Card className="bg-white border border-gray-300 shadow-2xl rounded-3xl p-8 transform transition hover:-translate-y-3 hover:shadow-4xl flex flex-col justify-between">
             <CardHeader className="text-center">
               <img
                 src="/Fondo1.png"
@@ -94,7 +94,7 @@ export default function LoginPage() {
               </CardDescription>
             </CardHeader>
 
-            <CardContent className="flex-1 flex flex-col justify-center">
+            <CardContent className="flex-1 flex flex-col justify-center gap-4">
               <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
                   <Alert variant="destructive">
