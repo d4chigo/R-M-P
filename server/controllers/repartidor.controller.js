@@ -168,6 +168,21 @@ const createRepartidor = async (req, res) => {
       }
     }
 
+    // Verificar que la licencia de conducir no exista (si se proporciona)
+    if (licencia_conducir) {
+      const [existingLicencia] = await db.query(
+        "SELECT id_repartidor FROM REPARTIDOR WHERE licencia_conducir = ?",
+        [licencia_conducir],
+      );
+
+      if (existingLicencia.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Ya existe un repartidor con esa licencia de conducir",
+        });
+      }
+    }
+
     const hasEstadoColumn = await checkEstadoColumn();
 
     let query, params;
@@ -296,6 +311,21 @@ const updateRepartidor = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: "Ya existe otro repartidor con ese DNI",
+        });
+      }
+    }
+
+    // Verificar licencia de conducir única (si se está cambiando)
+    if (licencia_conducir) {
+      const [existingLicencia] = await db.query(
+        "SELECT id_repartidor FROM REPARTIDOR WHERE licencia_conducir = ? AND id_repartidor != ?",
+        [licencia_conducir, id],
+      );
+
+      if (existingLicencia.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Ya existe otro repartidor con esa licencia de conducir",
         });
       }
     }

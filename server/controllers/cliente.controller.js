@@ -186,7 +186,13 @@ const updateCliente = async (req, res) => {
     const { id } = req.params;
     const { codigo, nombre, direccion, id_zona, activo } = req.body;
 
-    console.log(`✏️ Actualizando cliente ID: ${id}`);
+    console.log(`✏️ Actualizando cliente ID: ${id}`, {
+      codigo,
+      nombre,
+      direccion,
+      id_zona,
+      activo,
+    });
 
     // Verificar que el cliente existe
     const [existing] = await db.query(
@@ -231,20 +237,52 @@ const updateCliente = async (req, res) => {
       }
     }
 
-    await db.query(
-      `
-      UPDATE CLIENTE
-      SET
-        codigo = COALESCE(?, codigo),
-        nombre = COALESCE(?, nombre),
-        direccion = ?,
-        id_zona = ?,
-        activo = COALESCE(?, activo),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id_cliente = ?
-    `,
-      [codigo, nombre, direccion, id_zona, activo, id],
-    );
+    // Construir la consulta dinámicamente para solo actualizar campos enviados
+    const fieldsToUpdate = [];
+    const values = [];
+
+    if (codigo !== undefined) {
+      fieldsToUpdate.push("codigo = ?");
+      values.push(codigo);
+    }
+
+    if (nombre !== undefined) {
+      fieldsToUpdate.push("nombre = ?");
+      values.push(nombre);
+    }
+
+    if (direccion !== undefined) {
+      fieldsToUpdate.push("direccion = ?");
+      values.push(direccion);
+    }
+
+    if (id_zona !== undefined) {
+      fieldsToUpdate.push("id_zona = ?");
+      values.push(id_zona);
+    }
+
+    if (activo !== undefined) {
+      fieldsToUpdate.push("activo = ?");
+      values.push(activo);
+    }
+
+    // Siempre actualizar updated_at
+    fieldsToUpdate.push("updated_at = CURRENT_TIMESTAMP");
+    values.push(id);
+
+    if (fieldsToUpdate.length === 1) {
+      // Solo updated_at
+      return res.status(400).json({
+        success: false,
+        message: "No se proporcionaron campos para actualizar",
+      });
+    }
+
+    const updateQuery = `UPDATE CLIENTE SET ${fieldsToUpdate.join(", ")} WHERE id_cliente = ?`;
+    console.log("📝 Query de actualización:", updateQuery);
+    console.log("📝 Valores:", values);
+
+    await db.query(updateQuery, values);
 
     console.log(`✅ Cliente ${id} actualizado exitosamente`);
 

@@ -10,21 +10,13 @@ import {
   Users,
   Truck,
   Info,
-  X,
   ArrowLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { ResumenRutasTable } from "@/components/tables/resumen-rutas-table";
 import {
   Select,
   SelectContent,
@@ -45,7 +37,26 @@ import {
 } from "@/components/ui/dialog";
 import Link from "next/link";
 
-export default function ReportesPage() {
+interface ResumenRuta {
+  Fecha: string;
+  Placa: string;
+  Vehiculo: string;
+  Repartidor: string;
+  "Nro de viajes": number;
+  Zona: number;
+  "Zonas Visitadas": string;
+  Distancia: number;
+  "Salida del CD": string;
+  "Llegada al CD": string;
+  Tiempo: string;
+  "Nro de clientes": number;
+  "Nro de pedidos": number;
+  "Entrega (CF)": number;
+  "Recojo (CF)": number;
+  "Peso (Kg)": number;
+}
+
+export default function ResumenRutasPage() {
   const {
     loading,
     getResumenRutas,
@@ -59,6 +70,8 @@ export default function ReportesPage() {
   const [metricas, setMetricas] = useState<any>(null);
   const [cumplimiento, setCumplimiento] = useState<any>(null);
   const [showInfoDialog, setShowInfoDialog] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<string>("");
   const [filtros, setFiltros] = useState({
     fecha: new Date().toISOString().split("T")[0],
     fechaInicio: "",
@@ -68,25 +81,62 @@ export default function ReportesPage() {
 
   useEffect(() => {
     cargarDatos();
-  }, []);
+  }, [filtros.fecha, filtros.tipoReporte]);
 
   const cargarDatos = async () => {
+    setIsLoadingData(true);
     try {
-      // Cargar resumen de rutas del día actual
-      const resumen = await getResumenRutas(filtros.fecha);
-      setResumenData(resumen);
+      if (filtros.tipoReporte === "dia" && filtros.fecha) {
+        // Cargar resumen de rutas del día seleccionado
+        const resumen = await getResumenRutas(filtros.fecha);
+        setResumenData(resumen);
 
-      // Cargar métricas diarias
-      const metricasDia = await getMetricasDiarias(filtros.fecha);
-      if (metricasDia && metricasDia.length > 0) {
-        setMetricas(metricasDia[0]);
+        // Cargar métricas diarias
+        const metricasDia = await getMetricasDiarias(filtros.fecha);
+        if (metricasDia && metricasDia.length > 0) {
+          setMetricas(metricasDia[0]);
+        } else {
+          // Si no hay métricas, crear un objeto con la fecha seleccionada para mostrar en el título
+          setMetricas({ Fecha: filtros.fecha });
+        }
+
+        // Cargar métricas de cumplimiento
+        const cumplimientoData = await getMetricasCumplimiento(filtros.fecha);
+        setCumplimiento(cumplimientoData);
+      } else if (
+        filtros.tipoReporte === "rango" &&
+        filtros.fechaInicio &&
+        filtros.fechaFin
+      ) {
+        // Cargar datos por rango
+        const resumen = await getResumenRutasRango(
+          filtros.fechaInicio,
+          filtros.fechaFin,
+        );
+        setResumenData(resumen);
+        // Para rango, crear un objeto con ambas fechas para el título
+        setMetricas({
+          FechaInicio: filtros.fechaInicio,
+          FechaFin: filtros.fechaFin,
+        });
+        setCumplimiento(null);
       }
 
-      // Cargar métricas de cumplimiento
-      const cumplimientoData = await getMetricasCumplimiento(filtros.fecha);
-      setCumplimiento(cumplimientoData);
+      // Actualizar timestamp de última actualización
+      setLastUpdated(
+        new Date().toLocaleString("es-PE", {
+          timeZone: "America/Lima",
+        }),
+      );
     } catch (error) {
       console.error("Error cargando datos:", error);
+      toast({
+        title: "Error",
+        description: "Error al cargar los datos",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingData(false);
     }
   };
 
@@ -107,12 +157,25 @@ export default function ReportesPage() {
       const metricasDia = await getMetricasDiarias(filtros.fecha);
       if (metricasDia && metricasDia.length > 0) {
         setMetricas(metricasDia[0]);
+      } else {
+        // Si no hay métricas, crear un objeto con la fecha seleccionada
+        setMetricas({ Fecha: filtros.fecha });
       }
 
       const cumplimientoData = await getMetricasCumplimiento(filtros.fecha);
       setCumplimiento(cumplimientoData);
+
+      toast({
+        title: "Datos actualizados",
+        description: `Resumen cargado para ${formatDate(filtros.fecha)}`,
+      });
     } catch (error) {
       console.error("Error filtrando por día:", error);
+      toast({
+        title: "Error",
+        description: "Error al cargar los datos",
+        variant: "destructive",
+      });
     }
   };
 
@@ -126,6 +189,15 @@ export default function ReportesPage() {
       return;
     }
 
+    if (new Date(filtros.fechaInicio) > new Date(filtros.fechaFin)) {
+      toast({
+        title: "Error",
+        description: "La fecha de inicio debe ser anterior a la fecha fin",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const resumen = await getResumenRutasRango(
         filtros.fechaInicio,
@@ -133,11 +205,24 @@ export default function ReportesPage() {
       );
       setResumenData(resumen);
 
-      // Para rango, calcular métricas agregadas
-      const metricasRango = await getMetricasDiarias();
-      setMetricas(null); // Reset individual metrics for range view
+      // Para rango, crear un objeto para mostrar las fechas en el título
+      setMetricas({
+        FechaInicio: filtros.fechaInicio,
+        FechaFin: filtros.fechaFin,
+      });
+      setCumplimiento(null);
+
+      toast({
+        title: "Datos actualizados",
+        description: `Resumen cargado desde ${formatDate(filtros.fechaInicio)} hasta ${formatDate(filtros.fechaFin)}`,
+      });
     } catch (error) {
       console.error("Error filtrando por rango:", error);
+      toast({
+        title: "Error",
+        description: "Error al cargar los datos del rango",
+        variant: "destructive",
+      });
     }
   };
 
@@ -165,7 +250,7 @@ export default function ReportesPage() {
       headers.join(","),
       ...resumenData.map((row) =>
         [
-          new Date(row.Fecha).toLocaleDateString("es-PE"),
+          formatDate(row.Fecha),
           row.Placa,
           `"${row.Vehiculo}"`,
           `"${row.Repartidor}"`,
@@ -216,9 +301,21 @@ export default function ReportesPage() {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "";
+
+    // Backend now consistently sends dates in YYYY-MM-DD format
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateString.split("-");
+      return `${day}/${month}/${year}`;
+    }
+
+    // Fallback for any other format (shouldn't happen with current backend)
     try {
-      return new Date(dateString).toLocaleDateString("es-PE", {
-        timeZone: "America/Lima",
+      const date = new Date(dateString);
+      return date.toLocaleDateString("es-PE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
       });
     } catch {
       return dateString;
@@ -507,15 +604,27 @@ export default function ReportesPage() {
                     id="fecha"
                     type="date"
                     value={filtros.fecha}
-                    onChange={(e) =>
-                      setFiltros({ ...filtros, fecha: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setFiltros({ ...filtros, fecha: e.target.value });
+                    }}
                   />
                 </div>
-                <div className="flex items-end">
+                <div className="flex items-end gap-2">
                   <Button onClick={handleFiltrarPorDia} disabled={loading}>
                     <Calendar className="h-4 w-4 mr-2" />
                     {loading ? "Cargando..." : "Filtrar"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setFiltros({
+                        ...filtros,
+                        fecha: new Date().toISOString().split("T")[0],
+                      });
+                    }}
+                    disabled={loading}
+                  >
+                    Hoy
                   </Button>
                 </div>
               </>
@@ -543,10 +652,29 @@ export default function ReportesPage() {
                     }
                   />
                 </div>
-                <div className="flex items-end">
+                <div className="flex items-end gap-2">
                   <Button onClick={handleFiltrarPorRango} disabled={loading}>
                     <Calendar className="h-4 w-4 mr-2" />
                     {loading ? "Cargando..." : "Filtrar Rango"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const hoy = new Date().toISOString().split("T")[0];
+                      const hace7Dias = new Date(
+                        Date.now() - 7 * 24 * 60 * 60 * 1000,
+                      )
+                        .toISOString()
+                        .split("T")[0];
+                      setFiltros({
+                        ...filtros,
+                        fechaInicio: hace7Dias,
+                        fechaFin: hoy,
+                      });
+                    }}
+                    disabled={loading}
+                  >
+                    Últimos 7 días
                   </Button>
                 </div>
               </>
@@ -688,8 +816,20 @@ export default function ReportesPage() {
       {metricas && (
         <Card>
           <CardHeader>
-            <CardTitle>
-              Resumen de Métricas - {formatDate(metricas.Fecha)}
+            <CardTitle className="flex items-center justify-between">
+              <span>
+                Resumen de Métricas -{" "}
+                {filtros.tipoReporte === "dia"
+                  ? formatDate(filtros.fecha)
+                  : filtros.fechaInicio && filtros.fechaFin
+                    ? `${formatDate(filtros.fechaInicio)} - ${formatDate(filtros.fechaFin)}`
+                    : "Selecciona un rango"}
+              </span>
+              {lastUpdated && (
+                <span className="text-xs font-normal text-muted-foreground">
+                  Actualizado: {lastUpdated}
+                </span>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -732,89 +872,66 @@ export default function ReportesPage() {
       {/* Tabla de Resumen de Rutas */}
       <Card>
         <CardHeader>
-          <CardTitle>Resumen de Rutas Detallado</CardTitle>
+          <CardTitle className="flex items-center justify-between">
+            <span>
+              Resumen de Rutas Detallado -{" "}
+              {filtros.tipoReporte === "dia"
+                ? formatDate(filtros.fecha)
+                : filtros.fechaInicio && filtros.fechaFin
+                  ? `${formatDate(filtros.fechaInicio)} - ${formatDate(filtros.fechaFin)}`
+                  : "Selecciona un rango"}
+            </span>
+            {isLoadingData && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                Actualizando...
+              </div>
+            )}
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
-            {resumenData.length} registros encontrados
+            {resumenData.length} registro{resumenData.length !== 1 ? "s" : ""}{" "}
+            encontrado{resumenData.length !== 1 ? "s" : ""} para{" "}
+            {filtros.tipoReporte === "dia"
+              ? `el día ${formatDate(filtros.fecha)}`
+              : filtros.fechaInicio && filtros.fechaFin
+                ? `el rango del ${formatDate(filtros.fechaInicio)} al ${formatDate(filtros.fechaFin)}`
+                : "el período seleccionado"}
+            {lastUpdated && (
+              <span className="block text-xs mt-1">
+                Última actualización: {lastUpdated}
+              </span>
+            )}
           </p>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {loading || isLoadingData ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-              <p className="mt-2">Cargando datos...</p>
+              <p className="mt-2">
+                {isLoadingData ? "Actualizando datos..." : "Cargando datos..."}
+              </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead>Placa</TableHead>
-                    <TableHead>Vehículo</TableHead>
-                    <TableHead>Repartidor</TableHead>
-                    <TableHead className="text-center">Viajes</TableHead>
-                    <TableHead className="text-center">Zona</TableHead>
-                    <TableHead className="text-right">Distancia</TableHead>
-                    <TableHead>Salida CD</TableHead>
-                    <TableHead>Llegada CD</TableHead>
-                    <TableHead>Tiempo</TableHead>
-                    <TableHead className="text-center">Clientes</TableHead>
-                    <TableHead className="text-center">Pedidos</TableHead>
-                    <TableHead className="text-right">Entrega (CF)</TableHead>
-                    <TableHead className="text-right">Recojo (CF)</TableHead>
-                    <TableHead className="text-right">Peso (Kg)</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {resumenData.map((row, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{formatDate(row.Fecha)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{row.Placa}</Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {row.Vehiculo}
-                      </TableCell>
-                      <TableCell>{row.Repartidor}</TableCell>
-                      <TableCell className="text-center">
-                        {row["Nro de viajes"]}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {row.Zona || 0}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatNumber(row.Distancia)} km
-                      </TableCell>
-                      <TableCell>{formatTime(row["Salida del CD"])}</TableCell>
-                      <TableCell>{formatTime(row["Llegada al CD"])}</TableCell>
-                      <TableCell>{formatTime(row.Tiempo)}</TableCell>
-                      <TableCell className="text-center">
-                        {row["Nro de clientes"]}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {row["Nro de pedidos"]}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatNumber(row["Entrega (CF)"])}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatNumber(row["Recojo (CF)"])}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {formatNumber(row["Peso (Kg)"])}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <ResumenRutasTable
+              resumenData={resumenData}
+              loading={loading}
+              isLoadingData={isLoadingData}
+              initialPageSize={15}
+            />
           )}
 
-          {!loading && resumenData.length === 0 && (
+          {!loading && !isLoadingData && resumenData.length === 0 && (
             <div className="text-center py-8">
               <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <p className="text-muted-foreground">
                 No se encontraron datos para el período seleccionado
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                {filtros.tipoReporte === "dia"
+                  ? `Fecha consultada: ${formatDate(filtros.fecha)}`
+                  : filtros.fechaInicio && filtros.fechaFin
+                    ? `Rango consultado: ${formatDate(filtros.fechaInicio)} - ${formatDate(filtros.fechaFin)}`
+                    : "Selecciona un período válido"}
               </p>
             </div>
           )}

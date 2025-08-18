@@ -28,9 +28,24 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, ArrowLeft, Truck, AlertTriangle, Info } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Plus,
+  ArrowLeft,
+  Truck,
+  AlertTriangle,
+  Info,
+  Search,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
+  Package,
+  Activity,
+} from "lucide-react";
 import Link from "next/link";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { VehiculosTable } from "@/components/tables/vehiculos-table";
 import { VehiculoFormSimple } from "@/components/forms/vehiculo-form-simple";
 import {
   useVehiculos,
@@ -47,6 +62,8 @@ export default function VehiculosPage() {
     createVehiculo,
     updateVehiculo,
     deleteVehiculo,
+    searchVehiculos,
+    fetchVehiculos,
     isLoading,
     error,
   } = useVehiculos();
@@ -64,6 +81,9 @@ export default function VehiculosPage() {
     details?: string;
     relatedCount?: number;
   } | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [showStats, setShowStats] = useState(false);
 
   // Estados de paginación
   const [pagina, setPagina] = useState(1);
@@ -76,22 +96,44 @@ export default function VehiculosPage() {
 
   // Manejo de creación/actualización
   const handleSubmit = async (vehiculoData: Omit<Vehiculo, "id_vehiculo">) => {
-    try {
-      if (editingVehiculo && editingVehiculo.id_vehiculo) {
-        await updateVehiculo(editingVehiculo.id_vehiculo, vehiculoData);
-      } else {
-        await createVehiculo(vehiculoData);
-      }
+    let result;
+    if (editingVehiculo && editingVehiculo.id_vehiculo) {
+      result = await updateVehiculo(editingVehiculo.id_vehiculo, vehiculoData);
+    } else {
+      result = await createVehiculo(vehiculoData);
+    }
+
+    if (result.success) {
       setIsDialogOpen(false);
       setEditingVehiculo(null);
-    } catch (error) {
-      console.error("Error al guardar vehículo:", error);
     }
+    // Los errores se manejan automáticamente en los hooks con toasts
   };
 
   const handleEdit = (vehiculo: Vehiculo) => {
     setEditingVehiculo(vehiculo);
     setIsDialogOpen(true);
+  };
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    if (query.trim()) {
+      await searchVehiculos(query);
+    } else {
+      // Si no hay query, recargar todos los vehículos
+      await fetchVehiculos();
+    }
+  };
+
+  const handleDateFilter = (date: string) => {
+    setDateFilter(date);
+    // Aquí podrías implementar filtrado por fecha si es necesario
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setDateFilter("");
+    fetchVehiculos();
   };
 
   const handleDelete = (vehiculo: Vehiculo) => {
@@ -142,326 +184,237 @@ export default function VehiculosPage() {
     setIsDialogOpen(true);
   };
 
-  // Columnas de la tabla
-  const columns: Column<Vehiculo>[] = [
-    {
-      key: "placa",
-      header: "Placa",
-      sortable: true,
-      render: (vehiculo) => (
-        <span className="font-semibold">{vehiculo.placa}</span>
-      ),
-    },
-    {
-      key: "marca",
-      header: "Marca/Modelo",
-      sortable: true,
-      render: (vehiculo) => `${vehiculo.marca} ${vehiculo.modelo}`,
-    },
-    {
-      key: "anio",
-      header: "Año",
-      sortable: true,
-      render: (vehiculo) => vehiculo.anio || "N/A",
-    },
-    {
-      key: "capacidad_kg",
-      header: "Capacidad (kg)",
-      sortable: true,
-      render: (vehiculo) => {
-        const capacidad = vehiculo.capacidad_kg;
-        if (capacidad == null || capacidad === "") return "N/A";
-        const numero =
-          typeof capacidad === "string" ? parseFloat(capacidad) : capacidad;
-        return isNaN(numero) ? "N/A" : numero.toLocaleString();
-      },
-    },
-    {
-      key: "capacidad_cajas",
-      header: "Capacidad Cajas",
-      sortable: true,
-      render: (vehiculo) => {
-        const cajas = vehiculo.capacidad_cajas;
-        return cajas != null ? cajas.toLocaleString() : "N/A";
-      },
-    },
-    {
-      key: "activo",
-      header: "Estado",
-      sortable: true,
-      render: (vehiculo) => {
-        const isActive = normalizeBoolean(vehiculo.activo);
-        return (
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${
-              isActive
-                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-            }`}
-          >
-            {isActive ? "Activo" : "Inactivo"}
-          </span>
-        );
-      },
-    },
-    {
-      key: "created_at",
-      header: "Fecha Registro",
-      sortable: true,
-      render: (vehiculo) => formatDateForDisplay(vehiculo.created_at),
-    },
-  ];
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <Card className="w-full max-w-md mx-4">
-          <CardHeader>
-            <CardTitle className="text-red-600">Error</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-              {error}
-            </p>
-            <Button onClick={() => window.location.reload()} className="w-full">
-              Recargar página
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-4 sm:py-8">
-        {/* Alerta de resultado de eliminación */}
-        {lastDeleteResult && (
-          <Alert
-            className={`mb-6 ${
-              lastDeleteResult.type === "deactivated"
-                ? "border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950"
-                : lastDeleteResult.message.includes("Error")
-                  ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950"
-                  : "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
-            }`}
+    <div className="container mx-auto py-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.history.back()}
+            className="flex items-center gap-2"
           >
-            <div className="flex items-start gap-3">
-              {lastDeleteResult.type === "deactivated" ? (
-                <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5" />
-              ) : lastDeleteResult.message.includes("Error") ? (
-                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
-              ) : (
-                <Info className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
-              )}
-              <div className="flex-1">
-                <AlertDescription className="text-sm font-medium mb-1">
-                  {lastDeleteResult.message}
-                </AlertDescription>
-                {lastDeleteResult.details && (
-                  <AlertDescription className="text-xs opacity-80">
-                    {lastDeleteResult.details}
-                  </AlertDescription>
-                )}
-                {lastDeleteResult.type === "deactivated" && (
-                  <AlertDescription className="text-xs mt-2 opacity-80">
-                    💡 El vehículo permanece en el sistema para preservar el
-                    historial de viajes.
-                  </AlertDescription>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setLastDeleteResult(null)}
-                className="h-6 w-6 p-0 opacity-60 hover:opacity-100"
-              >
-                ×
-              </Button>
-            </div>
-          </Alert>
-        )}
-
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button
-                variant="outline"
-                size="sm"
-                className="dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 bg-transparent"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Volver
-              </Button>
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                <Truck className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  Gestión de Vehículos
-                </h1>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Administra la flota de vehículos de transporte
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={handleNewVehiculo} className="mobile-button">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nuevo Vehículo
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto mx-4 sm:mx-auto dark:bg-gray-800 dark:border-gray-700">
-                <DialogHeader>
-                  <DialogTitle className="dark:text-gray-100">
-                    {editingVehiculo
-                      ? "Editar Vehículo"
-                      : "Registrar Nuevo Vehículo"}
-                  </DialogTitle>
-                  <DialogDescription className="dark:text-gray-300">
-                    {editingVehiculo
-                      ? "Modifique los campos necesarios para actualizar el vehículo."
-                      : "Complete los campos requeridos para registrar un nuevo vehículo en el sistema."}
-                  </DialogDescription>
-                </DialogHeader>
-                <VehiculoFormSimple
-                  vehiculo={editingVehiculo}
-                  onSubmit={handleSubmit}
-                  onCancel={handleCancel}
-                  isEditing={!!editingVehiculo}
-                />
-              </DialogContent>
-            </Dialog>
+            <ArrowLeft className="h-4 w-4" />
+            Regresar
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Vehículos</h1>
+            <p className="text-muted-foreground">
+              Gestión de vehículos de transporte
+            </p>
           </div>
         </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNewVehiculo}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nuevo Vehículo
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingVehiculo
+                  ? "Editar Vehículo"
+                  : "Registrar Nuevo Vehículo"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingVehiculo
+                  ? "Modifique los campos necesarios para actualizar el vehículo."
+                  : "Complete los campos requeridos para registrar un nuevo vehículo en el sistema."}
+              </DialogDescription>
+            </DialogHeader>
+            <VehiculoFormSimple
+              vehiculo={editingVehiculo}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              isEditing={!!editingVehiculo}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
 
-        <Card className="dark:bg-gray-800 dark:border-gray-700">
-          <CardHeader>
-            <CardTitle className="dark:text-gray-100">
-              Lista de Vehículos
-            </CardTitle>
-            <CardDescription className="dark:text-gray-300">
-              Gestiona todos los vehículos de la flota con funciones de
-              búsqueda, filtrado y ordenamiento
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    Cargando vehículos...
+      {/* Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Search className="h-5 w-5" />
+            Buscar Vehículos
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-center">
+            <Input
+              placeholder="Buscar por placa, marca, modelo o año..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="flex-1"
+            />
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => handleDateFilter(e.target.value)}
+                className="pl-10 w-auto"
+                placeholder="Filtrar por fecha"
+              />
+            </div>
+            {(searchQuery || dateFilter) && (
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="flex items-center gap-2"
+              >
+                Limpiar
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => setShowStats(!showStats)}
+              className="flex items-center gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Estadísticas
+              {showStats ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats - Collapsible */}
+      {showStats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Truck className="h-8 w-8 text-blue-600" />
+                <div>
+                  <p className="text-2xl font-bold">{vehiculos.length}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Total Vehículos
                   </p>
                 </div>
               </div>
-            ) : (
-              <>
-                <DataTable
-                  data={vehiculosPaginados}
-                  columns={columns}
-                  searchPlaceholder="Buscar por placa, marca, modelo..."
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  showDateFilter={true}
-                  dateFilterKey="created_at"
-                  searchKeys={["placa", "marca", "modelo"]}
-                />
-
-                {/* Controles de Paginación */}
-                <div className="flex flex-col md:flex-row items-center justify-between mt-4 gap-2">
-                  <div>
-                    Mostrando página {pagina} de {totalPaginas} ({vehiculos.length} vehículos)
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      className="px-2 py-1 border rounded disabled:opacity-50"
-                      onClick={() => setPagina(p => Math.max(1, p - 1))}
-                      disabled={pagina === 1}
-                    >
-                      Anterior
-                    </button>
-                    {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(num => (
-                      <button
-                        key={num}
-                        className={`px-2 py-1 border rounded ${pagina === num ? 'bg-blue-600 text-white' : ''}`}
-                        onClick={() => setPagina(num)}
-                      >
-                        {num}
-                      </button>
-                    ))}
-                    <button
-                      className="px-2 py-1 border rounded disabled:opacity-50"
-                      onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
-                      disabled={pagina === totalPaginas}
-                    >
-                      Siguiente
-                    </button>
-                    <select
-                      className="ml-2 border rounded px-2 py-1"
-                      value={tamanoPagina}
-                      onChange={e => { setTamanoPagina(Number(e.target.value)); setPagina(1); }}
-                    >
-                      {[5, 10, 20, 50].map(size => (
-                        <option key={size} value={size}>{size} por página</option>
-                      ))}
-                    </select>
-                  </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Activity className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {vehiculos.filter((v) => v.activo).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Activos</p>
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Dialog de confirmación de eliminación */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent className="max-w-md">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2">
-                <AlertTriangle className="h-5 w-5 text-orange-600" />
-                Confirmar Eliminación
-              </AlertDialogTitle>
-              <AlertDialogDescription className="space-y-3">
-                <p>
-                  ¿Está seguro de que desea eliminar el vehículo{" "}
-                  <span className="font-semibold">
-                    {vehiculoToDelete?.placa}
-                  </span>
-                  ?
-                </p>
-                <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
-                    <Info className="h-4 w-4 inline mr-1" />
-                    <strong>Importante:</strong> Si este vehículo tiene viajes
-                    registrados, será <strong>desactivado</strong> en lugar de
-                    eliminado para preservar el historial de datos.
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Package className="h-8 w-8 text-purple-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {
+                      vehiculos.filter(
+                        (v) => v.capacidad_cajas && v.capacidad_cajas > 0,
+                      ).length
+                    }
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Con Capacidad Cajas
                   </p>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Esta acción no se puede deshacer fácilmente.
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-8 w-8 text-orange-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {
+                      vehiculos.filter(
+                        (v) => v.anio && v.anio >= new Date().getFullYear() - 5,
+                      ).length
+                    }
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Últimos 5 años
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Vehículos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-4">Cargando vehículos...</div>
+          ) : (
+            <VehiculosTable
+              vehiculos={vehiculos}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              initialPageSize={10}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar vehículo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-2">
+                <p>
+                  Está a punto de eliminar el vehículo{" "}
+                  <strong>{vehiculoToDelete?.placa}</strong>.
                 </p>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={cancelDelete}>
-                Cancelar
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={confirmDelete}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                Sí, eliminar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                  <p className="text-sm text-amber-800">
+                    <strong>Importante:</strong> Si este vehículo tiene viajes
+                    registrados en el sistema, será desactivado en lugar de
+                    eliminado para preservar la integridad de los datos
+                    históricos.
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Solo se eliminará completamente si no tiene registros
+                  asociados.
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelDelete}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

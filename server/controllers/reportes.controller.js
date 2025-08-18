@@ -1,5 +1,46 @@
 const db = require("../config/db");
 
+// Utility function to format dates consistently
+const formatDateForResponse = (dateValue) => {
+  if (!dateValue) return null;
+
+  // If it's already a string in YYYY-MM-DD format, return as is
+  if (typeof dateValue === "string" && dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return dateValue;
+  }
+
+  // If it's a Date object, format it to YYYY-MM-DD
+  if (dateValue instanceof Date) {
+    return dateValue.toISOString().split("T")[0];
+  }
+
+  // Try to parse and format
+  try {
+    const date = new Date(dateValue);
+    return date.toISOString().split("T")[0];
+  } catch {
+    return dateValue;
+  }
+};
+
+// Process response data to ensure consistent date formatting
+const processResponseData = (data) => {
+  if (Array.isArray(data)) {
+    return data.map((item) => {
+      if (item.Fecha) {
+        item.Fecha = formatDateForResponse(item.Fecha);
+      }
+      return item;
+    });
+  }
+
+  if (data && typeof data === "object" && data.Fecha) {
+    data.Fecha = formatDateForResponse(data.Fecha);
+  }
+
+  return data;
+};
+
 // Obtener resumen de rutas por fecha
 const getResumenRutas = async (req, res) => {
   try {
@@ -7,10 +48,11 @@ const getResumenRutas = async (req, res) => {
     console.log(
       `📊 Obteniendo resumen de rutas para fecha: ${fecha || "todas"}`,
     );
+    console.log(`🔍 Fecha recibida (tipo: ${typeof fecha}):`, fecha);
 
     let query = `
       SELECT
-        Fecha,
+        DATE_FORMAT(Fecha, '%Y-%m-%d') as Fecha,
         Placa,
         Vehiculo,
         Repartidor,
@@ -41,11 +83,34 @@ const getResumenRutas = async (req, res) => {
 
     console.log(`✅ Resumen obtenido: ${resumen.length} registros`);
 
+    // Process dates to ensure consistent formatting
+    const processedResumen = processResponseData(resumen);
+
+    // Log de una muestra de los datos para debug
+    if (processedResumen.length > 0) {
+      console.log(`🔍 Muestra de datos obtenidos:`, {
+        primeraFecha: processedResumen[0].Fecha,
+        ultimaFecha: processedResumen[processedResumen.length - 1].Fecha,
+        totalRegistros: processedResumen.length,
+      });
+    }
+
     res.json({
       success: true,
-      data: resumen,
-      count: resumen.length,
+      data: processedResumen,
+      count: processedResumen.length,
       message: "Resumen de rutas obtenido exitosamente",
+      debug: {
+        fechaConsultada: fecha,
+        registrosEncontrados: processedResumen.length,
+        fechas:
+          processedResumen.length > 0
+            ? {
+                primera: processedResumen[0].Fecha,
+                ultima: processedResumen[processedResumen.length - 1].Fecha,
+              }
+            : null,
+      },
     });
   } catch (error) {
     console.error("❌ Error al obtener resumen de rutas:", error);
@@ -64,6 +129,9 @@ const getResumenRutasRango = async (req, res) => {
     console.log(
       `📊 Obteniendo resumen de rutas desde ${fechaInicio} hasta ${fechaFin}`,
     );
+    console.log(
+      `🔍 Fechas recibidas - Inicio: ${fechaInicio} (${typeof fechaInicio}), Fin: ${fechaFin} (${typeof fechaFin})`,
+    );
 
     if (!fechaInicio || !fechaFin) {
       return res.status(400).json({
@@ -75,7 +143,7 @@ const getResumenRutasRango = async (req, res) => {
     const [resumen] = await db.query(
       `
       SELECT
-        Fecha,
+        DATE_FORMAT(Fecha, '%Y-%m-%d') as Fecha,
         Placa,
         Vehiculo,
         Repartidor,
@@ -99,11 +167,35 @@ const getResumenRutasRango = async (req, res) => {
 
     console.log(`✅ Resumen obtenido: ${resumen.length} registros`);
 
+    // Process dates to ensure consistent formatting
+    const processedResumen = processResponseData(resumen);
+
+    // Log de una muestra de los datos para debug
+    if (processedResumen.length > 0) {
+      console.log(`🔍 Rango - Muestra de datos obtenidos:`, {
+        primeraFecha: processedResumen[0].Fecha,
+        ultimaFecha: processedResumen[processedResumen.length - 1].Fecha,
+        totalRegistros: processedResumen.length,
+      });
+    }
+
     res.json({
       success: true,
-      data: resumen,
-      count: resumen.length,
+      data: processedResumen,
+      count: processedResumen.length,
       message: "Resumen de rutas obtenido exitosamente",
+      debug: {
+        fechaInicio: fechaInicio,
+        fechaFin: fechaFin,
+        registrosEncontrados: processedResumen.length,
+        fechas:
+          processedResumen.length > 0
+            ? {
+                primera: processedResumen[0].Fecha,
+                ultima: processedResumen[processedResumen.length - 1].Fecha,
+              }
+            : null,
+      },
     });
   } catch (error) {
     console.error("❌ Error al obtener resumen de rutas por rango:", error);
@@ -122,10 +214,11 @@ const getMetricasDiarias = async (req, res) => {
     console.log(
       `📈 Obteniendo métricas diarias para: ${fecha || "todas las fechas"}`,
     );
+    console.log(`🔍 Fecha para métricas (tipo: ${typeof fecha}):`, fecha);
 
     let query = `
       SELECT
-        Fecha,
+        DATE_FORMAT(Fecha, '%Y-%m-%d') as Fecha,
         COUNT(*) as Total_Vehiculos,
         SUM(\`Nro de viajes\`) as Total_Viajes,
         ROUND(AVG(Distancia), 2) as Distancia_Promedio,
@@ -151,11 +244,26 @@ const getMetricasDiarias = async (req, res) => {
 
     console.log(`✅ Métricas obtenidas: ${metricas.length} días`);
 
+    // Process dates to ensure consistent formatting
+    const processedMetricas = processResponseData(metricas);
+
+    // Log de métricas para debug
+    if (processedMetricas.length > 0) {
+      console.log(`🔍 Métricas obtenidas:`, {
+        fechas: processedMetricas.map((m) => m.Fecha),
+        totalDias: processedMetricas.length,
+      });
+    }
+
     res.json({
       success: true,
-      data: metricas,
-      count: metricas.length,
+      data: processedMetricas,
+      count: processedMetricas.length,
       message: "Métricas diarias obtenidas exitosamente",
+      debug: {
+        fechaConsultada: fecha,
+        diasEncontrados: processedMetricas.length,
+      },
     });
   } catch (error) {
     console.error("❌ Error al obtener métricas diarias:", error);
@@ -267,6 +375,9 @@ const getMetricasCumplimiento = async (req, res) => {
     );
 
     const fechaConsulta = fecha || new Date().toISOString().split("T")[0];
+    console.log(
+      `🔍 Fecha para cumplimiento - Original: ${fecha}, Consulta: ${fechaConsulta}`,
+    );
 
     // Obtener datos base para calcular métricas
     const [datosBase] = await db.query(
@@ -401,10 +512,13 @@ const getResumenRutasProcedimiento = async (req, res) => {
 
     console.log(`✅ Procedimiento ejecutado: ${resultado[0].length} registros`);
 
+    // Process dates to ensure consistent formatting
+    const processedData = processResponseData(resultado[0]);
+
     res.json({
       success: true,
-      data: resultado[0],
-      count: resultado[0].length,
+      data: processedData,
+      count: processedData.length,
       message: "Resumen obtenido mediante procedimiento almacenado",
     });
   } catch (error) {
@@ -427,9 +541,12 @@ const getMetricasDiaProcedimiento = async (req, res) => {
 
     console.log(`✅ Procedimiento ejecutado exitosamente`);
 
+    // Process dates to ensure consistent formatting
+    const processedData = processResponseData(resultado[0][0]);
+
     res.json({
       success: true,
-      data: resultado[0][0], // Solo un registro
+      data: processedData, // Solo un registro
       message: "Métricas obtenidas mediante procedimiento almacenado",
     });
   } catch (error) {

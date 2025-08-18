@@ -1,6 +1,6 @@
 -- ==============================
 -- SCRIPT SQL - RMP (Route Management Platform)
--- Archivo: 02-init.sql
+-- Archivo: 01-init.sql
 -- Descripción: Inicialización completa del sistema con todas las tablas maestras,
 -- transaccionales y de soporte necesarias para alimentar RESUMEN DE RUTAS
 -- ==============================
@@ -40,12 +40,17 @@ CREATE TABLE USUARIO_ROL (
     FOREIGN KEY (id_rol) REFERENCES ROL(id_rol)
 );
 
+-- Insertar roles básicos del sistema
+INSERT INTO ROL (nombre, descripcion) VALUES
+('ADMINISTRADOR', 'Administrador del sistema con acceso total'),
+('OPERADOR', 'Usuario con acceso a gestión de rutas y reportes'),
+('REPARTIDOR', 'Usuario con acceso limitado a sus rutas asignadas');
+
 -- Tabla ZONA: áreas geográficas
 CREATE TABLE ZONA (
     id_zona INT PRIMARY KEY AUTO_INCREMENT,
     codigo VARCHAR(20) NOT NULL UNIQUE,
-    nombre VARCHAR(255) NOT NULL,
-    descripcion TEXT NOT NULL,
+    descripcion TEXT,
     latitud DECIMAL(10, 8),
     longitud DECIMAL(11, 8),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -71,7 +76,7 @@ CREATE TABLE REPARTIDOR (
     id_repartidor INT PRIMARY KEY AUTO_INCREMENT,
     codigo VARCHAR(20) NOT NULL UNIQUE,
     nombre VARCHAR(100) NOT NULL,
-    dni VARCHAR(15),
+    dni VARCHAR(15) NOT NULL UNIQUE,
     licencia_conducir VARCHAR(20),
     telefono VARCHAR(20),
     estado_disponibilidad ENUM('DISPONIBLE', 'OCUPADO', 'EN_DESCANSO', 'NO_DISPONIBLE') DEFAULT 'DISPONIBLE',
@@ -189,7 +194,6 @@ SELECT
     r.estado_disponibilidad AS `Estado Repartidor`,
     COUNT(DISTINCT v.id_viaje) AS `Nro de viajes`,
     COUNT(DISTINCT c.id_zona) AS Zona,
-    GROUP_CONCAT(DISTINCT z.descripcion ORDER BY z.descripcion SEPARATOR ', ') AS `Zonas Visitadas`,
     COALESCE(SUM(v.distancia_km), 0) AS Distancia,
     MIN(v.salida_cd) AS `Salida del CD`,
     MAX(v.llegada_cd) AS `Llegada al CD`,
@@ -222,16 +226,32 @@ GROUP BY
 ORDER BY v.fecha DESC, ve.placa;
 
 -- ==============================
--- INSERT PARA USUARIO
+-- INSERCIÓN DE DATOS INICIALES
 -- ==============================
 
-INSERT INTO USUARIO (
-    username,
-    password_hash,
-    nombre_completo,
-    email,
-    telefono,
-    activo
-) VALUES
-('admin', '$2a$10$iUbSmL2uwaU5sIryjMYRVect6MhXSBNx85f5plAEF3p2GSwbxFXoa', 'Administrador del Sistema', 'admin@rmp.com', NULL, TRUE),
-('demo', '$2a$10$S16xtRVcad4th4ktbcUuY.RsU8rscIx02AXu17S1xBoKvhPSVRS6W', 'Usuario Demo', 'demo@rmp.com', NULL, TRUE);
+-- Insertar roles básicos del sistema
+-- INSERT INTO ROL (nombre, descripcion) VALUES
+-- ('ADMINISTRADOR', 'Acceso completo al sistema - gestión de usuarios, configuración y todos los módulos'),
+-- ('USUARIO', 'Acceso estándar - gestión de operaciones diarias sin configuración del sistema');
+
+-- Insertar usuarios con contraseñas hasheadas
+-- Contraseña para 'admin': admin123 (hasheada con bcrypt)
+-- Contraseña para 'demo': demo123 (hasheada con bcrypt)
+-- INSERT INTO USUARIO (username, password_hash, nombre_completo, email, telefono, activo) VALUES
+-- ('admin', '$2a$10$jdTXLdWhSMBxZ8/ZNg6PMepqh5mQM8DXZtee0RFQSph4YsTPQPM6e', 'Administrador del Sistema', 'admin@rmp.com', '+51 999 888 777', TRUE),
+-- ('demo', '$2a$10$xz36JMqHO5dDLxJ07xdgBOeMXN8r0tqB3l8miiAKwO8jyhPTRH1ae', 'Usuario Demostración', 'demo@rmp.com', '+51 999 888 666', TRUE);
+
+-- Asignar roles a los usuarios
+-- INSERT INTO USUARIO_ROL (id_usuario, id_rol) VALUES
+-- (1, 1), -- admin con rol ADMINISTRADOR
+-- (2, 2); -- demo con rol USUARIO
+
+-- ==============================
+-- INICIALIZACIÓN COMPLETA
+-- ==============================
+-- Base de datos lista para uso
+-- Usuarios predeterminados:
+-- - admin / admin123 (Administrador)
+-- - demo / demo123 (Usuario)
+-- Para insertar más datos de prueba, usar la interfaz web
+-- o ejecutar scripts INSERT por separado

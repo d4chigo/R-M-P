@@ -2,6 +2,10 @@ const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/auth.controller");
 const { authenticateToken } = require("../middleware/auth.middleware");
+const { checkNoAdminExists } = require("../middleware/checkAdmin.middleware");
+
+// Ruta para crear el primer admin
+router.post("/first-admin", checkNoAdminExists, authController.createFirstAdmin);
 
 // Ruta de login
 router.post("/login", authController.login);
@@ -27,5 +31,8 @@ router.post(
   authenticateToken,
   authController.changePassword,
 );
+
+// Ruta para solicitar restablecimiento de contraseña (público)
+router.post("/forgot-password", authController.requestPasswordReset);
 
 module.exports = router;

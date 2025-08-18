@@ -28,15 +28,27 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Plus, ArrowLeft, Users, Info } from "lucide-react";
+import {
+  Plus,
+  ArrowLeft,
+  Users,
+  Info,
+  Search,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  UserCheck,
+  Activity,
+} from "lucide-react";
 import Link from "next/link";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { ClientesTable } from "@/components/tables/clientes-table";
 import { ClienteForm } from "@/components/forms/cliente-form";
 import { useClientes, type Cliente } from "@/hooks/use-clientes";
 import { useZonas } from "@/hooks/use-zonas";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { formatDateForDisplay } from "@/lib/utils/date";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
 
 export default function ClientesPage() {
   const {
@@ -55,6 +67,8 @@ export default function ClientesPage() {
   const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clienteToDelete, setClienteToDelete] = useState<Cliente | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showStats, setShowStats] = useState(false);
 
   // Estados para paginación
   const [pagina, setPagina] = useState(1);
@@ -75,27 +89,39 @@ export default function ClientesPage() {
     activo: boolean;
   }) => {
     try {
+      let result;
       if (editingCliente && editingCliente.id_cliente) {
-        await updateCliente(editingCliente.id_cliente, clienteData);
+        result = await updateCliente(editingCliente.id_cliente, clienteData);
       } else {
-        await createCliente(clienteData);
+        result = await createCliente(clienteData);
       }
-      setIsDialogOpen(false);
-      setEditingCliente(null);
+
+      if (result.success) {
+        setIsDialogOpen(false);
+        setEditingCliente(null);
+      }
     } catch (error) {
       console.error("Error al guardar cliente:", error);
     }
   };
 
   const handleEdit = async (cliente: Cliente) => {
-    setEditingCliente(cliente);
-    await fetchZonas();
-    setIsDialogOpen(true);
+    try {
+      setEditingCliente(cliente);
+      // Recargar zonas antes de abrir el diálogo de edición
+      await fetchZonas();
+      setIsDialogOpen(true);
+    } catch (error) {
+      console.error("Error al cargar datos:", error);
+    }
   };
 
-  const handleDelete = (cliente: Cliente) => {
-    setClienteToDelete(cliente);
-    setDeleteDialogOpen(true);
+  const handleDelete = (id: number) => {
+    const cliente = clientes.find((c) => c.id_cliente === id);
+    if (cliente) {
+      setClienteToDelete(cliente);
+      setDeleteDialogOpen(true);
+    }
   };
 
   const confirmDelete = async () => {
@@ -103,27 +129,7 @@ export default function ClientesPage() {
       try {
         const result = await deleteCliente(clienteToDelete.id_cliente);
 
-        if (result.success) {
-          if (result.isDeactivated) {
-            toast({
-              title: "Cliente desactivado",
-              description: `${clienteToDelete.nombre} tenía visitas registradas, por lo que se desactivó en lugar de eliminarse. Los datos históricos se han preservado.`,
-              variant: "default",
-            });
-          } else if (result.isDeleted) {
-            toast({
-              title: "Cliente eliminado",
-              description: `${clienteToDelete.nombre} se eliminó completamente del sistema al no tener visitas registradas.`,
-              variant: "default",
-            });
-          } else {
-            toast({
-              title: "Operación completada",
-              description: result.message || "Cliente procesado exitosamente",
-              variant: "default",
-            });
-          }
-        } else {
+        if (!result.success) {
           toast({
             title: "Error al eliminar",
             description:
@@ -155,287 +161,232 @@ export default function ClientesPage() {
   };
 
   const handleNewCliente = async () => {
-    setEditingCliente(null);
-    await fetchZonas();
-    setIsDialogOpen(true);
+    try {
+      setEditingCliente(null);
+      // Recargar zonas antes de abrir el diálogo
+      await fetchZonas();
+      setIsDialogOpen(true);
+    } catch (error) {
+      console.error("Error al cargar datos:", error);
+    }
   };
 
-  const columns: Column<Cliente>[] = [
-    {
-      key: "codigo",
-      header: "Código",
-      sortable: true,
-      render: (cliente) => (
-        <span className="font-semibold">{cliente.codigo}</span>
-      ),
-    },
-    {
-      key: "nombre",
-      header: "Nombre",
-      sortable: true,
-    },
-    {
-      key: "direccion",
-      header: "Dirección",
-      sortable: true,
-      render: (cliente) => (
-        <span
-          className="max-w-[200px] truncate block"
-          title={cliente.direccion || "Sin dirección"}
-        >
-          {cliente.direccion || (
-            <span className="text-gray-400 italic">Sin dirección</span>
-          )}
-        </span>
-      ),
-    },
-    {
-      key: "zona_nombre",
-      header: "Zona",
-      sortable: true,
-      render: (cliente) => (
-        <div className="space-y-1">
-          {cliente.zona_nombre ? (
-            <>
-              <div className="text-sm bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded">
-                {cliente.zona_nombre}
-              </div>
-              {cliente.zona_codigo && (
-                <div className="text-xs text-gray-500 font-mono">
-                  {cliente.zona_codigo}
-                </div>
-              )}
-            </>
-          ) : (
-            <span className="text-gray-400 italic">Sin zona</span>
-          )}
-        </div>
-      ),
-    },
-    {
-      key: "activo",
-      header: "Estado",
-      sortable: true,
-      render: (cliente) => (
-        <span
-          className={`px-2 py-1 rounded-full text-xs font-medium ${
-            cliente.activo
-              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-          }`}
-        >
-          {cliente.activo ? "Activo" : "Inactivo"}
-        </span>
-      ),
-    },
-    {
-      key: "created_at",
-      header: "Fecha Registro",
-      sortable: true,
-      render: (cliente) => formatDateForDisplay(cliente.created_at || ""),
-    },
-  ];
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    // Aquí puedes implementar la lógica de búsqueda
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button
-                variant="outline"
-                size="sm"
-                className="dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 bg-transparent"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Volver
-              </Button>
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
-                <Users className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  Gestión de Clientes
-                </h1>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Administra la base de datos de clientes
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={handleNewCliente}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nuevo Cliente
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto dark:bg-gray-800 dark:border-gray-700">
-                <DialogHeader>
-                  <DialogTitle className="dark:text-gray-100">
-                    {editingCliente
-                      ? "Editar Cliente"
-                      : "Registrar Nuevo Cliente"}
-                  </DialogTitle>
-                  <DialogDescription className="dark:text-gray-300">
-                    {editingCliente
-                      ? "Modifique los campos necesarios para actualizar el cliente."
-                      : "Complete todos los campos para registrar un nuevo cliente en el sistema."}
-                  </DialogDescription>
-                </DialogHeader>
-                <ClienteForm
-                  cliente={editingCliente}
-                  onSubmit={handleSubmit}
-                  onCancel={handleCancel}
-                  isEditing={!!editingCliente}
-                />
-              </DialogContent>
-            </Dialog>
+    <div className="container mx-auto py-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.history.back()}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Regresar
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Clientes</h1>
+            <p className="text-muted-foreground">
+              Gestión de clientes y direcciones
+            </p>
           </div>
         </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNewCliente}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nuevo Cliente
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingCliente ? "Editar Cliente" : "Registrar Nuevo Cliente"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingCliente
+                  ? "Modifique los campos necesarios para actualizar el cliente."
+                  : "Complete todos los campos para registrar un nuevo cliente en el sistema."}
+              </DialogDescription>
+            </DialogHeader>
+            <ClienteForm
+              cliente={editingCliente}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              isEditing={!!editingCliente}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
 
-        {/* Alert Dialog para confirmar eliminación */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2 dark:text-gray-100">
-                <Info className="w-5 h-5 text-blue-500" />
-                Eliminar Cliente
-              </AlertDialogTitle>
-              <AlertDialogDescription className="dark:text-gray-300">
-                <div className="space-y-3">
-                  <p>
-                    ¿Está seguro de que desea eliminar el cliente{" "}
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
-                      {clienteToDelete?.nombre}
-                    </span>
-                    ?
+      {/* Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Search className="h-5 w-5" />
+            Buscar Clientes
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-center">
+            <Input
+              placeholder="Buscar por código, nombre o dirección..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="flex-1"
+            />
+            {searchQuery && (
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="flex items-center gap-2"
+              >
+                Limpiar
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => setShowStats(!showStats)}
+              className="flex items-center gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Estadísticas
+              {showStats ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Stats - Collapsible */}
+      {showStats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Users className="h-8 w-8 text-blue-600" />
+                <div>
+                  <p className="text-2xl font-bold">{clientes.length}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Total Clientes
                   </p>
-
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                    <div className="flex items-start gap-2">
-                      <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-blue-800 dark:text-blue-300">
-                        <p className="font-medium mb-1">
-                          Información importante:
-                        </p>
-                        <ul className="space-y-1 text-xs">
-                          <li>
-                            • Si el cliente tiene visitas registradas,{" "}
-                            <strong>NO se eliminará</strong> físicamente
-                          </li>
-                          <li>
-                            • En su lugar, el cliente pasará a estado{" "}
-                            <strong>"Inactivo"</strong>
-                          </li>
-                          <li>
-                            • Si no tiene visitas, se eliminará completamente
-                            del sistema
-                          </li>
-                          <li>
-                            • Esta acción preserva la integridad de los datos
-                            históricos
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
                 </div>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel
-                onClick={cancelDelete}
-                className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
-              >
-                Cancelar
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={confirmDelete}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                Confirmar Eliminación
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <UserCheck className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {clientes.filter((c) => c.activo).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Activos</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Activity className="h-8 w-8 text-orange-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {clientes.filter((c) => !c.activo).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Inactivos</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Info className="h-8 w-8 text-purple-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {clientes.filter((c) => c.id_zona).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Con Zona</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-        <Card className="dark:bg-gray-800 dark:border-gray-700">
-          <CardHeader>
-            <CardTitle className="dark:text-gray-100">
-              Lista de Clientes
-            </CardTitle>
-            <CardDescription className="dark:text-gray-300">
-              Gestiona todos los clientes con funciones de búsqueda, filtrado y
-              ordenamiento
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              data={clientesPaginados}
-              columns={columns}
-              searchPlaceholder="Buscar por nombre, código, dirección, zona..."
+      {/* Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Clientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-4">Cargando clientes...</div>
+          ) : (
+            <ClientesTable
+              clientes={clientes}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              showDateFilter={true}
-              dateFilterKey="created_at"
-              searchKeys={[
-                "nombre",
-                "codigo",
-                "direccion",
-                "zona_nombre",
-                "zona_codigo",
-              ]}
+              initialPageSize={10}
             />
+          )}
+        </CardContent>
+      </Card>
 
-            {/* Controles de paginación */}
-            <div className="flex flex-col md:flex-row items-center justify-between mt-4 gap-2">
-              <div>
-                Mostrando página {pagina} de {totalPaginas} ({clientes.length} clientes)
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-2">
+                <p>
+                  Está a punto de eliminar el cliente{" "}
+                  <strong>{clienteToDelete?.nombre}</strong>.
+                </p>
+                <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                  <p className="text-sm text-amber-800">
+                    <strong>Importante:</strong> Si este cliente tiene visitas
+                    registradas en el sistema, será desactivado en lugar de
+                    eliminado para preservar la integridad de los datos
+                    históricos.
+                  </p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Solo se eliminará completamente si no tiene registros
+                  asociados.
+                </p>
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  className="px-2 py-1 border rounded disabled:opacity-50"
-                  onClick={() => setPagina(p => Math.max(1, p - 1))}
-                  disabled={pagina === 1}
-                >
-                  Anterior
-                </button>
-                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(num => (
-                  <button
-                    key={num}
-                    className={`px-2 py-1 border rounded ${pagina === num ? 'bg-blue-600 text-white' : ''}`}
-                    onClick={() => setPagina(num)}
-                  >
-                    {num}
-                  </button>
-                ))}
-                <button
-                  className="px-2 py-1 border rounded disabled:opacity-50"
-                  onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
-                  disabled={pagina === totalPaginas}
-                >
-                  Siguiente
-                </button>
-                <select
-                  className="ml-2 border rounded px-2 py-1"
-                  value={tamanoPagina}
-                  onChange={e => { setTamanoPagina(Number(e.target.value)); setPagina(1); }}
-                >
-                  {[5, 10, 20, 50].map(size => (
-                    <option key={size} value={size}>{size} por página</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelDelete}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

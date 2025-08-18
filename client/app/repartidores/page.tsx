@@ -14,6 +14,9 @@ import {
   Power,
   UserCheck,
   ArrowLeft,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,14 +29,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { RepartidoresTable } from "@/components/tables/repartidores-table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,7 +50,7 @@ interface RepartidorFormData {
   dni?: string;
   licencia_conducir?: string;
   telefono?: string;
-  activo?: boolean;
+  activo?: boolean | number;
 }
 
 export default function RepartidoresPage() {
@@ -75,6 +71,7 @@ export default function RepartidoresPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedRepartidor, setSelectedRepartidor] = useState<any>(null);
+  const [showStats, setShowStats] = useState(false);
 
   const [formData, setFormData] = useState<RepartidorFormData>({
     codigo: "",
@@ -129,14 +126,22 @@ export default function RepartidoresPage() {
       return;
     }
 
-    const success = await createRepartidor(formData);
+    const normalizedData = {
+      codigo: formData.codigo,
+      nombre: formData.nombre,
+      dni: formData.dni,
+      licencia_conducir: formData.licencia_conducir,
+      telefono: formData.telefono,
+      activo: Boolean(formData.activo),
+    };
+    const success = await createRepartidor(normalizedData);
     if (success) {
       setIsCreateDialogOpen(false);
       resetForm();
     }
   };
 
-  const handleEdit = (repartidor: any) => {
+  const handleEdit = (repartidor: Repartidor) => {
     setSelectedRepartidor(repartidor);
     setFormData({
       codigo: repartidor.codigo,
@@ -144,7 +149,10 @@ export default function RepartidoresPage() {
       dni: repartidor.dni || "",
       licencia_conducir: repartidor.licencia_conducir || "",
       telefono: repartidor.telefono || "",
-      activo: repartidor.activo,
+      activo:
+        typeof repartidor.activo === "boolean"
+          ? repartidor.activo
+          : Boolean(repartidor.activo),
     });
     setIsEditDialogOpen(true);
   };
@@ -159,9 +167,17 @@ export default function RepartidoresPage() {
       return;
     }
 
+    const normalizedData = {
+      codigo: formData.codigo,
+      nombre: formData.nombre,
+      dni: formData.dni,
+      licencia_conducir: formData.licencia_conducir,
+      telefono: formData.telefono,
+      activo: Boolean(formData.activo),
+    };
     const success = await updateRepartidor(
       selectedRepartidor.id_repartidor,
-      formData
+      normalizedData,
     );
     if (success) {
       setIsEditDialogOpen(false);
@@ -180,7 +196,7 @@ export default function RepartidoresPage() {
     }
   };
 
-  const openDeleteDialog = (repartidor: any) => {
+  const openDeleteDialog = (repartidor: Repartidor) => {
     setSelectedRepartidor(repartidor);
     setDeleteDialogOpen(true);
   };
@@ -280,9 +296,12 @@ export default function RepartidoresPage() {
                 <input
                   type="checkbox"
                   id="activo"
-                  checked={formData.activo}
+                  checked={Boolean(formData.activo)}
                   onChange={(e) =>
-                    setFormData({ ...formData, activo: e.target.checked })
+                    setFormData({
+                      ...formData,
+                      activo: e.target.checked as boolean,
+                    })
                   }
                   className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                 />
@@ -313,72 +332,87 @@ export default function RepartidoresPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
             <Input
               placeholder="Buscar por código, nombre, DNI o licencia..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="flex-1"
             />
+            <Button
+              variant="outline"
+              onClick={() => setShowStats(!showStats)}
+              className="flex items-center gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Estadísticas
+              {showStats ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <User className="h-8 w-8 text-blue-600" />
-              <div>
-                <p className="text-2xl font-bold">{repartidores.length}</p>
-                <p className="text-sm text-muted-foreground">
-                  Total Repartidores
-                </p>
+      {/* Stats - Collapsible */}
+      {showStats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <User className="h-8 w-8 text-blue-600" />
+                <div>
+                  <p className="text-2xl font-bold">{repartidores.length}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Total Repartidores
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <CreditCard className="h-8 w-8 text-green-600" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {repartidores.filter((r) => r.licencia_conducir).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Con Licencia</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <CreditCard className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {repartidores.filter((r) => r.licencia_conducir).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Con Licencia</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <UserCheck className="h-8 w-8 text-green-600" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {repartidores.filter((r) => r.activo).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Activos</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <UserCheck className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {repartidores.filter((r) => r.activo).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Activos</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center space-x-2">
-              <Phone className="h-8 w-8 text-purple-600" />
-              <div>
-                <p className="text-2xl font-bold">
-                  {repartidores.filter((r) => r.telefono).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Con Teléfono</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Phone className="h-8 w-8 text-purple-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {repartidores.filter((r) => r.telefono).length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Con Teléfono</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Table */}
       <Card>
@@ -388,101 +422,13 @@ export default function RepartidoresPage() {
         <CardContent>
           {loading ? (
             <div className="text-center py-4">Cargando repartidores...</div>
-          ) : repartidoresPaginados.length === 0 ? (
-            <div className="text-center py-8">
-              <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No se encontraron repartidores</p>
-            </div>
           ) : (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Código</TableHead>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>DNI</TableHead>
-                    <TableHead>Licencia</TableHead>
-                    <TableHead>Teléfono</TableHead>
-                    <TableHead>Activo</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {repartidoresPaginados.map((repartidor) => (
-                    <TableRow
-                      key={repartidor.id_repartidor}
-                      className={!repartidor.activo ? "opacity-60" : ""}
-                    >
-                      <TableCell>
-                        <Badge variant="outline">{repartidor.codigo}</Badge>
-                      </TableCell>
-                      <TableCell className="font-medium">{repartidor.nombre}</TableCell>
-                      <TableCell>{repartidor.dni || <span className="text-muted-foreground">-</span>}</TableCell>
-                      <TableCell>{repartidor.licencia_conducir || <span className="text-muted-foreground">-</span>}</TableCell>
-                      <TableCell>{repartidor.telefono || <span className="text-muted-foreground">-</span>}</TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          repartidor.activo ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                        }`}>
-                          {repartidor.activo ? "Activo" : "Inactivo"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => handleEdit(repartidor)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => openDeleteDialog(repartidor)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-
-              {/* Paginación */}
-              <div className="flex flex-col md:flex-row items-center justify-between mt-4 gap-2">
-                <div>
-                  Mostrando página {pagina} de {totalPaginas} ({repartidoresFiltrados.length} repartidores)
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    className="px-2 py-1 border rounded disabled:opacity-50"
-                    onClick={() => setPagina(p => Math.max(1, p - 1))}
-                    disabled={pagina === 1}
-                  >
-                    Anterior
-                  </button>
-                  {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(num => (
-                    <button
-                      key={num}
-                      className={`px-2 py-1 border rounded ${pagina === num ? 'bg-blue-600 text-white' : ''}`}
-                      onClick={() => setPagina(num)}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                  <button
-                    className="px-2 py-1 border rounded disabled:opacity-50"
-                    onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
-                    disabled={pagina === totalPaginas}
-                  >
-                    Siguiente
-                  </button>
-                  <select
-                    className="ml-2 border rounded px-2 py-1"
-                    value={tamanoPagina}
-                    onChange={e => { setTamanoPagina(Number(e.target.value)); setPagina(1); }}
-                  >
-                    {[5, 10, 20, 50].map(size => (
-                      <option key={size} value={size}>{size} por página</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </>
+            <RepartidoresTable
+              repartidores={repartidores}
+              onEdit={(rep: any) => handleEdit(rep)}
+              onDelete={(rep: any) => openDeleteDialog(rep)}
+              initialPageSize={10}
+            />
           )}
         </CardContent>
       </Card>
@@ -556,9 +502,12 @@ export default function RepartidoresPage() {
               <input
                 type="checkbox"
                 id="edit-activo"
-                checked={formData.activo}
+                checked={Boolean(formData.activo)}
                 onChange={(e) =>
-                  setFormData({ ...formData, activo: e.target.checked })
+                  setFormData({
+                    ...formData,
+                    activo: e.target.checked as boolean,
+                  })
                 }
                 className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
               />

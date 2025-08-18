@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useSimpleCrud } from "./use-simple-api";
+import { useToast } from "./use-toast";
 
 export interface Cliente {
   id_cliente?: number;
@@ -20,6 +21,7 @@ export const useClientes = () => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const crud = useSimpleCrud<Cliente>("/clientes");
 
@@ -57,18 +59,48 @@ export const useClientes = () => {
           if (response.data) {
             setClientes((prev) => [...prev, response.data as Cliente]);
           }
+
+          toast({
+            title: "Cliente creado",
+            description: `Se registró exitosamente ${cliente.nombre}`,
+            variant: "default",
+          });
+
           return { success: true, data: response.data };
         } else {
+          // Manejar errores específicos
+          if (
+            response.error?.includes("código") ||
+            response.error?.includes("duplicado") ||
+            response.error?.includes("existe")
+          ) {
+            toast({
+              title: "Código duplicado",
+              description: `El código "${cliente.codigo}" ya está en uso. Por favor, utilice un código diferente.`,
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Error al crear cliente",
+              description: response.error || "No se pudo crear el cliente",
+              variant: "destructive",
+            });
+          }
           setError(response.error || "Error al crear cliente");
           return { success: false, error: response.error };
         }
       } catch (err) {
         const errorMessage = "Error de conexión al crear cliente";
+        toast({
+          title: "Error de conexión",
+          description: "No se pudo conectar con el servidor",
+          variant: "destructive",
+        });
         setError(errorMessage);
         return { success: false, error: errorMessage };
       }
     },
-    [crud.create],
+    [crud.create, toast],
   );
 
   // Actualizar cliente
@@ -79,24 +111,58 @@ export const useClientes = () => {
       try {
         const response = await crud.update(id, cliente);
         if (response.success) {
-          // Actualizar solo el cliente modificado en el estado
+          // Usar la respuesta del servidor si está disponible, sino usar merge inteligente
           setClientes((prev) =>
-            prev.map((c) =>
-              c.id_cliente === id ? ({ ...c, ...cliente } as Cliente) : c,
-            ),
+            prev.map((c) => {
+              if (c.id_cliente === id) {
+                if (response.data) {
+                  // Si el servidor devuelve el cliente actualizado, usarlo
+                  return response.data as Cliente;
+                } else {
+                  // Solo actualizar campos que se enviaron explícitamente
+                  const updatedCliente = { ...c };
+                  Object.keys(cliente).forEach((key) => {
+                    const value = cliente[key as keyof Cliente];
+                    // Solo actualizar si el valor está presente en el objeto enviado
+                    if (cliente.hasOwnProperty(key)) {
+                      (updatedCliente as any)[key] = value;
+                    }
+                  });
+                  return updatedCliente;
+                }
+              }
+              return c;
+            }),
           );
+
+          toast({
+            title: "Cliente actualizado",
+            description: `Se actualizó la información del cliente`,
+            variant: "default",
+          });
+
           return { success: true, data: response.data };
         } else {
+          toast({
+            title: "Error al actualizar",
+            description: response.error || "No se pudo actualizar el cliente",
+            variant: "destructive",
+          });
           setError(response.error || "Error al actualizar cliente");
           return { success: false, error: response.error };
         }
       } catch (err) {
         const errorMessage = "Error de conexión al actualizar cliente";
+        toast({
+          title: "Error de conexión",
+          description: "No se pudo conectar con el servidor",
+          variant: "destructive",
+        });
         setError(errorMessage);
         return { success: false, error: errorMessage };
       }
     },
-    [crud.update],
+    [crud.update, toast],
   );
 
   // Eliminar cliente
@@ -118,9 +184,23 @@ export const useClientes = () => {
                 c.id_cliente === id ? { ...c, activo: false } : c,
               ),
             );
+
+            toast({
+              title: "Cliente desactivado",
+              description:
+                "El cliente tenía visitas registradas, por lo que se desactivó en lugar de eliminarse",
+              variant: "default",
+            });
           } else {
             // Si fue eliminado completamente, removerlo del estado
             setClientes((prev) => prev.filter((c) => c.id_cliente !== id));
+
+            toast({
+              title: "Cliente eliminado",
+              description:
+                "Se eliminó completamente del sistema al no tener visitas registradas",
+              variant: "default",
+            });
           }
 
           return {
@@ -130,16 +210,26 @@ export const useClientes = () => {
             message: response.message,
           };
         } else {
+          toast({
+            title: "Error al eliminar",
+            description: response.error || "No se pudo eliminar el cliente",
+            variant: "destructive",
+          });
           setError(response.error || "Error al eliminar cliente");
           return { success: false, error: response.error };
         }
       } catch (err) {
         const errorMessage = "Error de conexión al eliminar cliente";
+        toast({
+          title: "Error de conexión",
+          description: "No se pudo conectar con el servidor",
+          variant: "destructive",
+        });
         setError(errorMessage);
         return { success: false, error: errorMessage };
       }
     },
-    [crud.remove],
+    [crud.remove, toast],
   );
 
   // Obtener cliente por ID
@@ -162,14 +252,6 @@ export const useClientes = () => {
       }
     },
     [crud.getById],
-  );
-
-  // Cambiar estado del cliente (activo/inactivo)
-  const toggleClienteActivo = useCallback(
-    async (id: number, currentActivo: boolean) => {
-      return await updateCliente(id, { activo: !currentActivo });
-    },
-    [updateCliente],
   );
 
   // Obtener clientes por estado activo
@@ -244,7 +326,6 @@ export const useClientes = () => {
     updateCliente,
     deleteCliente,
     getClienteById,
-    toggleClienteActivo,
     getClientesByActivo,
     getClientesByZonaId,
     searchByCodigo,

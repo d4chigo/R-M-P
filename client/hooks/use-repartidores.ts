@@ -3,19 +3,19 @@ import { useState, useEffect } from "react";
 import { useToast } from "./use-toast";
 import Cookies from "js-cookie";
 
-interface Repartidor {
+export interface Repartidor {
   id_repartidor: number;
   codigo: string;
   nombre: string;
   dni?: string;
   licencia_conducir?: string;
   telefono?: string;
-  activo: number | boolean;
+  activo: boolean | number;
   created_at: string;
   updated_at: string;
 }
 
-interface CreateRepartidorData {
+export interface CreateRepartidorData {
   codigo: string;
   nombre: string;
   dni?: string;
@@ -24,7 +24,7 @@ interface CreateRepartidorData {
   activo?: boolean;
 }
 
-interface UpdateRepartidorData extends Partial<CreateRepartidorData> {}
+export interface UpdateRepartidorData extends Partial<CreateRepartidorData> {}
 
 interface UseRepartidoresReturn {
   repartidores: Repartidor[];
