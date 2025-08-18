@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useSimpleCrud } from "./use-simple-api";
+import { useToast } from "./use-toast";
+import Cookies from "js-cookie";
 
 // Helper function para normalizar valores booleanos que vienen de la BD
 // MySQL devuelve BOOLEAN como TINYINT(1) que puede ser 1/0 o true/false
@@ -26,6 +28,7 @@ export const useVehiculos = () => {
   const [vehiculos, setVehiculos] = useState<Vehiculo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const crud = useSimpleCrud<Vehiculo>("/vehiculos");
 
@@ -62,14 +65,29 @@ export const useVehiculos = () => {
           if (response.data) {
             setVehiculos((prev) => [...prev, response.data as Vehiculo]);
           }
+          toast({
+            title: "Éxito",
+            description: "Vehículo creado exitosamente",
+          });
           return { success: true, data: response.data };
         } else {
-          setError(response.error || "Error al crear vehículo");
+          const errorMessage = response.error || "Error al crear vehículo";
+          setError(errorMessage);
+          toast({
+            title: "Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
           return { success: false, error: response.error };
         }
       } catch (err) {
         const errorMessage = "Error de conexión al crear vehículo";
         setError(errorMessage);
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
         return { success: false, error: errorMessage };
       }
     },
@@ -88,14 +106,29 @@ export const useVehiculos = () => {
           setVehiculos((prev) =>
             prev.map((v) => (v.id_vehiculo === id ? { ...v, ...vehiculo } : v)),
           );
+          toast({
+            title: "Éxito",
+            description: "Vehículo actualizado exitosamente",
+          });
           return { success: true, data: response.data };
         } else {
-          setError(response.error || "Error al actualizar vehículo");
+          const errorMessage = response.error || "Error al actualizar vehículo";
+          setError(errorMessage);
+          toast({
+            title: "Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
           return { success: false, error: response.error };
         }
       } catch (err) {
         const errorMessage = "Error de conexión al actualizar vehículo";
         setError(errorMessage);
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
         return { success: false, error: errorMessage };
       }
     },
@@ -112,9 +145,10 @@ export const useVehiculos = () => {
         if (response.success) {
           // Solo remover del estado si fue eliminado completamente
           // Si fue desactivado, mantenerlo pero actualizar el estado
-          if (response.type === "deleted") {
+          const responseType = (response as any).type;
+          if (responseType === "deleted") {
             setVehiculos((prev) => prev.filter((v) => v.id_vehiculo !== id));
-          } else if (response.type === "deactivated") {
+          } else if (responseType === "deactivated") {
             setVehiculos((prev) =>
               prev.map((v) =>
                 v.id_vehiculo === id ? { ...v, activo: false } : v,
@@ -122,23 +156,45 @@ export const useVehiculos = () => {
             );
           }
 
+          const toastTitle =
+            responseType === "deactivated" ? "Vehículo Desactivado" : "Éxito";
+          const toastVariant =
+            responseType === "deactivated" ? "default" : undefined;
+
+          toast({
+            title: toastTitle,
+            description:
+              response.message || "Operación completada exitosamente",
+            variant: toastVariant,
+          });
+
           return {
             success: true,
-            type: response.type,
+            type: responseType,
             message: response.message,
-            details: response.details,
-            relatedCount: response.relatedCount,
-            hasRelatedRecords: response.hasRelatedRecords,
+            details: (response as any).details,
+            relatedCount: (response as any).relatedCount,
+            hasRelatedRecords: (response as any).hasRelatedRecords,
           };
         } else {
           const errorMsg =
             response.error || response.message || "Error al eliminar vehículo";
           setError(errorMsg);
+          toast({
+            title: "Error",
+            description: errorMsg,
+            variant: "destructive",
+          });
           return { success: false, error: errorMsg };
         }
       } catch (err) {
         const errorMessage = "Error de conexión al eliminar vehículo";
         setError(errorMessage);
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
         return { success: false, error: errorMessage };
       }
     },
@@ -228,6 +284,62 @@ export const useVehiculos = () => {
     };
   }, []);
 
+  // Buscar vehículos
+  const searchVehiculos = useCallback(
+    async (query: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const searchParams = new URLSearchParams();
+        if (query.trim()) {
+          searchParams.append("q", query.trim());
+        }
+
+        const API_BASE =
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+
+        // Get token from cookies
+        const getAuthHeader = (): Record<string, string> => {
+          const token = Cookies.get("auth_token");
+          return token ? { Authorization: `Bearer ${token}` } : {};
+        };
+
+        const response = await fetch(
+          `${API_BASE}/vehiculos/search?${searchParams}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              ...getAuthHeader(),
+            },
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        if (result.success) {
+          setVehiculos(result.data || []);
+        } else {
+          throw new Error(result.message || "Error en la búsqueda");
+        }
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Error desconocido";
+        setError(errorMessage);
+        toast({
+          title: "Error",
+          description: "Error en la búsqueda de vehículos",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [toast],
+  );
+
   return {
     vehiculos,
     isLoading: isLoading || crud.loading,
@@ -242,6 +354,7 @@ export const useVehiculos = () => {
     getVehiculosInactivos,
     searchByPlaca,
     searchByMarca,
+    searchVehiculos,
     refetch: fetchVehiculos,
   };
 };

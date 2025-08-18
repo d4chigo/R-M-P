@@ -1,6 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const controller = require("../controllers/zona.controller");
+const { authenticateToken } = require("../middleware/auth.middleware");
+
+// Aplicar autenticación a todas las rutas
+router.use(authenticateToken);
 
 // Rutas específicas ANTES de rutas con parámetros dinámicos
 router.get("/estadisticas", controller.getZonasConEstadisticas);

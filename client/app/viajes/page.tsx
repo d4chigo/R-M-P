@@ -38,26 +38,38 @@ import {
   MapPin,
   User,
   Truck,
+  Search,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Activity,
+  CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { DataTable, type Column } from "@/components/ui/data-table";
+import { ViajesTable } from "@/components/tables/viajes-table";
 import { ViajeForm } from "@/components/forms/viaje-form";
 import { useViajes, type Viaje } from "@/hooks/use-viajes";
 import { useVehiculos } from "@/hooks/use-vehiculos";
 import { useRepartidores } from "@/hooks/use-repartidores";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ViajesPage() {
   const { viajes, createViaje, updateViaje, deleteViaje, isLoading, error } =
     useViajes();
   const { fetchVehiculos } = useVehiculos();
   const { fetchRepartidores } = useRepartidores();
+  const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingViaje, setEditingViaje] = useState<Viaje | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [viajeToDelete, setViajeToDelete] = useState<Viaje | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState("");
+  const [showStats, setShowStats] = useState(false);
 
   // Estados de paginación
   const [pagina, setPagina] = useState(1);
@@ -70,23 +82,58 @@ export default function ViajesPage() {
 
   const handleSubmit = async (viajeData: Omit<Viaje, "id">) => {
     try {
+      let result;
       if (editingViaje && (editingViaje.id || editingViaje.id_viaje)) {
         const id = editingViaje.id || editingViaje.id_viaje!;
-        await updateViaje(id, viajeData);
+        result = await updateViaje(id, viajeData);
       } else {
-        await createViaje(viajeData);
+        result = await createViaje(viajeData);
       }
-      setIsDialogOpen(false);
-      setEditingViaje(null);
+
+      if (result.success) {
+        toast({
+          title: editingViaje ? "Viaje actualizado" : "Viaje creado",
+          description: editingViaje
+            ? `Se actualizó el viaje del ${viajeData.fecha}`
+            : `Se registró exitosamente el viaje #${viajeData.nro_viaje}`,
+          variant: "default",
+        });
+        setIsDialogOpen(false);
+        setEditingViaje(null);
+      } else {
+        toast({
+          title: "Error al guardar",
+          description:
+            result.error ||
+            "No se pudo guardar el viaje. Inténtelo nuevamente.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       console.error("Error al guardar viaje:", error);
+      toast({
+        title: "Error de conexión",
+        description:
+          "No se pudo conectar con el servidor. Verifique su conexión a internet.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleEdit = async (viaje: Viaje) => {
-    setEditingViaje(viaje);
-    await Promise.all([fetchVehiculos(), fetchRepartidores()]);
-    setIsDialogOpen(true);
+    try {
+      setEditingViaje(viaje);
+      // Recargar datos antes de abrir el diálogo de edición
+      await Promise.all([fetchVehiculos(), fetchRepartidores()]);
+      setIsDialogOpen(true);
+    } catch (error) {
+      toast({
+        title: "Error al cargar datos",
+        description:
+          "No se pudieron cargar los datos necesarios. Inténtelo nuevamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteClick = (viaje: Viaje) => {
@@ -105,6 +152,11 @@ export default function ViajesPage() {
       const result = await deleteViaje(id);
 
       if (result.success) {
+        toast({
+          title: "Viaje eliminado",
+          description: `Se eliminó exitosamente el viaje #${viajeToDelete.nro_viaje}`,
+          variant: "default",
+        });
         setDeleteDialogOpen(false);
         setViajeToDelete(null);
         setDeleteError(null);
@@ -130,9 +182,41 @@ export default function ViajesPage() {
   };
 
   const handleNewViaje = async () => {
-    setEditingViaje(null);
-    await Promise.all([fetchVehiculos(), fetchRepartidores()]);
-    setIsDialogOpen(true);
+    try {
+      setEditingViaje(null);
+      // Recargar datos antes de abrir el diálogo
+      await Promise.all([fetchVehiculos(), fetchRepartidores()]);
+      setIsDialogOpen(true);
+    } catch (error) {
+      toast({
+        title: "Error al cargar datos",
+        description:
+          "No se pudieron cargar los datos necesarios. Inténtelo nuevamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "No definido";
+
+    // Backend now consistently sends dates in YYYY-MM-DD format
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateString.split("-");
+      return `${day}/${month}/${year}`;
+    }
+
+    // Fallback for any other format (shouldn't happen with current backend)
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("es-PE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    } catch {
+      return "Fecha inválida";
+    }
   };
 
   const formatTime = (minutes: number | undefined) => {
@@ -156,272 +240,279 @@ export default function ViajesPage() {
     }
   };
 
-  const columns: Column<Viaje>[] = [
-    {
-      key: "fecha",
-      header: "Fecha",
-      sortable: true,
-      render: (viaje) => {
-        const { estado, variant } = getEstadoViaje(viaje.fecha);
-        return (
-          <div className="space-y-1">
-            <div className="font-medium">
-              {new Date(viaje.fecha).toLocaleDateString("es-PE", {
-                timeZone: "America/Lima",
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-              })}
-            </div>
-            <Badge variant={variant} className="text-xs">
-              {estado}
-            </Badge>
-          </div>
-        );
-      },
-    },
-    {
-      key: "nro_viaje",
-      header: "N° Viaje",
-      sortable: true,
-      render: (viaje) => (
-        <Badge variant="outline" className="font-mono">
-          Viaje {viaje.nro_viaje}
-        </Badge>
-      ),
-    },
-    {
-      key: "vehiculo",
-      header: "Vehículo",
-      render: (viaje) => (
-        <div className="space-y-1 text-xs">
-          <div className="flex items-center gap-2">
-            <Truck className="w-4 h-4 text-blue-500" />
-            <span className="font-medium text-blue-700 dark:text-blue-300">
-              {viaje.vehiculo_placa || "Sin placa"}
-            </span>
-          </div>
-          <div className="text-gray-500">
-            {viaje.vehiculo_marca} {viaje.vehiculo_modelo}
-          </div>
-        </div>
-      ),
-    },
-    {
-      key: "repartidor",
-      header: "Repartidor",
-      render: (viaje) => (
-        <div className="space-y-1 text-xs">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-green-500" />
-            <span className="font-medium">{viaje.repartidor_nombre || "Sin asignar"}</span>
-          </div>
-        </div>
-      ),
-    },
-    // Puedes agregar más columnas igual que tu código original...
-  ];
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    // Aquí puedes implementar la lógica de búsqueda
+  };
+
+  const handleDateFilter = (date: string) => {
+    setDateFilter(date);
+    // Aquí puedes implementar filtrado por fecha si es necesario
+  };
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setDateFilter("");
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <div className="container mx-auto px-4 py-4 sm:py-8">
-        {/* Header con botón Nuevo Viaje */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button
-                variant="outline"
-                size="sm"
-                className="dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 bg-transparent"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Volver
-              </Button>
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-                  Gestión de Viajes
-                </h1>
-                <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
-                  Administra los viajes de vehículos y repartidores
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button onClick={handleNewViaje}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nuevo Viaje
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl mx-4 sm:mx-auto dark:bg-gray-800 dark:border-gray-700 max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="dark:text-gray-100">
-                    {editingViaje ? "Editar Viaje" : "Crear Nuevo Viaje"}
-                  </DialogTitle>
-                  <DialogDescription className="dark:text-gray-300">
-                    {editingViaje
-                      ? "Modifique los campos necesarios para actualizar el viaje."
-                      : "Complete los campos para crear un nuevo viaje."}
-                  </DialogDescription>
-                </DialogHeader>
-                <ViajeForm
-                  viaje={editingViaje}
-                  onSubmit={handleSubmit}
-                  onCancel={handleCancel}
-                  isEditing={!!editingViaje}
-                />
-              </DialogContent>
-            </Dialog>
+    <div className="container mx-auto py-6 space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.history.back()}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Regresar
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Viajes</h1>
+            <p className="text-muted-foreground">
+              Gestión de viajes y rutas de transporte
+            </p>
           </div>
         </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNewViaje}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nuevo Viaje
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingViaje ? "Editar Viaje" : "Crear Nuevo Viaje"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingViaje
+                  ? "Modifique los campos necesarios para actualizar el viaje."
+                  : "Complete los campos para crear un nuevo viaje."}
+              </DialogDescription>
+            </DialogHeader>
+            <ViajeForm
+              viaje={editingViaje}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+              isEditing={!!editingViaje}
+            />
+          </DialogContent>
+        </Dialog>
+      </div>
 
-        {error && (
-          <Alert className="mb-6 border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
-            <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-            <AlertDescription className="text-red-800 dark:text-red-200">
-              {error}
-            </AlertDescription>
-          </Alert>
-        )}
+      {/* Search */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Search className="h-5 w-5" />
+            Buscar Viajes
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4 items-center">
+            <Input
+              placeholder="Buscar por vehículo, repartidor o número de viaje..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="flex-1"
+            />
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => handleDateFilter(e.target.value)}
+                className="pl-10 w-auto"
+                placeholder="Filtrar por fecha"
+              />
+            </div>
+            {(searchQuery || dateFilter) && (
+              <Button
+                variant="outline"
+                onClick={clearFilters}
+                className="flex items-center gap-2"
+              >
+                Limpiar
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => setShowStats(!showStats)}
+              className="flex items-center gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Estadísticas
+              {showStats ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-        <Card className="dark:bg-gray-800 dark:border-gray-700">
-          <CardHeader>
-            <CardTitle className="dark:text-gray-100 flex items-center gap-2">
-              <Calendar className="w-5 h-5" />
-              Lista de Viajes
-            </CardTitle>
-            <CardDescription className="dark:text-gray-300">
-              Gestiona todos los viajes con información detallada de vehículos, repartidores y horarios
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <DataTable
-              data={viajesPaginados}
-              columns={columns}
-              searchPlaceholder="Buscar por placa, repartidor, tipo..."
+      {/* Stats - Collapsible */}
+      {showStats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-8 w-8 text-blue-600" />
+                <div>
+                  <p className="text-2xl font-bold">{viajes.length}</p>
+                  <p className="text-sm text-muted-foreground">Total Viajes</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Activity className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {
+                      viajes.filter((v) => {
+                        const hoy = new Date().toISOString().split("T")[0];
+                        return v.fecha === hoy;
+                      }).length
+                    }
+                  </p>
+                  <p className="text-sm text-muted-foreground">Hoy</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="h-8 w-8 text-purple-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {
+                      viajes.filter((v) => {
+                        const hoy = new Date().toISOString().split("T")[0];
+                        return v.fecha < hoy;
+                      }).length
+                    }
+                  </p>
+                  <p className="text-sm text-muted-foreground">Completados</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Clock className="h-8 w-8 text-orange-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {
+                      viajes.filter((v) => {
+                        const hoy = new Date().toISOString().split("T")[0];
+                        return v.fecha > hoy;
+                      }).length
+                    }
+                  </p>
+                  <p className="text-sm text-muted-foreground">Programados</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Mostrar error general si existe */}
+      {error && (
+        <Alert className="border-red-200 bg-red-50">
+          <AlertTriangle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800">{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Viajes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="text-center py-4">Cargando viajes...</div>
+          ) : (
+            <ViajesTable
+              viajes={viajes}
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
-              showDateFilter={true}
-              dateFilterKey="fecha"
-              searchKeys={[
-                "vehiculo_placa",
-                "vehiculo_marca",
-                "vehiculo_modelo",
-                "repartidor_nombre",
-                "repartidor_codigo",
-                "tipo_viaje",
-                "nro_viaje",
-              ]}
+              initialPageSize={10}
             />
+          )}
+        </CardContent>
+      </Card>
 
-            {/* Controles de Paginación */}
-            <div className="flex flex-col md:flex-row items-center justify-between mt-4 gap-2">
-              <div>
-                Mostrando página {pagina} de {totalPaginas} ({viajes.length} viajes)
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  className="px-2 py-1 border rounded disabled:opacity-50"
-                  onClick={() => setPagina(p => Math.max(1, p - 1))}
-                  disabled={pagina === 1}
-                >
-                  Anterior
-                </button>
-                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(num => (
-                  <button
-                    key={num}
-                    className={`px-2 py-1 border rounded ${pagina === num ? 'bg-blue-600 text-white' : ''}`}
-                    onClick={() => setPagina(num)}
-                  >
-                    {num}
-                  </button>
-                ))}
-                <button
-                  className="px-2 py-1 border rounded disabled:opacity-50"
-                  onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
-                  disabled={pagina === totalPaginas}
-                >
-                  Siguiente
-                </button>
-                <select
-                  className="ml-2 border rounded px-2 py-1"
-                  value={tamanoPagina}
-                  onChange={e => { setTamanoPagina(Number(e.target.value)); setPagina(1); }}
-                >
-                  {[5, 10, 20, 50].map(size => (
-                    <option key={size} value={size}>{size} por página</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* AlertDialog de eliminación */}
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                <Trash2 className="w-5 h-5" />
-                Confirmar Eliminación
-              </AlertDialogTitle>
-              <AlertDialogDescription className="dark:text-gray-300">
-                {viajeToDelete && (
-                  <div className="space-y-2">
-                    <p>¿Está seguro de que desea eliminar este viaje?</p>
-                    <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg space-y-1">
-                      <div className="font-medium">
-                        Fecha: {new Date(viajeToDelete.fecha).toLocaleDateString("es-PE")}
-                      </div>
-                      <div>
-                        Vehículo: {viajeToDelete.vehiculo_placa || "Sin placa"}
-                      </div>
-                      <div>Repartidor: {viajeToDelete.repartidor_nombre || "Sin asignar"}</div>
-                      <div>Viaje N°: {viajeToDelete.nro_viaje}</div>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar viaje?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {viajeToDelete && (
+                <div className="space-y-2">
+                  <p>Está a punto de eliminar el siguiente viaje:</p>
+                  <div className="bg-gray-50 p-3 rounded-lg space-y-1">
+                    <div className="font-medium">
+                      Fecha: {formatDate(viajeToDelete.fecha)}
                     </div>
+                    <div>
+                      Vehículo: {viajeToDelete.vehiculo_placa || "Sin placa"}
+                      {viajeToDelete.vehiculo_marca &&
+                        ` - ${viajeToDelete.vehiculo_marca} ${viajeToDelete.vehiculo_modelo}`}
+                    </div>
+                    <div>
+                      Repartidor:{" "}
+                      {viajeToDelete.repartidor_nombre || "Sin asignar"}
+                    </div>
+                    <div>Viaje N°: {viajeToDelete.nro_viaje}</div>
                   </div>
-                )}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            {deleteError && (
-              <Alert className="border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20">
-                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                <AlertDescription className="text-red-800 dark:text-red-200">
-                  {deleteError}
-                </AlertDescription>
-              </Alert>
-            )}
-            <AlertDialogFooter>
-              <AlertDialogCancel
-                className="dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-                onClick={() => {
-                  setDeleteError(null);
-                  setDeleteDialogOpen(false);
-                  setViajeToDelete(null);
-                }}
-              >
-                Cancelar
-              </AlertDialogCancel>
-              {!deleteError && (
-                <AlertDialogAction
-                  onClick={handleDeleteConfirm}
-                  className="bg-red-600 hover:bg-red-700 text-white"
-                >
-                  Eliminar Viaje
-                </AlertDialogAction>
+                  {deleteError && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                      <p className="text-sm text-amber-800">
+                        <strong>Error:</strong> {deleteError}
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    Esta acción no se puede deshacer.
+                  </p>
+                </div>
               )}
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setDeleteError(null);
+                setDeleteDialogOpen(false);
+                setViajeToDelete(null);
+              }}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            {!deleteError && (
+              <AlertDialogAction
+                onClick={handleDeleteConfirm}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Eliminar
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

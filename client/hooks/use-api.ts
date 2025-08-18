@@ -21,7 +21,7 @@ export const useApi = <T>(endpoint: string, options: UseApiOptions = {}) => {
   const baseUrl =
     options.baseUrl ||
     process.env.NEXT_PUBLIC_API_URL ||
-    "http://localhost:4000";
+    "http://localhost:4000/api";
 
   const getAuthHeaders = () => {
     const token = Cookies.get("auth_token");

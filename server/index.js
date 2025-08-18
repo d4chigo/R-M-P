@@ -1,9 +1,16 @@
 require("dotenv").config();
+// DEBUG SMTP ENV
+console.log('DEBUG SMTP ENV:');
+console.log('SMTP_USER:', process.env.SMTP_USER);
+console.log('SMTP_PASS:', process.env.SMTP_PASS ? '***' : undefined);
+console.log('SMTP_HOST:', process.env.SMTP_HOST);
+console.log('SMTP_PORT:', process.env.SMTP_PORT);
 const express = require("express");
 const cors = require("cors");
 
 // Importar rutas actualizadas
 const authRoutes = require("./routes/auth.route");
+const adminRoutes = require("./routes/admin.route");
 const vehiculoRoutes = require("./routes/vehiculo.route");
 const zonaRoutes = require("./routes/zona.route");
 const clienteRoutes = require("./routes/cliente.route");
@@ -17,7 +24,14 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "http://localhost:3001"],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 app.use(express.json());
 
 // Importar middleware de autenticación
@@ -227,6 +241,7 @@ app.get("/api/debug/zonas/estadisticas", async (req, res) => {
 
 // Registrar rutas públicas
 app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Registrar rutas protegidas (requieren autenticación)
 app.use("/api/vehiculos", authenticateToken, vehiculoRoutes);
@@ -250,6 +265,19 @@ app.use("*", (req, res) => {
       "POST /api/auth/login - Iniciar sesión",
       "POST /api/auth/logout - Cerrar sesión",
       "GET /api/auth/me - Usuario actual",
+      "POST /api/auth/forgot-password - Recuperar contraseña",
+      "",
+      "=== ADMINISTRACIÓN (requieren rol admin) ===",
+      "GET /api/admin/check-users - Verificar usuarios",
+      "POST /api/admin/first-admin - Crear primer admin",
+      "GET /api/admin/usuarios - Lista usuarios",
+      "POST /api/admin/usuarios - Crear usuario",
+      "PUT /api/admin/usuarios/:id - Actualizar usuario",
+      "DELETE /api/admin/usuarios/:id - Eliminar usuario",
+      "POST /api/admin/usuarios/:id/reset-password - Reset contraseña",
+      "PATCH /api/admin/usuarios/:id/toggle-active - Activar/desactivar",
+      "GET /api/admin/roles - Lista roles",
+      "POST /api/admin/reset-password-request - Solicitar reset",
       "",
       "=== RUTAS PROTEGIDAS (requieren autenticación) ===",
       "GET /api/vehiculos - Lista de vehículos",

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "./use-toast";
 import Cookies from "js-cookie";
 
 export interface Zona {
@@ -18,6 +19,7 @@ export const useZonas = () => {
   const [zonas, setZonas] = useState<Zona[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
@@ -105,11 +107,27 @@ export const useZonas = () => {
           } else {
             await fetchZonas();
           }
+          toast({
+            title: "Éxito",
+            description: "Zona creada exitosamente",
+          });
           return { success: true, data: data.data };
         } else {
+          const errorMessage = data.message || "Error al crear zona";
+          toast({
+            title: "Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
           return { success: false, error: data.message };
         }
       } catch (err) {
+        const errorMessage = "Error de conexión al crear zona";
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
         return { success: false, error: "Error de conexión" };
       }
     },
@@ -142,11 +160,27 @@ export const useZonas = () => {
               z.id_zona === id ? ({ ...z, ...zona } as Zona) : z,
             ),
           );
+          toast({
+            title: "Éxito",
+            description: "Zona actualizada exitosamente",
+          });
           return { success: true, data: data.data };
         } else {
+          const errorMessage = data.message || "Error al actualizar zona";
+          toast({
+            title: "Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
           return { success: false, error: data.message };
         }
       } catch (err) {
+        const errorMessage = "Error de conexión al actualizar zona";
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
         return { success: false, error: "Error de conexión" };
       }
     },
@@ -173,11 +207,27 @@ export const useZonas = () => {
 
         if (data.success) {
           setZonas((prev) => prev.filter((z) => z.id_zona !== id));
+          toast({
+            title: "Éxito",
+            description: "Zona eliminada exitosamente",
+          });
           return { success: true };
         } else {
+          const errorMessage = data.message || "Error al eliminar zona";
+          toast({
+            title: "Error",
+            description: errorMessage,
+            variant: "destructive",
+          });
           return { success: false, error: data.message };
         }
       } catch (err) {
+        const errorMessage = "Error de conexión al eliminar zona";
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
         return { success: false, error: "Error de conexión" };
       }
     },
@@ -211,6 +261,58 @@ export const useZonas = () => {
       }
     },
     [API_BASE_URL],
+  );
+
+  // Buscar zonas
+  const searchZonas = useCallback(
+    async (query: string) => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const searchParams = new URLSearchParams();
+        if (query.trim()) {
+          searchParams.append("q", query.trim());
+        }
+
+        const authToken = Cookies.get("auth_token");
+        if (!authToken) {
+          throw new Error("No se ha iniciado sesión");
+        }
+
+        const response = await fetch(
+          `${API_BASE_URL}/zonas/search?${searchParams}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        if (result.success) {
+          setZonas(result.data || []);
+        } else {
+          throw new Error(result.message || "Error en la búsqueda");
+        }
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Error desconocido";
+        setError(errorMessage);
+        toast({
+          title: "Error",
+          description: "Error en la búsqueda de zonas",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [API_BASE_URL, toast],
   );
 
   // Buscar zonas por descripción
@@ -263,6 +365,7 @@ export const useZonas = () => {
     updateZona,
     deleteZona,
     getZonaById,
+    searchZonas,
     searchByDescripcion,
     searchByCodigo,
     refetch: fetchZonas,

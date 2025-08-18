@@ -1,14 +1,95 @@
 const db = require("../config/db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const emailService = require("../services/email.service");
 
 const JWT_SECRET = process.env.JWT_SECRET || "rmp_secret_key_2024";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "24h";
+
+// Crear primer admin
+exports.createFirstAdmin = async (req, res) => {
+    try {
+        const { nombre, apellidos, email, password } = req.body;
+
+        // Encriptar password
+        const passwordHash = await bcrypt.hash(password, 10);
+
+        // Crear nuevo usuario admin con una transacción
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            // Insertar usuario
+            const [result] = await connection.query(
+                "INSERT INTO USUARIO (username, password_hash, nombre_completo, email) VALUES (?, ?, ?, ?)",
+                [email, passwordHash, `${nombre} ${apellidos}`, email]
+            );
+
+            // Obtener el id del rol admin
+            const [roles] = await connection.query(
+                "SELECT id_rol FROM ROL WHERE nombre = 'ADMINISTRADOR'"
+            );
+
+            if (!roles.length) {
+                throw new Error("Rol de administrador no encontrado");
+            }
+
+            // Asignar rol de admin al usuario
+            await connection.query(
+                "INSERT INTO USUARIO_ROL (id_usuario, id_rol) VALUES (?, ?)",
+                [result.insertId, roles[0].id_rol]
+            );
+
+            await connection.commit();
+
+            // Generar token
+            const token = jwt.sign(
+                { id: result.insertId, rol: 'admin' },
+                JWT_SECRET,
+                { expiresIn: JWT_EXPIRES_IN }
+            );
+
+            res.cookie("token", token, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 24 * 60 * 60 * 1000 // 1 día
+            });
+
+            res.json({
+                success: true,
+                message: "Administrador creado exitosamente",
+                data: {
+                    id: result.insertId,
+                    nombre,
+                    apellidos,
+                    email,
+                    rol: 'admin'
+                }
+            });
+
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+
+    } catch (error) {
+        res.status(500).json({ 
+            success: false,
+            message: "Error al crear el administrador",
+            error: error.message 
+        });
+    }
+};
 
 // Login de usuario
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    console.log("👤 Intento de login para:", email);
 
     // Validar que se proporcionen email y contraseña
     if (!email || !password) {
@@ -18,11 +99,19 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Buscar usuario por email
-    const [rows] = await db.query(
-      "SELECT * FROM USUARIO WHERE email = ? AND activo = TRUE",
-      [email],
-    );
+    // Buscar usuario por email y obtener sus roles en una sola consulta
+    const [rows] = await db.query(`
+      SELECT 
+        u.*,
+        GROUP_CONCAT(DISTINCT r.nombre) as roles_list
+      FROM USUARIO u
+      LEFT JOIN USUARIO_ROL ur ON u.id_usuario = ur.id_usuario
+      LEFT JOIN ROL r ON ur.id_rol = r.id_rol
+      WHERE u.email = ? AND u.activo = TRUE
+      GROUP BY u.id_usuario
+    `, [email]);
+
+    console.log("🔍 Resultado de búsqueda:", rows.length ? "Usuario encontrado" : "Usuario no encontrado");
 
     if (!rows.length) {
       return res.status(401).json({
@@ -34,10 +123,9 @@ exports.login = async (req, res) => {
     const usuario = rows[0];
 
     // Verificar contraseña
-    const isValidPassword = await bcrypt.compare(
-      password,
-      usuario.password_hash,
-    );
+    const isValidPassword = await bcrypt.compare(password, usuario.password_hash);
+
+    console.log("🔐 Validación de contraseña:", isValidPassword ? "Correcta" : "Incorrecta");
 
     if (!isValidPassword) {
       return res.status(401).json({
@@ -46,26 +134,33 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Generar token JWT
+    // Procesar roles del usuario
+    const roles = usuario.roles_list ? usuario.roles_list.split(',') : [];
+
+    // Generar token JWT con los roles incluidos
     const token = jwt.sign(
       {
         id_usuario: usuario.id_usuario,
-        username: usuario.username,
-        nombre_completo: usuario.nombre_completo,
         email: usuario.email,
+        roles: roles
       },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN },
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
     // Respuesta exitosa (no incluir contraseña)
     const { password_hash: _, ...usuarioSinPassword } = usuario;
 
+    console.log("✅ Login exitoso para:", email, "Roles:", roles);
+
     res.json({
       success: true,
       message: "Login exitoso",
       data: {
-        usuario: usuarioSinPassword,
+        usuario: {
+          ...usuarioSinPassword,
+          roles_list: roles
+        },
         token,
       },
     });
@@ -110,9 +205,24 @@ exports.verifyToken = async (req, res) => {
     // Verificar token
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    // Buscar usuario actual
+    // Buscar usuario actual con sus roles
     const [rows] = await db.query(
-      "SELECT id_usuario, username, nombre_completo, email, telefono, activo, created_at, updated_at FROM USUARIO WHERE id_usuario = ? AND activo = TRUE",
+      `SELECT 
+        u.id_usuario, 
+        u.username, 
+        u.nombre_completo, 
+        u.email, 
+        u.telefono, 
+        u.activo, 
+        u.created_at, 
+        u.updated_at,
+        GROUP_CONCAT(r.nombre) as roles_list,
+        GROUP_CONCAT(r.id_rol) as role_ids
+      FROM USUARIO u
+      LEFT JOIN USUARIO_ROL ur ON u.id_usuario = ur.id_usuario
+      LEFT JOIN ROL r ON ur.id_rol = r.id_rol
+      WHERE u.id_usuario = ? AND u.activo = TRUE
+      GROUP BY u.id_usuario`,
       [decoded.id_usuario],
     );
 
@@ -123,10 +233,17 @@ exports.verifyToken = async (req, res) => {
       });
     }
 
+    // Procesar los roles
+    const usuario = {
+      ...rows[0],
+      roles_list: rows[0].roles_list ? rows[0].roles_list.split(',') : [],
+      role_ids: rows[0].role_ids ? rows[0].role_ids.split(',').map(Number) : []
+    };
+
     res.json({
       success: true,
       data: {
-        usuario: rows[0],
+        usuario,
         token,
       },
     });
@@ -388,6 +505,88 @@ exports.updateProfile = async (req, res) => {
     });
   } catch (error) {
     console.error("Error al actualizar perfil:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error interno del servidor",
+    });
+  }
+};
+
+// Solicitar restablecimiento de contraseña
+exports.requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    console.log(
+      `🔑 Solicitud de restablecimiento de contraseña para: ${email}`,
+    );
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "El email es requerido",
+      });
+    }
+
+    // Buscar usuario por email
+    const [user] = await db.query(
+      "SELECT * FROM USUARIO WHERE email = ? AND activo = TRUE",
+      [email],
+    );
+
+    // Por seguridad, siempre respondemos que se envió el email
+    // aunque el usuario no exista
+    if (user.length === 0) {
+      console.log(
+        `⚠️ Intento de restablecimiento para email no registrado: ${email}`,
+      );
+      return res.json({
+        success: true,
+        message:
+          "Si el email está registrado, recibirás instrucciones para restablecer tu contraseña",
+      });
+    }
+
+    const userData = user[0];
+
+    // Generar nueva contraseña temporal
+    const tempPassword = emailService.generateTemporaryPassword();
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(tempPassword, saltRounds);
+
+    // Actualizar contraseña en la base de datos
+    await db.query(
+      "UPDATE USUARIO SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id_usuario = ?",
+      [hashedPassword, userData.id_usuario],
+    );
+
+    console.log(
+      `✅ Contraseña restablecida para usuario ${userData.id_usuario}`,
+    );
+
+    // Enviar contraseña por email
+    const emailResult = await emailService.sendNewPassword(
+      userData.email,
+      userData.nombre_completo,
+      tempPassword,
+      true,
+    );
+
+    // Log para debugging (no incluir contraseña en logs de producción)
+    if (!emailResult.success) {
+      console.error(
+        "❌ Error enviando email de restablecimiento:",
+        emailResult.message,
+      );
+    }
+
+    res.json({
+      success: true,
+      message:
+        "Si el email está registrado, recibirás instrucciones para restablecer tu contraseña",
+    });
+  } catch (error) {
+    console.error("❌ Error en solicitud de restablecimiento:", error);
     res.status(500).json({
       success: false,
       message: "Error interno del servidor",
