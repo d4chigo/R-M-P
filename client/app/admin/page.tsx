@@ -20,10 +20,10 @@ export default function AdminPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-700">Cargando...</p>
+          <p className="text-gray-700 dark:text-gray-300">Cargando...</p>
         </div>
       </div>
     );
@@ -35,11 +35,11 @@ export default function AdminPage() {
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4">
         <div className="max-w-2xl mx-auto pt-20">
-          <Card>
-            <CardContent className="pt-6">
-              <Alert variant="destructive">
+          <Card className="bg-white dark:bg-gray-800 shadow-lg">
+            <CardContent className="pt-6 text-gray-800 dark:text-gray-200">
+              <Alert variant="destructive" className="dark:bg-red-900/30 dark:text-red-300">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
                   <div className="space-y-2">
@@ -70,7 +70,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header con información de administrador */}
         <div className="mb-8">
