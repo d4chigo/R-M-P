@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Eye, EyeOff, Truck, AlertCircle, User } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, User } from "lucide-react";
 import ForgotPasswordForm from "@/components/auth/ForgotPasswordForm";
 
 export default function LoginPage() {
@@ -23,9 +23,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [checkingUsers, setCheckingUsers] = useState(true);
 
-  const { login, isAuthenticated, isLoading, checkUsersExist } = useAuth();
+  const { login, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -34,38 +33,12 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  // Verificar si existen usuarios al cargar la página
-  useEffect(() => {
-    const checkSystemUsers = async () => {
-      try {
-        const result = await checkUsersExist();
-        if (!result.usersExist) {
-          // Si no hay usuarios, redirigir al setup
-          router.push("/setup");
-        }
-      } catch (error) {
-        console.error("Error verificando usuarios:", error);
-        // En caso de error, continuar con el login normal
-      } finally {
-        setCheckingUsers(false);
-      }
-    };
-
-    if (!isLoading && !isAuthenticated) {
-      checkSystemUsers();
-    } else {
-      setCheckingUsers(false);
-    }
-  }, [isLoading, isAuthenticated, checkUsersExist, router]);
-
-  if (isLoading || checkingUsers) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-700">
-            {isLoading ? "Cargando..." : "Verificando sistema..."}
-          </p>
+          <p className="text-gray-700">Cargando...</p>
         </div>
       </div>
     );
@@ -208,22 +181,7 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              <div className="mt-6">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 text-sm mb-2">
-                    Credenciales de Prueba:
-                  </h4>
-                  <div className="space-y-1 text-xs text-blue-800">
-                    <p>
-                      <strong>Administrador:</strong> admin@rmp.com / admin123
-                    </p>
-                    <p>
-                      <strong>Usuario Demo:</strong> demo@rmp.com / demo123
-                    </p>
-                  </div>
-                </div>
-              </div>
-
+              {/* 🔹 Solo bloque de recuperación de contraseña */}
               <div className="mt-6 text-center">
                 <ForgotPasswordForm
                   trigger={
