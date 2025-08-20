@@ -2,6 +2,7 @@ const db = require("../config/db");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const emailService = require("../services/email.service");
+const crypto = require("crypto");
 
 const JWT_SECRET = process.env.JWT_SECRET || "REMOVED_SECRET";
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "24h";
@@ -120,14 +121,19 @@ exports.login = async (req, res) => {
       });
     }
 
-    const usuario = rows[0];
+    const user = rows[0];
+
+    // Validar si el usuario está activo
+    if (!user.activo) {
+      return res.status(403).json({
+        success: false,
+        message: "Tu cuenta está inactiva. Contacta al administrador.",
+      });
+    }
 
     // Verificar contraseña
-    const isValidPassword = await bcrypt.compare(password, usuario.password_hash);
-
-    console.log("🔐 Validación de contraseña:", isValidPassword ? "Correcta" : "Incorrecta");
-
-    if (!isValidPassword) {
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    if (!passwordMatch) {
       return res.status(401).json({
         success: false,
         message: "Credenciales inválidas",
@@ -135,13 +141,13 @@ exports.login = async (req, res) => {
     }
 
     // Procesar roles del usuario
-    const roles = usuario.roles_list ? usuario.roles_list.split(',') : [];
+    const roles = user.roles_list ? user.roles_list.split(',') : [];
 
     // Generar token JWT con los roles incluidos
     const token = jwt.sign(
       {
-        id_usuario: usuario.id_usuario,
-        email: usuario.email,
+        id_usuario: user.id_usuario,
+        email: user.email,
         roles: roles
       },
       JWT_SECRET,
@@ -149,7 +155,7 @@ exports.login = async (req, res) => {
     );
 
     // Respuesta exitosa (no incluir contraseña)
-    const { password_hash: _, ...usuarioSinPassword } = usuario;
+    const { password_hash: _, ...usuarioSinPassword } = user;
 
     console.log("✅ Login exitoso para:", email, "Roles:", roles);
 
@@ -516,80 +522,74 @@ exports.updateProfile = async (req, res) => {
 exports.requestPasswordReset = async (req, res) => {
   try {
     const { email } = req.body;
-
-    console.log(
-      `🔑 Solicitud de restablecimiento de contraseña para: ${email}`,
-    );
-
     if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "El email es requerido",
-      });
+      return res.status(400).json({ success: false, message: "Email requerido" });
     }
 
-    // Buscar usuario por email
-    const [user] = await db.query(
-      "SELECT * FROM USUARIO WHERE email = ? AND activo = TRUE",
-      [email],
-    );
-
-    // Por seguridad, siempre respondemos que se envió el email
-    // aunque el usuario no exista
-    if (user.length === 0) {
-      console.log(
-        `⚠️ Intento de restablecimiento para email no registrado: ${email}`,
-      );
-      return res.json({
-        success: true,
-        message:
-          "Si el email está registrado, recibirás instrucciones para restablecer tu contraseña",
-      });
+    // Buscar usuario
+    const [rows] = await db.query("SELECT * FROM USUARIO WHERE email = ?", [email]);
+    if (!rows.length) {
+      // Responder igual para evitar enumeración de usuarios
+      return res.json({ success: true, message: "Si el email está registrado, recibirás instrucciones para restablecer tu contraseña." });
     }
 
-    const userData = user[0];
+    const user = rows[0];
 
-    // Generar nueva contraseña temporal
-    const tempPassword = emailService.generateTemporaryPassword();
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(tempPassword, saltRounds);
+    // Generar token seguro y fecha de expiración (ej: 1 hora)
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
 
-    // Actualizar contraseña en la base de datos
+    // Guardar token y expiración en la BD
     await db.query(
-      "UPDATE USUARIO SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id_usuario = ?",
-      [hashedPassword, userData.id_usuario],
+      "UPDATE USUARIO SET reset_token = ?, reset_token_expires = ? WHERE id_usuario = ?",
+      [resetToken, expires, user.id_usuario]
     );
 
-    console.log(
-      `✅ Contraseña restablecida para usuario ${userData.id_usuario}`,
-    );
+    // Construir enlace de recuperación
+    const resetUrl = `${process.env.CLIENT_URL || "http://localhost:3000"}/reset-password?token=${resetToken}`;
 
-    // Enviar contraseña por email
-    const emailResult = await emailService.sendNewPassword(
-      userData.email,
-      userData.nombre_completo,
-      tempPassword,
-      true,
-    );
+    // Enviar email con el enlace
+    await emailService.sendPasswordResetEmail(user.email, user.nombre_completo, resetUrl);
 
-    // Log para debugging (no incluir contraseña en logs de producción)
-    if (!emailResult.success) {
-      console.error(
-        "❌ Error enviando email de restablecimiento:",
-        emailResult.message,
-      );
-    }
-
-    res.json({
+    return res.json({
       success: true,
-      message:
-        "Si el email está registrado, recibirás instrucciones para restablecer tu contraseña",
+      message: "Si el email está registrado, recibirás instrucciones para restablecer tu contraseña."
     });
   } catch (error) {
-    console.error("❌ Error en solicitud de restablecimiento:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error interno del servidor",
-    });
+    console.error("Error en requestPasswordReset:", error);
+    res.status(500).json({ success: false, message: "Error al solicitar recuperación" });
+  }
+};
+
+// Restablecer contraseña usando el token
+exports.resetPasswordWithToken = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password) {
+      return res.status(400).json({ success: false, message: "Token y nueva contraseña requeridos" });
+    }
+
+    // Buscar usuario con ese token y que no haya expirado
+    const [rows] = await db.query(
+      "SELECT * FROM USUARIO WHERE reset_token = ? AND reset_token_expires > NOW()",
+      [token]
+    );
+    if (!rows.length) {
+      return res.status(400).json({ success: false, message: "Token inválido o expirado" });
+    }
+
+    const user = rows[0];
+    const password_hash = await bcrypt.hash(password, 10);
+
+    // Actualizar contraseña y limpiar token
+    await db.query(
+      "UPDATE USUARIO SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL WHERE id_usuario = ?",
+      [password_hash, user.id_usuario]
+    );
+
+    res.json({ success: true, message: "Contraseña actualizada correctamente" });
+  } catch (error) {
+    console.error("Error en resetPasswordWithToken:", error);
+    res.status(500).json({ success: false, message: "Error al restablecer contraseña" });
   }
 };

@@ -299,6 +299,23 @@ RMP - Route Management Platform
       temporaryPassword: tempPassword,
     };
   }
+
+  // Enviar email de restablecimiento de contraseña
+  async sendPasswordResetEmail(to, nombre, resetUrl) {
+    const html = `
+    <p>Hola ${nombre || ""},</p>
+    <p>Recibimos una solicitud para restablecer tu contraseña.</p>
+    <p>Haz clic en el siguiente enlace para crear una nueva contraseña (válido por 1 hora):</p>
+    <p><a href="${resetUrl}">${resetUrl}</a></p>
+    <p>Si no solicitaste esto, ignora este correo.</p>
+    `;
+    return this.transporter.sendMail({
+      from: `"Soporte RMP" <${process.env.SMTP_USER}>`,
+      to,
+      subject: "Recupera tu contraseña",
+      html
+    });
+  }
 }
 
 module.exports = new EmailService();

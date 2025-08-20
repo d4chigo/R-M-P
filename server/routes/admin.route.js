@@ -27,5 +27,6 @@ router.post("/usuarios", adminController.createUser);
 router.put("/usuarios/:id", adminController.updateUser);
 router.delete("/usuarios/:id", adminController.deleteUser);
 router.post("/usuarios/:id/reset-password", adminController.resetUserPassword);
+router.patch("/usuarios/:id/toggle-active", adminController.toggleUsuarioActivo);
 
 module.exports = router;

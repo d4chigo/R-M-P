@@ -3,6 +3,7 @@ const router = express.Router();
 const authController = require("../controllers/auth.controller");
 const { authenticateToken } = require("../middleware/auth.middleware");
 const { checkNoAdminExists } = require("../middleware/checkAdmin.middleware");
+const { forgotPasswordLimiter } = require("../middleware/rateLimit.middleware");
 
 // Ruta para crear el primer admin
 router.post("/first-admin", checkNoAdminExists, authController.createFirstAdmin);
@@ -26,13 +27,12 @@ router.get("/profile", authenticateToken, authController.getProfile);
 router.put("/profile", authenticateToken, authController.updateProfile);
 
 // Ruta para cambiar contraseña (requiere autenticación)
-router.post(
-  "/change-password",
-  authenticateToken,
-  authController.changePassword,
-);
+router.post("/change-password", authenticateToken, authController.changePassword);
 
-// Ruta para solicitar restablecimiento de contraseña (público)
-router.post("/forgot-password", authController.requestPasswordReset);
+// Ruta de recuperación de contraseña (agrega el middleware aquí)
+router.post("/forgot-password", forgotPasswordLimiter, authController.requestPasswordReset);
+
+// Ruta para restablecer la contraseña con token (sin autenticación)
+router.post("/reset-password", authController.resetPasswordWithToken);
 
 module.exports = router;
