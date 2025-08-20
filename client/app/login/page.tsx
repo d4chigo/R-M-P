@@ -24,8 +24,16 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, isAuthenticated, isLoading, checkUsersExist } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    checkUsersExist().then(({ usersExist }) => {
+      if (!usersExist) {
+        router.push("/setup"); // Cambia la ruta según tu estructura
+      }
+    });
+  }, [checkUsersExist, router]);
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
