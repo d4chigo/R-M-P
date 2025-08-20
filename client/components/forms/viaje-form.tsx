@@ -5,13 +5,6 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { InfoIcon, AlertTriangle } from "lucide-react";
 import type { Viaje } from "@/hooks/use-viajes";
@@ -77,19 +70,14 @@ export function ViajeForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [searchVehiculo, setSearchVehiculo] = useState("");
+  const [searchRepartidor, setSearchRepartidor] = useState("");
+  const [showVehiculosDropdown, setShowVehiculosDropdown] = useState(false);
+  const [showRepartidoresDropdown, setShowRepartidoresDropdown] = useState(false);
 
   // Resetear formulario cuando cambia el viaje o se carga datos
   useEffect(() => {
-    console.log("🔄 useEffect ejecutado con viaje:", viaje);
-
     if (viaje && Object.keys(viaje).length > 0) {
-      console.log("📊 Datos del viaje completos:", {
-        fecha: viaje.fecha,
-        tipo_viaje: viaje.tipo_viaje,
-        vehiculosLoading,
-        repartidoresLoading,
-      });
-
       const newFormData = {
         fecha: formatDateLocal(viaje.fecha) || "",
         id_vehiculo: viaje.id_vehiculo?.toString() || "",
@@ -107,57 +95,21 @@ export function ViajeForm({
         tipo_viaje: viaje.tipo_viaje || undefined,
       };
 
-      console.log("📝 Estableciendo datos del formulario:", newFormData);
+      // Establecer los valores de búsqueda basados en los IDs seleccionados
+      const vehiculoSeleccionado = vehiculos.find(v => v.id_vehiculo?.toString() === newFormData.id_vehiculo);
+      const repartidorSeleccionado = repartidores.find(r => r.id_repartidor?.toString() === newFormData.id_repartidor);
+      
+      if (vehiculoSeleccionado) {
+        setSearchVehiculo(`${vehiculoSeleccionado.placa} - ${vehiculoSeleccionado.marca} ${vehiculoSeleccionado.modelo}`);
+      }
+      
+      if (repartidorSeleccionado) {
+        setSearchRepartidor(`${repartidorSeleccionado.codigo} - ${repartidorSeleccionado.nombre}`);
+      }
+
       setFormData(newFormData);
-    } else if (!viaje || Object.keys(viaje).length === 0) {
-      // Formulario nuevo
-      console.log("🆕 Reseteando formulario para nuevo viaje");
-      setFormData({
-        fecha: "",
-        id_vehiculo: "",
-        id_repartidor: "",
-        nro_viaje: "1",
-        salida_cd: "",
-        llegada_cd: "",
-        distancia_km: "",
-        tiempo_manejo_min: "",
-        tiempo_servicio_min: "",
-        recarga_min: "",
-        refrigerio_min: "",
-        tipo_viaje: undefined,
-      });
     }
-    setErrors({});
-    setWarnings([]);
-  }, [viaje, vehiculosLoading, repartidoresLoading]);
-
-  // Efecto para forzar re-render cuando los datos están listos
-  useEffect(() => {
-    if (isEditing && viaje && !vehiculosLoading && !repartidoresLoading) {
-      console.log("🔄 Forzando actualización de datos para edición");
-      const updatedFormData = {
-        fecha: formatDateLocal(viaje.fecha) || "",
-        id_vehiculo: viaje.id_vehiculo?.toString() || "",
-        id_repartidor: viaje.id_repartidor?.toString() || "",
-        nro_viaje: viaje.nro_viaje?.toString() || "1",
-        salida_cd: viaje.salida_cd ? formatDateTimeLocal(viaje.salida_cd) : "",
-        llegada_cd: viaje.llegada_cd
-          ? formatDateTimeLocal(viaje.llegada_cd)
-          : "",
-        distancia_km: viaje.distancia_km?.toString() || "",
-        tiempo_manejo_min: viaje.tiempo_manejo_min?.toString() || "",
-        tiempo_servicio_min: viaje.tiempo_servicio_min?.toString() || "",
-        recarga_min: viaje.recarga_min?.toString() || "",
-        refrigerio_min: viaje.refrigerio_min?.toString() || "",
-        tipo_viaje: viaje.tipo_viaje || undefined,
-      };
-
-      setFormData((prev) => {
-        console.log("🔄 Comparando datos:", { prev, updated: updatedFormData });
-        return updatedFormData;
-      });
-    }
-  }, [isEditing, viaje, vehiculosLoading, repartidoresLoading]);
+  }, [viaje, vehiculos, repartidores]);
 
   // Función para formatear datetime-local
   const formatDateTimeLocal = (dateTime: string): string => {
@@ -169,11 +121,9 @@ export function ViajeForm({
   // Función para formatear fecha DATE (yyyy-mm-dd)
   const formatDateLocal = (date: string): string => {
     if (!date) return "";
-    // Si ya viene en formato yyyy-mm-dd, devolverla tal como está
     if (typeof date === "string" && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
       return date;
     }
-    // Si viene como timestamp o fecha completa, extraer solo la parte de fecha
     const dateObj = new Date(date);
     return dateObj.toISOString().split("T")[0];
   };
@@ -181,111 +131,39 @@ export function ViajeForm({
   // Validaciones en tiempo real
   useEffect(() => {
     const newWarnings: string[] = [];
-
-    // Validar fecha no sea pasada (solo para nuevos viajes)
     if (!isEditing && formData.fecha) {
       const today = new Date().toISOString().split("T")[0];
       if (formData.fecha < today) {
         newWarnings.push("La fecha seleccionada es anterior al día de hoy");
       }
     }
-
-    // Validar que llegada sea posterior a salida
-    if (formData.salida_cd && formData.llegada_cd) {
-      const salida = new Date(formData.salida_cd);
-      const llegada = new Date(formData.llegada_cd);
-      if (llegada <= salida) {
-        newWarnings.push(
-          "La hora de llegada debe ser posterior a la hora de salida",
-        );
-      }
-    }
-
-    // Validar número de viaje
-    if (formData.nro_viaje && parseInt(formData.nro_viaje) < 1) {
-      newWarnings.push("El número de viaje debe ser mayor a 0");
-    }
-
     setWarnings(newWarnings);
   }, [formData, isEditing]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
-
-    // Campos obligatorios
     if (!formData.fecha) {
       newErrors.fecha = "La fecha es obligatoria";
     }
-
     if (!formData.id_vehiculo) {
       newErrors.id_vehiculo = "Debe seleccionar un vehículo";
     }
-
     if (!formData.id_repartidor) {
       newErrors.id_repartidor = "Debe seleccionar un repartidor";
     }
-
     if (!formData.nro_viaje || parseInt(formData.nro_viaje) < 1) {
       newErrors.nro_viaje =
         "El número de viaje es obligatorio y debe ser mayor a 0";
     }
-
-    // Validar vehículo activo
-    const vehiculoSeleccionado = vehiculos.find(
-      (v) => v.id_vehiculo?.toString() === formData.id_vehiculo,
-    );
-    if (vehiculoSeleccionado && !vehiculoSeleccionado.activo) {
-      newErrors.id_vehiculo = "El vehículo seleccionado no está activo";
-    }
-
-    // Validar repartidor activo
-    const repartidorSeleccionado = repartidores.find(
-      (r) => r.id_repartidor?.toString() === formData.id_repartidor,
-    );
-    if (repartidorSeleccionado && !repartidorSeleccionado.activo) {
-      newErrors.id_repartidor = "El repartidor seleccionado no está activo";
-    }
-
-    // Validar valores numéricos si se proporcionan
-    if (formData.distancia_km && parseFloat(formData.distancia_km) < 0) {
-      newErrors.distancia_km = "La distancia no puede ser negativa";
-    }
-
-    if (
-      formData.tiempo_manejo_min &&
-      parseInt(formData.tiempo_manejo_min) < 0
-    ) {
-      newErrors.tiempo_manejo_min = "El tiempo de manejo no puede ser negativo";
-    }
-
-    if (
-      formData.tiempo_servicio_min &&
-      parseInt(formData.tiempo_servicio_min) < 0
-    ) {
-      newErrors.tiempo_servicio_min =
-        "El tiempo de servicio no puede ser negativo";
-    }
-
-    if (formData.recarga_min && parseInt(formData.recarga_min) < 0) {
-      newErrors.recarga_min = "El tiempo de recarga no puede ser negativo";
-    }
-
-    if (formData.refrigerio_min && parseInt(formData.refrigerio_min) < 0) {
-      newErrors.refrigerio_min =
-        "El tiempo de refrigerio no puede ser negativo";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!validateForm()) {
       return;
     }
-
     onSubmit({
       fecha: formData.fecha,
       id_vehiculo: parseInt(formData.id_vehiculo),
@@ -313,13 +191,7 @@ export function ViajeForm({
   };
 
   const handleInputChange = (field: string, value: string) => {
-    console.log(`🔄 Campo ${field} cambiado a:`, value);
-    setFormData((prev) => {
-      const newData = { ...prev, [field]: value };
-      console.log("📝 Nuevo estado del formulario:", newData);
-      return newData;
-    });
-    // Limpiar error del campo cuando el usuario empiece a escribir
+    setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: "" }));
     }
@@ -328,6 +200,20 @@ export function ViajeForm({
   // Filtrar vehículos y repartidores activos
   const vehiculosActivos = vehiculos.filter((v) => v.activo);
   const repartidoresActivos = repartidores.filter((r) => r.activo);
+
+  // Filtrar vehículos y repartidores según la búsqueda
+  const filteredVehiculos = vehiculosActivos.filter(
+    (vehiculo) =>
+      vehiculo.placa.toLowerCase().includes(searchVehiculo.toLowerCase()) ||
+      vehiculo.marca.toLowerCase().includes(searchVehiculo.toLowerCase()) ||
+      vehiculo.modelo.toLowerCase().includes(searchVehiculo.toLowerCase())
+  );
+
+  const filteredRepartidores = repartidoresActivos.filter(
+    (repartidor) =>
+      repartidor.nombre.toLowerCase().includes(searchRepartidor.toLowerCase()) ||
+      repartidor.codigo.toLowerCase().includes(searchRepartidor.toLowerCase())
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -362,21 +248,12 @@ export function ViajeForm({
             id="fecha"
             type="date"
             value={formData.fecha}
-            onChange={(e) => {
-              console.log("📅 Fecha cambiada:", e.target.value);
-              handleInputChange("fecha", e.target.value);
-            }}
+            onChange={(e) => handleInputChange("fecha", e.target.value)}
             className={errors.fecha ? "border-red-500" : ""}
             required
           />
           {errors.fecha && (
             <p className="text-sm text-red-500 mt-1">{errors.fecha}</p>
-          )}
-          {isEditing && (
-            <p className="text-xs text-gray-500 mt-1">
-              Fecha actual: {formData.fecha || "No cargada"}
-              {viaje?.fecha && ` | Original: ${viaje.fecha}`}
-            </p>
           )}
         </div>
         <div>
@@ -399,88 +276,107 @@ export function ViajeForm({
 
       {/* Fila 2: Vehículo y Repartidor */}
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="id_vehiculo">Vehículo *</Label>
-          <Select
-            value={formData.id_vehiculo}
-            onValueChange={(value) => handleInputChange("id_vehiculo", value)}
-            disabled={vehiculosLoading}
-          >
-            <SelectTrigger
-              className={errors.id_vehiculo ? "border-red-500" : ""}
-            >
-              <SelectValue
-                placeholder={
-                  vehiculosLoading
-                    ? "Cargando vehículos..."
-                    : "Seleccionar vehículo"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {vehiculosActivos.map((vehiculo) => (
-                <SelectItem
-                  key={vehiculo.id_vehiculo}
-                  value={vehiculo.id_vehiculo?.toString() || ""}
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium">
-                      {vehiculo.placa} - {vehiculo.marca} {vehiculo.modelo}
-                    </span>
+        <div className="relative">
+          <Label htmlFor="searchVehiculo">Vehículo *</Label>
+          <Input
+            id="searchVehiculo"
+            type="text"
+            value={searchVehiculo}
+            onChange={(e) => {
+              setSearchVehiculo(e.target.value);
+              if (e.target.value === "") {
+                handleInputChange("id_vehiculo", "");
+              }
+            }}
+            onFocus={() => setShowVehiculosDropdown(true)}
+            onBlur={() => setTimeout(() => setShowVehiculosDropdown(false), 200)}
+            placeholder="Buscar vehículo por placa, marca o modelo"
+            className={errors.id_vehiculo ? "border-red-500" : ""}
+          />
+          {showVehiculosDropdown && (
+            <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white shadow-lg">
+              {filteredVehiculos.length > 0 ? (
+                filteredVehiculos.map((vehiculo) => (
+                  <div
+                    key={vehiculo.id_vehiculo}
+                    className="p-2 cursor-pointer hover:bg-gray-100 border-b border-gray-200 last:border-b-0"
+                    onClick={() => {
+                      handleInputChange("id_vehiculo", vehiculo.id_vehiculo?.toString() || "");
+                      setSearchVehiculo(`${vehiculo.placa} - ${vehiculo.marca} ${vehiculo.modelo}`);
+                      setShowVehiculosDropdown(false);
+                    }}
+                  >
+                    <div className="font-medium">{vehiculo.placa}</div>
+                    <div className="text-sm text-gray-600">
+                      {vehiculo.marca} {vehiculo.modelo}
+                    </div>
                     {vehiculo.capacidad_kg && (
-                      <span className="text-xs text-gray-500">
+                      <div className="text-xs text-gray-500">
                         Capacidad: {vehiculo.capacidad_kg}kg
-                        {vehiculo.capacidad_cajas &&
-                          ` - ${vehiculo.capacidad_cajas} cajas`}
-                      </span>
+                      </div>
                     )}
                   </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                ))
+              ) : (
+                <div className="p-2 text-gray-500 text-sm">
+                  No se encontraron vehículos
+                </div>
+              )}
+            </div>
+          )}
           {errors.id_vehiculo && (
             <p className="text-sm text-red-500 mt-1">{errors.id_vehiculo}</p>
           )}
         </div>
-        <div>
-          <Label htmlFor="id_repartidor">Repartidor *</Label>
-          <Select
-            value={formData.id_repartidor}
-            onValueChange={(value) => handleInputChange("id_repartidor", value)}
-            disabled={repartidoresLoading}
-          >
-            <SelectTrigger
-              className={errors.id_repartidor ? "border-red-500" : ""}
-            >
-              <SelectValue
-                placeholder={
-                  repartidoresLoading
-                    ? "Cargando repartidores..."
-                    : "Seleccionar repartidor"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {repartidoresActivos.map((repartidor) => (
-                <SelectItem
-                  key={repartidor.id_repartidor}
-                  value={repartidor.id_repartidor?.toString() || ""}
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium">
-                      {repartidor.codigo} - {repartidor.nombre}
-                    </span>
+
+        <div className="relative">
+          <Label htmlFor="searchRepartidor">Repartidor *</Label>
+          <Input
+            id="searchRepartidor"
+            type="text"
+            value={searchRepartidor}
+            onChange={(e) => {
+              setSearchRepartidor(e.target.value);
+              if (e.target.value === "") {
+                handleInputChange("id_repartidor", "");
+              }
+            }}
+            onFocus={() => setShowRepartidoresDropdown(true)}
+            onBlur={() => setTimeout(() => setShowRepartidoresDropdown(false), 200)}
+            placeholder="Buscar repartidor por nombre o código"
+            className={errors.id_repartidor ? "border-red-500" : ""}
+          />
+          {showRepartidoresDropdown && (
+            <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white shadow-lg">
+              {filteredRepartidores.length > 0 ? (
+                filteredRepartidores.map((repartidor) => (
+                  <div
+                    key={repartidor.id_repartidor}
+                    className="p-2 cursor-pointer hover:bg-gray-100 border-b border-gray-200 last:border-b-0"
+                    onClick={() => {
+                      handleInputChange("id_repartidor", repartidor.id_repartidor?.toString() || "");
+                      setSearchRepartidor(`${repartidor.codigo} - ${repartidor.nombre}`);
+                      setShowRepartidoresDropdown(false);
+                    }}
+                  >
+                    <div className="font-medium">{repartidor.codigo}</div>
+                    <div className="text-sm text-gray-600">
+                      {repartidor.nombre}
+                    </div>
                     {repartidor.telefono && (
-                      <span className="text-xs text-gray-500">
+                      <div className="text-xs text-gray-500">
                         Tel: {repartidor.telefono}
-                      </span>
+                      </div>
                     )}
                   </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+                ))
+              ) : (
+                <div className="p-2 text-gray-500 text-sm">
+                  No se encontraron repartidores
+                </div>
+              )}
+            </div>
+          )}
           {errors.id_repartidor && (
             <p className="text-sm text-red-500 mt-1">{errors.id_repartidor}</p>
           )}
@@ -529,28 +425,22 @@ export function ViajeForm({
         </div>
         <div>
           <Label htmlFor="tipo_viaje">Tipo de Viaje</Label>
-          <Select
-            value={formData.tipo_viaje || undefined}
-            onValueChange={(value) => handleInputChange("tipo_viaje", value)}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Seleccionar tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ENTREGA">Entrega</SelectItem>
-              <SelectItem value="RECOJO">Recojo</SelectItem>
-              <SelectItem value="MIXTO">Mixto</SelectItem>
-              <SelectItem value="ESPECIAL">Especial</SelectItem>
-              <SelectItem value="MANTENIMIENTO">Mantenimiento</SelectItem>
-              <SelectItem value="EMERGENCIA">Emergencia</SelectItem>
-            </SelectContent>
-          </Select>
-          {isEditing && (
-            <p className="text-xs text-gray-500 mt-1">
-              Tipo actual: {formData.tipo_viaje || "No seleccionado"}
-              {viaje?.tipo_viaje && ` | Original: ${viaje.tipo_viaje}`}
-            </p>
-          )}
+          <Input
+            id="tipo_viaje"
+            type="text"
+            value={formData.tipo_viaje || ""}
+            onChange={(e) => handleInputChange("tipo_viaje", e.target.value)}
+            placeholder="Ej: Entrega, Recojo, Mixto"
+            list="tipo_viaje_options"
+          />
+          <datalist id="tipo_viaje_options">
+            <option value="ENTREGA">Entrega</option>
+            <option value="RECOJO">Recojo</option>
+            <option value="MIXTO">Mixto</option>
+            <option value="ESPECIAL">Especial</option>
+            <option value="MANTENIMIENTO">Mantenimiento</option>
+            <option value="EMERGENCIA">Emergencia</option>
+          </datalist>
         </div>
       </div>
 

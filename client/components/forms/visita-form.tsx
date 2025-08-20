@@ -1,18 +1,10 @@
 "use client";
 
 import type React from "react";
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { Visita } from "@/hooks/use-visitas";
 import { useViajes } from "@/hooks/use-viajes";
 import { useClientes } from "@/hooks/use-clientes";
@@ -51,6 +43,10 @@ export function VisitaForm({
     distancia_km: "",
   });
 
+  const [searchViaje, setSearchViaje] = useState("");
+  const [searchCliente, setSearchCliente] = useState("");
+  const [showViajesDropdown, setShowViajesDropdown] = useState(false);
+  const [showClientesDropdown, setShowClientesDropdown] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
 
   // Función para resetear formulario
@@ -64,28 +60,18 @@ export function VisitaForm({
       peso_kg: "",
       distancia_km: "",
     });
+    setSearchViaje("");
+    setSearchCliente("");
   };
 
   useEffect(() => {
-    console.log("=== useEffect DEBUG ===");
-    console.log("visita:", visita);
-    console.log("isEditing:", isEditing);
-    console.log("viajesLoading:", viajesLoading);
-    console.log("clientesLoading:", clientesLoading);
-    console.log("viajes.length:", viajes.length);
-    console.log("clientes.length:", clientes.length);
-
     if (visita && visita.id_visita && isEditing) {
-      // Solo cargar datos si hay una visita válida con ID para editar
-      // Y esperar a que los datos de viajes y clientes estén disponibles
       if (
         !viajesLoading &&
         !clientesLoading &&
         viajes.length > 0 &&
         clientes.length > 0
       ) {
-        console.log("Cargando datos del formulario para edición");
-
         const newFormData = {
           id_viaje: visita.id_viaje.toString(),
           id_cliente: visita.id_cliente.toString(),
@@ -96,20 +82,12 @@ export function VisitaForm({
           distancia_km: visita.distancia_km?.toString() || "",
         };
 
-        // Forzar re-render después de un timeout para asegurar que los Select se actualicen
         setTimeout(() => {
           setFormData(newFormData);
           setDataLoaded(true);
         }, 100);
-
-        console.log("Datos cargados:", {
-          id_viaje: visita.id_viaje.toString(),
-          id_cliente: visita.id_cliente.toString(),
-        });
       }
     } else if (!isEditing) {
-      // Resetear formulario cuando no hay visita para editar o es nueva
-      console.log("Reseteando formulario");
       resetForm();
       setDataLoaded(false);
     }
@@ -118,7 +96,6 @@ export function VisitaForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validaciones básicas
     if (
       !formData.id_viaje ||
       !formData.id_cliente ||
@@ -134,7 +111,6 @@ export function VisitaForm({
     const viajeId = Number.parseInt(formData.id_viaje);
     const clienteId = Number.parseInt(formData.id_cliente);
 
-    // Validar que los IDs sean números válidos
     if (isNaN(viajeId) || isNaN(clienteId) || viajeId <= 0 || clienteId <= 0) {
       alert("Los IDs de viaje y cliente deben ser válidos");
       return;
@@ -160,88 +136,104 @@ export function VisitaForm({
   };
 
   const handleInputChange = (field: string, value: string) => {
-    // Evitar valores inválidos para los selects
-    if (
-      (field === "id_viaje" || field === "id_cliente") &&
-      (value === "no-data" || value === "0")
-    ) {
-      return;
-    }
-
-    setFormData((prev: typeof formData) => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  // Filtrar viajes y clientes según la búsqueda
+  const filteredViajes = viajes.filter((viaje) =>
+    viaje.nro_viaje.toString().includes(searchViaje) ||
+    viaje.fecha.includes(searchViaje)
+  );
+
+  const filteredClientes = clientes.filter((cliente) =>
+    cliente.nombre.toLowerCase().includes(searchCliente.toLowerCase())
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="id_viaje">ID Viaje *</Label>
-          <Select
-            key={`viaje-${dataLoaded}-${formData.id_viaje}`}
-            value={formData.id_viaje || undefined}
-            onValueChange={(value) => handleInputChange("id_viaje", value)}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={
-                  viajesLoading || viajes.length === 0
-                    ? "Cargando viajes..."
-                    : "Seleccionar viaje"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {viajesLoading || viajes.length === 0 ? (
-                <SelectItem value="no-data" disabled>
-                  Cargando viajes...
-                </SelectItem>
-              ) : (
-                viajes.map((viaje) => (
-                  <SelectItem
+        <div className="relative">
+          <Label htmlFor="id_viaje">Viaje *</Label>
+          <Input
+            id="id_viaje"
+            type="text"
+            value={searchViaje}
+            onChange={(e) => {
+              setSearchViaje(e.target.value);
+              if (e.target.value === "") {
+                handleInputChange("id_viaje", "");
+              }
+            }}
+            onFocus={() => setShowViajesDropdown(true)}
+            onBlur={() => setTimeout(() => setShowViajesDropdown(false), 200)}
+            placeholder="Buscar por ID de viaje"
+            className="bg-white dark:bg-gray-800 text-black dark:text-white" // Asegúrate de que el texto sea visible
+          />
+          {showViajesDropdown && (
+            <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white shadow-lg dark:bg-gray-800">
+              {filteredViajes.length > 0 ? (
+                filteredViajes.map((viaje) => (
+                  <div
                     key={viaje.id_viaje}
-                    value={viaje.id_viaje?.toString() || "0"}
+                    className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 last:border-b-0"
+                    onClick={() => {
+                      handleInputChange("id_viaje", viaje.id_viaje?.toString() || "");
+                      setSearchViaje(`${viaje.nro_viaje} - ${viaje.fecha}`);
+                      setShowViajesDropdown(false);
+                    }}
                   >
-                    Viaje #{viaje.nro_viaje} - {viaje.fecha} (ID:{" "}
-                    {viaje.id_viaje})
-                  </SelectItem>
+                    Viaje #{viaje.nro_viaje} - {viaje.fecha} (ID: {viaje.id_viaje})
+                  </div>
                 ))
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="id_cliente">ID Cliente *</Label>
-          <Select
-            key={`cliente-${dataLoaded}-${formData.id_cliente}`}
-            value={formData.id_cliente || undefined}
-            onValueChange={(value) => handleInputChange("id_cliente", value)}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={
-                  clientesLoading || clientes.length === 0
-                    ? "Cargando clientes..."
-                    : "Seleccionar cliente"
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {clientesLoading || clientes.length === 0 ? (
-                <SelectItem value="no-data" disabled>
-                  Cargando clientes...
-                </SelectItem>
               ) : (
-                clientes.map((cliente) => (
-                  <SelectItem
+                <div className="p-2 text-gray-500 text-sm">
+                  No se encontraron viajes
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="relative">
+          <Label htmlFor="id_cliente">Cliente *</Label>
+          <Input
+            id="id_cliente"
+            type="text"
+            value={searchCliente}
+            onChange={(e) => {
+              setSearchCliente(e.target.value);
+              if (e.target.value === "") {
+                handleInputChange("id_cliente", "");
+              }
+            }}
+            onFocus={() => setShowClientesDropdown(true)}
+            onBlur={() => setTimeout(() => setShowClientesDropdown(false), 200)}
+            placeholder="Buscar cliente por nombre o ID"
+            className="bg-white dark:bg-gray-800 text-black dark:text-white" // Asegúrate de que el texto sea visible
+          />
+          {showClientesDropdown && (
+            <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white shadow-lg dark:bg-gray-800">
+              {filteredClientes.length > 0 ? (
+                filteredClientes.map((cliente) => (
+                  <div
                     key={cliente.id_cliente}
-                    value={cliente.id_cliente?.toString() || "0"}
+                    className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 last:border-b-0"
+                    onClick={() => {
+                      handleInputChange("id_cliente", cliente.id_cliente?.toString() || "");
+                      setSearchCliente(cliente.nombre);
+                      setShowClientesDropdown(false);
+                    }}
                   >
                     {cliente.nombre} (ID: {cliente.id_cliente})
-                  </SelectItem>
+                  </div>
                 ))
+              ) : (
+                <div className="p-2 text-gray-500 text-sm">
+                  No se encontraron clientes
+                </div>
               )}
-            </SelectContent>
-          </Select>
+            </div>
+          )}
         </div>
       </div>
 
