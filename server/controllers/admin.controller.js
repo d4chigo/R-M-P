@@ -1,4 +1,3 @@
-
 /**
  * Controlador para gestión de administradores y configuración inicial
  * @module controllers/admin
@@ -148,7 +147,6 @@ exports.checkUsersExist = async (req, res) => {
     });
   }
 };
-
 
 
 // Gestión de usuarios
@@ -648,39 +646,27 @@ const resetUserPassword = exports.resetUserPassword = async (req, res) => {
 };
 
 // Alternar estado activo/inactivo de usuario (solo administradores)
-const toggleUsuarioActivo = async (req, res) => {
+exports.toggleUsuarioActivo = async (req, res) => {
+  const { id } = req.params;
+  const currentUserId = req.usuario.id_usuario; // Asegúrate que el middleware agrega esto
+
   try {
-    const { id } = req.params;
-    const currentUserId = req.usuario.id_usuario;
-
-    console.log(`🔄 Alternando estado activo para usuario ID: ${id}`);
-
-    // Verificar que no se esté desactivando a sí mismo
+    // No permitir desactivarse a sí mismo
     if (parseInt(id) === currentUserId) {
       return res.status(400).json({
         success: false,
-        message: "No puedes cambiar el estado de tu propia cuenta",
+        message: "No puedes desactivar tu propia cuenta",
       });
     }
 
     // Verificar que el usuario existe
-    const [user] = await db.query(
-      "SELECT * FROM USUARIO WHERE id_usuario = ?",
-      [id]
-    );
-
-    if (user.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Usuario no encontrado",
-      });
+    const [usuario] = await db.query('SELECT * FROM USUARIO WHERE id_usuario = ?', [id]);
+    if (!usuario || usuario.length === 0) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
     }
 
-    const currentStatus = user[0].activo;
-    const newStatus = !currentStatus;
-
-    // Si se está desactivando, verificar que no sea el último administrador activo
-    if (currentStatus && newStatus === false) {
+    // Si se va a desactivar, verificar que no sea el último administrador activo
+    if (usuario[0].activo) {
       const [adminCount] = await db.query(`
         SELECT COUNT(DISTINCT u.id_usuario) as total
         FROM USUARIO u
@@ -699,18 +685,14 @@ const toggleUsuarioActivo = async (req, res) => {
       if (adminCount[0].total <= 1 && userIsAdmin[0].is_admin > 0) {
         return res.status(400).json({
           success: false,
-          message: "No se puede desactivar el último administrador del sistema",
+          message: "No se puede desactivar el último administrador activo del sistema",
         });
       }
     }
 
-    // Actualizar estado
-    await db.query(
-      "UPDATE USUARIO SET activo = ?, updated_at = CURRENT_TIMESTAMP WHERE id_usuario = ?",
-      [newStatus, id]
-    );
-
-    console.log(`✅ Estado del usuario ${id} cambiado a: ${newStatus ? 'ACTIVO' : 'INACTIVO'}`);
+    // Alternar estado
+    const nuevoEstado = usuario[0].activo ? 0 : 1;
+    await db.query('UPDATE USUARIO SET activo = ?, updated_at = CURRENT_TIMESTAMP WHERE id_usuario = ?', [nuevoEstado, id]);
 
     // Obtener usuario actualizado
     const [updatedUser] = await db.query(
@@ -734,10 +716,11 @@ const toggleUsuarioActivo = async (req, res) => {
     res.json({
       success: true,
       data: userData,
-      message: `Usuario ${newStatus ? 'activado' : 'desactivado'} exitosamente`,
+      activo: !!nuevoEstado,
+      message: `Usuario ${nuevoEstado ? "activado" : "desactivado"} correctamente`,
     });
   } catch (error) {
-    console.error("❌ Error alternando estado de usuario:", error);
+    console.error('❌ Error al cambiar estado del usuario:', error);
     res.status(500).json({
       success: false,
       message: "Error al cambiar estado del usuario",
