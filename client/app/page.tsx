@@ -110,13 +110,9 @@ export default function HomePage() {
               Sistema R-M-P v2.0
             </h1>
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Route Management Platform - Sistema integral para la gestión de
+              Plataforma de Gestión de Rutas - Sistema integral para la gestión de
               rutas, vehículos y logística
             </p>
-            <div className="mt-4 inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-              <Package className="w-4 h-4 mr-2" />
-              Esquema: 02-init.sql
-            </div>
           </div>
 
           {/* Módulos Principales */}
@@ -155,7 +151,7 @@ export default function HomePage() {
           {/* Reportes y Analytics */}
           <div className="mb-12">
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-              Reportes y Analytics
+              Reportes y Análisis
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               {reportes.map((reporte) => {

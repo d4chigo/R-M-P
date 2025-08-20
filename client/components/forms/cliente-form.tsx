@@ -1,19 +1,12 @@
 "use client";
 
 import type React from "react";
-
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { Cliente } from "@/hooks/use-clientes";
 import { useZonas } from "@/hooks/use-zonas";
@@ -50,9 +43,9 @@ export function ClienteForm({
   });
 
   const [initialLoad, setInitialLoad] = useState(false);
-  const [originalIdZona, setOriginalIdZona] = useState<number | undefined>(
-    undefined,
-  );
+  const [originalIdZona, setOriginalIdZona] = useState<number | undefined>(undefined);
+  const [codigoError, setCodigoError] = useState<string | null>(null);
+  const [nombreError, setNombreError] = useState<string | null>(null);
 
   // Cargar zonas al montar el componente
   const loadZonas = useCallback(async () => {
@@ -79,23 +72,10 @@ export function ClienteForm({
   // Llenar el formulario cuando se edita un cliente
   useEffect(() => {
     if (cliente) {
-      console.log(
-        "📝 ClienteForm: Actualizando formulario con datos del cliente:",
-        cliente,
-      );
-      console.log("📝 ClienteForm: id_zona del cliente:", cliente.id_zona);
-
-      // Guardar la zona original para preservarla
+      console.log("📝 ClienteForm: Actualizando formulario con datos del cliente:", cliente);
       setOriginalIdZona(cliente.id_zona);
 
-      const newIdZona =
-        cliente.id_zona && cliente.id_zona > 0
-          ? cliente.id_zona.toString()
-          : "0";
-      console.log(
-        "📝 ClienteForm: id_zona convertido para formulario:",
-        newIdZona,
-      );
+      const newIdZona = cliente.id_zona && cliente.id_zona > 0 ? cliente.id_zona.toString() : "0";
 
       setFormData({
         codigo: cliente.codigo || "",
@@ -105,126 +85,73 @@ export function ClienteForm({
         activo: Boolean(cliente.activo),
       });
     } else if (!isEditing) {
-      // Solo resetear si no estamos editando
-      setOriginalIdZona(undefined);
-      setFormData({
-        codigo: "",
-        nombre: "",
-        direccion: "",
-        id_zona: "0",
-        activo: true,
-      });
+      resetForm();
     }
   }, [cliente, isEditing]);
 
-  // Debug: Log cuando cambien las zonas
-  useEffect(() => {
-    console.log("📊 ClienteForm: Estado de zonas:", {
-      count: zonas.length,
-      isLoading: zonasLoading,
-      error: error,
-      zonas: zonas.slice(0, 3).map((z) => ({
-        id: z.id_zona,
-        codigo: z.codigo,
-        descripcion: z.descripcion,
-      })),
+  const resetForm = () => {
+    setFormData({
+      codigo: "",
+      nombre: "",
+      direccion: "",
+      id_zona: "0",
+      activo: true,
     });
-  }, [zonas, zonasLoading, error]);
+    setCodigoError(null);
+    setNombreError(null);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     // Validaciones básicas
     if (!formData.codigo.trim()) {
-      toast({
-        title: "Campo requerido",
-        description: "El código es obligatorio",
-        variant: "destructive",
-      });
+      setCodigoError("El código es obligatorio");
       return;
+    } else if (formData.codigo.length > 20) {
+      setCodigoError("El código no puede exceder 20 caracteres");
+      return;
+    } else {
+      setCodigoError(null);
     }
 
     if (!formData.nombre.trim()) {
-      toast({
-        title: "Campo requerido",
-        description: "El nombre es obligatorio",
-        variant: "destructive",
-      });
+      setNombreError("El nombre es obligatorio");
       return;
+    } else if (formData.nombre.length > 100) {
+      setNombreError("El nombre no puede exceder 100 caracteres");
+      return;
+    } else {
+      setNombreError(null);
     }
 
-    // Validación de formato de código
-    if (formData.codigo.length > 20) {
-      toast({
-        title: "Código muy largo",
-        description: "El código no puede exceder 20 caracteres",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validación de formato de nombre
-    if (formData.nombre.length > 100) {
-      toast({
-        title: "Nombre muy largo",
-        description: "El nombre no puede exceder 100 caracteres",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Solo enviar campos que realmente cambiaron
     const submitData: any = {
       codigo: formData.codigo.trim(),
       nombre: formData.nombre.trim(),
       activo: formData.activo,
     };
 
-    // Solo incluir dirección si hay valor o estamos creando
     if (formData.direccion.trim() || !isEditing) {
       submitData.direccion = formData.direccion.trim() || undefined;
     }
 
-    // Solo incluir id_zona si realmente cambió o estamos creando
     if (isEditing && cliente) {
-      // Solo enviar id_zona si es diferente al original
-      const newIdZona =
-        formData.id_zona && formData.id_zona !== "0"
-          ? Number.parseInt(formData.id_zona)
-          : undefined;
+      const newIdZona = formData.id_zona && formData.id_zona !== "0" ? Number.parseInt(formData.id_zona) : undefined;
 
       if (newIdZona !== originalIdZona) {
         submitData.id_zona = newIdZona;
-        console.log(
-          "🔄 ClienteForm: Zona cambió de",
-          originalIdZona,
-          "a",
-          newIdZona,
-        );
-      } else {
-        console.log("🔄 ClienteForm: Zona no cambió, no se envía");
       }
     } else {
-      // Para creación nueva, siempre incluir
-      submitData.id_zona =
-        formData.id_zona && formData.id_zona !== "0"
-          ? Number.parseInt(formData.id_zona)
-          : undefined;
+      submitData.id_zona = formData.id_zona && formData.id_zona !== "0" ? Number.parseInt(formData.id_zona) : undefined;
     }
 
     console.log("📤 ClienteForm: Enviando datos:", submitData);
-    console.log("📤 ClienteForm: Cliente original completo:", cliente);
-    console.log("📤 ClienteForm: FormData completo:", formData);
     onSubmit(submitData);
   };
 
   const handleInputChange = (field: string, value: string | boolean) => {
     console.log(`📝 ClienteForm: Actualizando ${field}:`, value);
-    setFormData((prev) => {
-      const newData = { ...prev, [field]: value };
-      console.log("📊 ClienteForm: Nuevo estado del formulario:", newData);
-      return newData;
-    });
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
@@ -244,6 +171,7 @@ export function ClienteForm({
             required
             className="font-mono"
           />
+          {codigoError && <p className="text-sm text-red-500">{codigoError}</p>}
           <p className="text-sm text-muted-foreground">
             Máximo 20 caracteres. Debe ser único.
           </p>
@@ -261,6 +189,7 @@ export function ClienteForm({
             maxLength={100}
             required
           />
+          {nombreError && <p className="text-sm text-red-500">{nombreError}</p>}
           <p className="text-sm text-muted-foreground">
             Máximo 100 caracteres.
           </p>
@@ -288,18 +217,7 @@ export function ClienteForm({
         <Label htmlFor="id_zona">Zona</Label>
         <Select
           value={formData.id_zona || "0"}
-          onValueChange={(value) => {
-            console.log("🏷️ ClienteForm: Zona seleccionada:", value);
-            console.log(
-              "🏷️ ClienteForm: Cliente original id_zona:",
-              cliente?.id_zona,
-            );
-            console.log(
-              "🏷️ ClienteForm: Formdata actual id_zona:",
-              formData.id_zona,
-            );
-            handleInputChange("id_zona", value);
-          }}
+          onValueChange={(value) => handleInputChange("id_zona", value)}
           disabled={zonasLoading}
         >
           <SelectTrigger>
