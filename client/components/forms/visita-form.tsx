@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,12 @@ interface VisitaFormProps {
     recojo_cf?: number;
     peso_kg?: number;
     distancia_km?: number;
+    estado_entrega?: 'ENTREGADO' | 'NO_ENTREGADO' | 'REPROGRAMADO';
+    motivo_no_entrega?: string | null;
+    hora_llegada?: string | null;
+    hora_salida?: string | null;
+    ventana_ini?: string | null;
+    ventana_fin?: string | null;
   }) => void;
   onCancel: () => void;
   isEditing?: boolean;
@@ -41,6 +47,12 @@ export function VisitaForm({
     recojo_cf: "",
     peso_kg: "",
     distancia_km: "",
+    estado_entrega: "ENTREGADO" as 'ENTREGADO' | 'NO_ENTREGADO' | 'REPROGRAMADO',
+    motivo_no_entrega: "",
+    hora_llegada: "",
+    hora_salida: "",
+    ventana_ini: "",
+    ventana_fin: "",
   });
 
   const [searchViaje, setSearchViaje] = useState("");
@@ -48,6 +60,24 @@ export function VisitaForm({
   const [showViajesDropdown, setShowViajesDropdown] = useState(false);
   const [showClientesDropdown, setShowClientesDropdown] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Cálculo de IDR (minutos fuera de ventana) y bandera Fuera de VH en base a los campos del formulario
+  const { idrMin, fueraVH } = useMemo(() => {
+    const parse = (v?: string) => (v ? new Date(v) : null);
+    const llegada = parse(formData.hora_llegada);
+    const open = parse(formData.ventana_ini);
+    const close = parse(formData.ventana_fin);
+
+    if (!llegada || !open || !close) return { idrMin: null as number | null, fueraVH: null as boolean | null };
+
+    if (llegada >= open && llegada <= close) return { idrMin: 0, fueraVH: false };
+
+    const diffMs = llegada < open ? open.getTime() - llegada.getTime() : llegada.getTime() - close.getTime();
+    const minutes = Math.round(diffMs / 60000);
+    // Negativo si llegó antes de la ventana, positivo si después
+    const idr = llegada < open ? -minutes : minutes;
+    return { idrMin: idr, fueraVH: true };
+  }, [formData.hora_llegada, formData.ventana_ini, formData.ventana_fin]);
 
   // Función para resetear formulario
   const resetForm = () => {
@@ -59,6 +89,12 @@ export function VisitaForm({
       recojo_cf: "",
       peso_kg: "",
       distancia_km: "",
+      estado_entrega: "ENTREGADO",
+      motivo_no_entrega: "",
+      hora_llegada: "",
+      hora_salida: "",
+      ventana_ini: "",
+      ventana_fin: "",
     });
     setSearchViaje("");
     setSearchCliente("");
@@ -80,6 +116,12 @@ export function VisitaForm({
           recojo_cf: visita.recojo_cf?.toString() || "",
           peso_kg: visita.peso_kg?.toString() || "",
           distancia_km: visita.distancia_km?.toString() || "",
+          estado_entrega: (visita.estado_entrega || 'ENTREGADO') as 'ENTREGADO' | 'NO_ENTREGADO' | 'REPROGRAMADO',
+          motivo_no_entrega: visita.motivo_no_entrega || "",
+          hora_llegada: visita.hora_llegada || "",
+          hora_salida: visita.hora_salida || "",
+          ventana_ini: visita.ventana_ini || "",
+          ventana_fin: visita.ventana_fin || "",
         };
 
         setTimeout(() => {
@@ -132,6 +174,14 @@ export function VisitaForm({
       distancia_km: formData.distancia_km
         ? Number.parseFloat(formData.distancia_km)
         : undefined,
+      estado_entrega: formData.estado_entrega,
+      motivo_no_entrega: formData.estado_entrega !== 'ENTREGADO' && formData.motivo_no_entrega
+        ? formData.motivo_no_entrega
+        : null,
+      hora_llegada: formData.hora_llegada ? formData.hora_llegada : null,
+      hora_salida: formData.hora_salida ? formData.hora_salida : null,
+      ventana_ini: formData.ventana_ini ? formData.ventana_ini : null,
+      ventana_fin: formData.ventana_fin ? formData.ventana_fin : null,
     });
   };
 
@@ -293,6 +343,96 @@ export function VisitaForm({
             value={formData.distancia_km}
             onChange={(e) => handleInputChange("distancia_km", e.target.value)}
             placeholder="0.0"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="estado_entrega">Estado de entrega</Label>
+          <select
+            id="estado_entrega"
+            className="w-full border rounded h-10 px-3 bg-white dark:bg-gray-800 text-black dark:text-white"
+            value={formData.estado_entrega}
+            onChange={(e) => handleInputChange('estado_entrega', e.target.value)}
+          >
+            <option value="ENTREGADO">ENTREGADO</option>
+            <option value="NO_ENTREGADO">NO_ENTREGADO</option>
+            <option value="REPROGRAMADO">REPROGRAMADO</option>
+          </select>
+        </div>
+        {formData.estado_entrega !== 'ENTREGADO' && (
+          <div>
+            <Label htmlFor="motivo_no_entrega">Motivo (si no entregado)</Label>
+            <Input
+              id="motivo_no_entrega"
+              type="text"
+              value={formData.motivo_no_entrega}
+              onChange={(e) => handleInputChange('motivo_no_entrega', e.target.value)}
+              placeholder="Motivo de no entrega"
+            />
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="hora_llegada">Hora de llegada</Label>
+          <Input
+            id="hora_llegada"
+            type="datetime-local"
+            value={formData.hora_llegada}
+            onChange={(e) => handleInputChange('hora_llegada', e.target.value)}
+          />
+        </div>
+        <div>
+          <Label htmlFor="hora_salida">Hora de salida</Label>
+          <Input
+            id="hora_salida"
+            type="datetime-local"
+            value={formData.hora_salida}
+            onChange={(e) => handleInputChange('hora_salida', e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="ventana_ini">Ventana inicio</Label>
+          <Input
+            id="ventana_ini"
+            type="datetime-local"
+            value={formData.ventana_ini}
+            onChange={(e) => handleInputChange('ventana_ini', e.target.value)}
+          />
+        </div>
+        <div>
+          <Label htmlFor="ventana_fin">Ventana fin</Label>
+          <Input
+            id="ventana_fin"
+            type="datetime-local"
+            value={formData.ventana_fin}
+            onChange={(e) => handleInputChange('ventana_fin', e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* Campos calculados: IDR y Fuera de VH (solo lectura) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <Label>IDR (minutos)</Label>
+          <Input
+            value={idrMin === null ? "-" : idrMin.toString()}
+            readOnly
+            className="bg-gray-50 dark:bg-gray-900"
+          />
+        </div>
+        <div>
+          <Label>Fuera de VH</Label>
+          <Input
+            value={fueraVH === null ? "-" : fueraVH ? "Sí" : "No"}
+            readOnly
+            className="bg-gray-50 dark:bg-gray-900"
           />
         </div>
       </div>
