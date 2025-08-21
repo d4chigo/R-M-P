@@ -334,15 +334,15 @@ export function ViajeForm({
             onFocus={() => setShowVehiculosDropdown(true)}
             onBlur={() => setTimeout(() => setShowVehiculosDropdown(false), 200)}
             placeholder="Buscar vehículo por placa, marca o modelo"
-            className={errors.id_vehiculo ? "border-red-500" : ""}
+            className={`${errors.id_vehiculo ? "border-red-500" : ""} bg-white dark:bg-gray-800 text-black dark:text-white`}
           />
           {showVehiculosDropdown && (
-            <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white shadow-lg">
+            <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white dark:bg-gray-800 shadow-lg">
               {filteredVehiculos.length > 0 ? (
                 filteredVehiculos.map((vehiculo) => (
                   <div
                     key={vehiculo.id_vehiculo}
-                    className="p-2 cursor-pointer hover:bg-gray-100 border-b border-gray-200 last:border-b-0"
+                    className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-600 last:border-b-0 text-black dark:text-white"
                     onClick={() => {
                       handleInputChange("id_vehiculo", vehiculo.id_vehiculo?.toString() || "");
                       setSearchVehiculo(`${vehiculo.placa} - ${vehiculo.marca} ${vehiculo.modelo}`);
@@ -350,18 +350,18 @@ export function ViajeForm({
                     }}
                   >
                     <div className="font-medium">{vehiculo.placa}</div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-gray-600 dark:text-gray-300">
                       {vehiculo.marca} {vehiculo.modelo}
                     </div>
                     {vehiculo.capacidad_kg && (
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
                         Capacidad: {vehiculo.capacidad_kg}kg
                       </div>
                     )}
                   </div>
                 ))
               ) : (
-                <div className="p-2 text-gray-500 text-sm">
+                <div className="p-2 text-gray-500 dark:text-gray-400 text-sm">
                   No se encontraron vehículos
                 </div>
               )}
@@ -387,15 +387,15 @@ export function ViajeForm({
             onFocus={() => setShowRepartidoresDropdown(true)}
             onBlur={() => setTimeout(() => setShowRepartidoresDropdown(false), 200)}
             placeholder="Buscar repartidor por nombre o código"
-            className={errors.id_repartidor ? "border-red-500" : ""}
+            className={`${errors.id_repartidor ? "border-red-500" : ""} bg-white dark:bg-gray-800 text-black dark:text-white`}
           />
           {showRepartidoresDropdown && (
-            <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white shadow-lg">
+            <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white dark:bg-gray-800 shadow-lg">
               {filteredRepartidores.length > 0 ? (
                 filteredRepartidores.map((repartidor) => (
                   <div
                     key={repartidor.id_repartidor}
-                    className="p-2 cursor-pointer hover:bg-gray-100 border-b border-gray-200 last:border-b-0"
+                    className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-600 last:border-b-0 text-black dark:text-white"
                     onClick={() => {
                       handleInputChange("id_repartidor", repartidor.id_repartidor?.toString() || "");
                       setSearchRepartidor(`${repartidor.codigo} - ${repartidor.nombre}`);
@@ -403,18 +403,18 @@ export function ViajeForm({
                     }}
                   >
                     <div className="font-medium">{repartidor.codigo}</div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-gray-600 dark:text-gray-300">
                       {repartidor.nombre}
                     </div>
                     {repartidor.telefono && (
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
                         Tel: {repartidor.telefono}
                       </div>
                     )}
                   </div>
                 ))
               ) : (
-                <div className="p-2 text-gray-500 text-sm">
+                <div className="p-2 text-gray-500 dark:text-gray-400 text-sm">
                   No se encontraron repartidores
                 </div>
               )}
@@ -448,7 +448,7 @@ export function ViajeForm({
         </div>
       </div>
 
-      {/* Fila 4: Distancia y Tipo de Viaje */}
+      {/* Fila 4: Distancia and Tipo de Viaje */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="distancia_km">Distancia (km)</Label>

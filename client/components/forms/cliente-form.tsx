@@ -46,6 +46,8 @@ export function ClienteForm({
   const [originalIdZona, setOriginalIdZona] = useState<number | undefined>(undefined);
   const [codigoError, setCodigoError] = useState<string | null>(null);
   const [nombreError, setNombreError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showResults, setShowResults] = useState(false);
 
   // Cargar zonas al montar el componente
   const loadZonas = useCallback(async () => {
@@ -99,6 +101,8 @@ export function ClienteForm({
     });
     setCodigoError(null);
     setNombreError(null);
+    setSearchTerm("");
+    setShowResults(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -153,6 +157,23 @@ export function ClienteForm({
     console.log(`📝 ClienteForm: Actualizando ${field}:`, value);
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setShowResults(value.length > 0);
+  };
+
+  const handleZonaSelect = (zona: any) => {
+    handleInputChange("id_zona", zona.id_zona.toString());
+    setSearchTerm(`${zona.codigo} - ${zona.descripcion}`);
+    setShowResults(false);
+  };
+
+  const filteredZonas = zonas.filter(zona =>
+    zona.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    zona.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -212,52 +233,55 @@ export function ClienteForm({
         </p>
       </div>
 
-      {/* Zona - campo opcional */}
-      <div className="space-y-2">
-        <Label htmlFor="id_zona">Zona</Label>
-        <Select
-          value={formData.id_zona || "0"}
-          onValueChange={(value) => handleInputChange("id_zona", value)}
+      {/* Zona - campo de búsqueda (MODIFICADO) */}
+      <div className="space-y-2 relative">
+        <Label htmlFor="zona-search">Zona</Label>
+        <Input
+          id="zona-search"
+          value={searchTerm}
+          onChange={handleSearchChange}
+          onFocus={() => setShowResults(searchTerm.length > 0)}
+          placeholder={zonasLoading ? "Cargando zonas..." : "Buscar zona..."}
           disabled={zonasLoading}
-        >
-          <SelectTrigger>
-            <SelectValue
-              placeholder={
-                zonasLoading
-                  ? "Cargando zonas..."
-                  : "Seleccionar zona (opcional)"
-              }
-            />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="0">Sin zona asignada</SelectItem>
+          className="w-full"
+        />
+        
+        {showResults && (
+          <div className="absolute z-10 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
             {zonasLoading ? (
-              <SelectItem value="loading" disabled>
-                Cargando zonas...
-              </SelectItem>
+              <div className="p-2 text-sm text-muted-foreground">Cargando zonas...</div>
             ) : error ? (
-              <SelectItem value="error" disabled>
-                Error al cargar zonas
-              </SelectItem>
-            ) : zonas.length === 0 ? (
-              <SelectItem value="empty" disabled>
-                No hay zonas disponibles
-              </SelectItem>
+              <div className="p-2 text-sm text-muted-foreground">Error al cargar zonas</div>
+            ) : filteredZonas.length === 0 ? (
+              <div className="p-2 text-sm text-muted-foreground">No se encontraron zonas</div>
             ) : (
-              zonas
-                .filter((zona) => zona.id_zona && zona.id_zona > 0)
-                .sort((a, b) => a.codigo.localeCompare(b.codigo))
-                .map((zona) => (
-                  <SelectItem
-                    key={`zona-${zona.id_zona}`}
-                    value={zona.id_zona!.toString()}
-                  >
-                    {zona.codigo} - {zona.descripcion}
-                  </SelectItem>
-                ))
+              <>
+                <div
+                  className="p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+                  onClick={() => {
+                    handleInputChange("id_zona", "0");
+                    setSearchTerm("Sin zona asignada");
+                    setShowResults(false);
+                  }}
+                >
+                  Sin zona asignada
+                </div>
+                {filteredZonas
+                  .filter((zona) => zona.id_zona && zona.id_zona > 0)
+                  .sort((a, b) => a.codigo.localeCompare(b.codigo))
+                  .map((zona) => (
+                    <div
+                      key={`zona-${zona.id_zona}`}
+                      className="p-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+                      onClick={() => handleZonaSelect(zona)}
+                    >
+                      {zona.codigo} - {zona.descripcion}
+                    </div>
+                  ))}
+              </>
             )}
-          </SelectContent>
-        </Select>
+          </div>
+        )}
         <p className="text-sm text-muted-foreground">
           Zona geográfica donde se encuentra el cliente.
         </p>
