@@ -26,6 +26,13 @@ interface ViajeFormProps {
     recarga_min?: number;
     refrigerio_min?: number;
     tipo_viaje?: string;
+    odometro_ini?: number | null;
+    odometro_fin?: number | null;
+    combustible_litros?: number | null;
+    combustible_costo?: number | null;
+    tiempo_espera_min?: number | null;
+    paradas_no_plan?: number | null;
+    observaciones?: string | null;
   }) => void;
   onCancel: () => void;
   isEditing?: boolean;
@@ -53,6 +60,13 @@ export function ViajeForm({
     recarga_min: string;
     refrigerio_min: string;
     tipo_viaje: string | undefined;
+    odometro_ini: string;
+    odometro_fin: string;
+    combustible_litros: string;
+    combustible_costo: string;
+    tiempo_espera_min: string;
+    paradas_no_plan: string;
+    observaciones: string;
   }>({
     fecha: "",
     id_vehiculo: "",
@@ -66,6 +80,13 @@ export function ViajeForm({
     recarga_min: "",
     refrigerio_min: "",
     tipo_viaje: undefined,
+    odometro_ini: "",
+    odometro_fin: "",
+    combustible_litros: "",
+    combustible_costo: "",
+    tiempo_espera_min: "",
+    paradas_no_plan: "",
+    observaciones: "",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -93,6 +114,13 @@ export function ViajeForm({
         recarga_min: viaje.recarga_min?.toString() || "",
         refrigerio_min: viaje.refrigerio_min?.toString() || "",
         tipo_viaje: viaje.tipo_viaje || undefined,
+        odometro_ini: viaje.odometro_ini?.toString() || "",
+        odometro_fin: viaje.odometro_fin?.toString() || "",
+        combustible_litros: viaje.combustible_litros?.toString() || "",
+        combustible_costo: viaje.combustible_costo?.toString() || "",
+        tiempo_espera_min: viaje.tiempo_espera_min?.toString() || "",
+        paradas_no_plan: viaje.paradas_no_plan?.toString() || "",
+        observaciones: viaje.observaciones || "",
       };
 
       // Establecer los valores de búsqueda basados en los IDs seleccionados
@@ -155,6 +183,14 @@ export function ViajeForm({
       newErrors.nro_viaje =
         "El número de viaje es obligatorio y debe ser mayor a 0";
     }
+    // Validaciones lógicas
+    if (formData.odometro_ini && formData.odometro_fin) {
+      const ini = parseFloat(formData.odometro_ini);
+      const fin = parseFloat(formData.odometro_fin);
+      if (!isNaN(ini) && !isNaN(fin) && fin < ini) {
+        newErrors.odometro_fin = "El odómetro final no puede ser menor al inicial";
+      }
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -187,6 +223,13 @@ export function ViajeForm({
         ? parseInt(formData.refrigerio_min)
         : undefined,
       tipo_viaje: formData.tipo_viaje,
+      odometro_ini: formData.odometro_ini ? parseFloat(formData.odometro_ini) : null,
+      odometro_fin: formData.odometro_fin ? parseFloat(formData.odometro_fin) : null,
+      combustible_litros: formData.combustible_litros ? parseFloat(formData.combustible_litros) : null,
+      combustible_costo: formData.combustible_costo ? parseFloat(formData.combustible_costo) : null,
+      tiempo_espera_min: formData.tiempo_espera_min ? parseInt(formData.tiempo_espera_min) : null,
+      paradas_no_plan: formData.paradas_no_plan ? parseInt(formData.paradas_no_plan) : null,
+      observaciones: formData.observaciones ? formData.observaciones : null,
     });
   };
 
@@ -442,6 +485,105 @@ export function ViajeForm({
             <option value="EMERGENCIA">Emergencia</option>
           </datalist>
         </div>
+      </div>
+
+      {/* Fila 4.1: Odómetro */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="odometro_ini">Odómetro Inicial</Label>
+          <Input
+            id="odometro_ini"
+            type="number"
+            min="0"
+            step="0.1"
+            value={formData.odometro_ini}
+            onChange={(e) => handleInputChange("odometro_ini", e.target.value)}
+            placeholder="0"
+            className={errors.odometro_ini ? "border-red-500" : ""}
+          />
+        </div>
+        <div>
+          <Label htmlFor="odometro_fin">Odómetro Final</Label>
+          <Input
+            id="odometro_fin"
+            type="number"
+            min="0"
+            step="0.1"
+            value={formData.odometro_fin}
+            onChange={(e) => handleInputChange("odometro_fin", e.target.value)}
+            placeholder="0"
+            className={errors.odometro_fin ? "border-red-500" : ""}
+          />
+          {errors.odometro_fin && (
+            <p className="text-sm text-red-500 mt-1">{errors.odometro_fin}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Fila 4.2: Combustible */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="combustible_litros">Combustible (litros)</Label>
+          <Input
+            id="combustible_litros"
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.combustible_litros}
+            onChange={(e) => handleInputChange("combustible_litros", e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+        <div>
+          <Label htmlFor="combustible_costo">Costo Combustible</Label>
+          <Input
+            id="combustible_costo"
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.combustible_costo}
+            onChange={(e) => handleInputChange("combustible_costo", e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+      </div>
+
+      {/* Fila 4.3: Espera y Paradas */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label htmlFor="tiempo_espera_min">Tiempo de Espera (min)</Label>
+          <Input
+            id="tiempo_espera_min"
+            type="number"
+            min="0"
+            value={formData.tiempo_espera_min}
+            onChange={(e) => handleInputChange("tiempo_espera_min", e.target.value)}
+            placeholder="0"
+          />
+        </div>
+        <div>
+          <Label htmlFor="paradas_no_plan">Paradas no planificadas</Label>
+          <Input
+            id="paradas_no_plan"
+            type="number"
+            min="0"
+            value={formData.paradas_no_plan}
+            onChange={(e) => handleInputChange("paradas_no_plan", e.target.value)}
+            placeholder="0"
+          />
+        </div>
+      </div>
+
+      {/* Fila 4.4: Observaciones */}
+      <div>
+        <Label htmlFor="observaciones">Observaciones</Label>
+        <Input
+          id="observaciones"
+          type="text"
+          value={formData.observaciones}
+          onChange={(e) => handleInputChange("observaciones", e.target.value)}
+          placeholder="Notas del viaje, incidencias, etc."
+        />
       </div>
 
       {/* Fila 5: Tiempos */}

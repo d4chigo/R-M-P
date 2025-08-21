@@ -18,6 +18,14 @@ export interface Viaje {
   recarga_min?: number;
   refrigerio_min?: number;
   tipo_viaje?: string;
+  // Nuevos campos alineados con BD
+  odometro_ini?: number | null;
+  odometro_fin?: number | null;
+  combustible_litros?: number | null;
+  combustible_costo?: number | null;
+  tiempo_espera_min?: number | null;
+  paradas_no_plan?: number | null;
+  observaciones?: string | null;
   created_by?: number;
   updated_by?: number;
   created_at?: string;

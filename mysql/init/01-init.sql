@@ -119,6 +119,13 @@ CREATE TABLE VIAJE (
     recarga_min INT,
     refrigerio_min INT,
     tipo_viaje VARCHAR(50),
+    odometro_ini INT NULL,
+    odometro_fin INT NULL,
+    combustible_litros DECIMAL(10,2) NULL,
+    combustible_costo DECIMAL(10,2) NULL,
+    tiempo_espera_min INT NULL,
+    paradas_no_plan INT DEFAULT 0,
+    observaciones VARCHAR(255) NULL,
     created_by INT, -- referencia a USUARIO
     updated_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -135,10 +142,16 @@ CREATE TABLE VISITA (
     id_viaje INT NOT NULL,
     id_cliente INT NOT NULL,
     pedidos INT DEFAULT 0,
+    estado_entrega ENUM('ENTREGADO','NO_ENTREGADO','REPROGRAMADO') DEFAULT 'ENTREGADO',
+    motivo_no_entrega VARCHAR(150) NULL,
     entrega_cf DECIMAL(10,2) DEFAULT 0,
     recojo_cf DECIMAL(10,2) DEFAULT 0,
     peso_kg DECIMAL(10,2) DEFAULT 0,
     distancia_km DECIMAL(10,2) DEFAULT 0,
+    hora_llegada DATETIME NULL,
+    hora_salida DATETIME NULL,
+    ventana_ini DATETIME NULL,
+    ventana_fin DATETIME NULL,
     created_by INT,
     updated_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -164,6 +177,76 @@ CREATE TABLE AUDITORIA (
     realizado_por INT,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (realizado_por) REFERENCES USUARIO(id_usuario)
+);
+
+-- Tabla de incidencias por viaje/visita
+CREATE TABLE INCIDENCIA_VIAJE (
+    id_incidencia INT PRIMARY KEY AUTO_INCREMENT,
+    id_viaje INT NOT NULL,
+    id_visita INT NULL,
+    tipo VARCHAR(50) NOT NULL, -- 'AVERIA','RETRASO','ACCIDENTE','ROBO','OTRO'
+    severidad ENUM('BAJA','MEDIA','ALTA') DEFAULT 'BAJA',
+    descripcion VARCHAR(255),
+    costo_estimado DECIMAL(10,2) DEFAULT 0,
+    ocurrio_en DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_viaje) REFERENCES VIAJE(id_viaje),
+    FOREIGN KEY (id_visita) REFERENCES VISITA(id_visita)
+);
+
+-- Asistencia de repartidores
+CREATE TABLE ASISTENCIA_REPARTIDOR (
+    id_asistencia INT PRIMARY KEY AUTO_INCREMENT,
+    id_repartidor INT NOT NULL,
+    fecha DATE NOT NULL,
+    checkin DATETIME NULL,
+    checkout DATETIME NULL,
+    ausente BOOLEAN DEFAULT FALSE,
+    observacion VARCHAR(150),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_repartidor) REFERENCES REPARTIDOR(id_repartidor),
+    UNIQUE KEY uq_rep_fecha (id_repartidor, fecha)
+);
+
+-- Documentos de vehículo (cumplimiento)
+CREATE TABLE VEHICULO_DOCUMENTO (
+    id_doc INT PRIMARY KEY AUTO_INCREMENT,
+    id_vehiculo INT NOT NULL,
+    tipo ENUM('SOAT','SEGURO','REVISION_TECNICA','TARJETA_PROPIEDAD','PERMISO_CIRCULACION','EXTINTOR','BOTIQUIN','GPS') NOT NULL,
+    numero VARCHAR(50) NULL,
+    emision DATE NULL,
+    vencimiento DATE NULL,
+    proveedor VARCHAR(100) NULL,
+    archivo_url VARCHAR(255) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_vehiculo) REFERENCES VEHICULO(id_vehiculo),
+    INDEX idx_doc_vehiculo_tipo (id_vehiculo, tipo),
+    INDEX idx_doc_vencimiento (vencimiento)
+);
+
+-- Mantenimientos de vehículo
+CREATE TABLE MANTENIMIENTO (
+    id_mantenimiento INT PRIMARY KEY AUTO_INCREMENT,
+    id_vehiculo INT NOT NULL,
+    fecha DATE NOT NULL,
+    odometro_km INT NULL,
+    tipo ENUM('PREVENTIVO','CORRECTIVO') DEFAULT 'PREVENTIVO',
+    descripcion VARCHAR(255),
+    costo DECIMAL(10,2) DEFAULT 0,
+    taller VARCHAR(100) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_vehiculo) REFERENCES VEHICULO(id_vehiculo),
+    INDEX idx_mant_vehiculo_fecha (id_vehiculo, fecha)
+);
+
+-- Configuración por vehículo
+CREATE TABLE VEHICULO_CONFIG (
+    id_vehiculo INT PRIMARY KEY,
+    mantenimiento_km_intervalo INT DEFAULT 10000,
+    mantenimiento_dias_intervalo INT DEFAULT 180,
+    requiere_gps BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (id_vehiculo) REFERENCES VEHICULO(id_vehiculo)
 );
 
 -- ==============================
@@ -226,6 +309,108 @@ GROUP BY
     r.nombre,
     r.estado_disponibilidad
 ORDER BY v.fecha DESC, ve.placa;
+
+-- ==============================
+-- VISTAS DE PERFORMANCE Y CUMPLIMIENTO
+-- ==============================
+
+-- Performance por vehículo (por fecha)
+CREATE VIEW v_performance_vehiculo AS
+SELECT
+  v.fecha AS Fecha,
+  ve.id_vehiculo,
+  ve.placa AS Placa,
+  CONCAT(ve.marca,' ',ve.modelo) AS Vehiculo,
+  COUNT(DISTINCT v.id_viaje) AS Nro_viajes,
+  COALESCE(SUM(v.distancia_km),0) AS Km,
+  COALESCE(SUM(v.combustible_litros),0) AS Litros,
+  CASE WHEN COALESCE(SUM(v.combustible_litros),0) > 0 THEN COALESCE(SUM(v.distancia_km),0) / NULLIF(SUM(v.combustible_litros),0) ELSE NULL END AS Km_por_Litro,
+  CASE WHEN COALESCE(SUM(v.distancia_km),0) > 0 THEN COALESCE(SUM(v.combustible_costo),0) / NULLIF(SUM(v.distancia_km),0) ELSE NULL END AS Costo_por_Km,
+  COALESCE(SUM(vis.pedidos),0) AS Pedidos,
+  COALESCE(SUM(vis.peso_kg),0) AS PesoKg,
+  CASE WHEN COALESCE(SUM(vis.peso_kg),0) > 0 AND ve.capacidad_kg IS NOT NULL AND ve.capacidad_kg > 0
+       THEN (SUM(vis.peso_kg) / (ve.capacidad_kg * COUNT(DISTINCT v.id_viaje)))
+       ELSE NULL END AS Utilizacion_Prom,
+  COALESCE(SUM(v.tiempo_manejo_min),0) AS Min_Manejo,
+  COALESCE(SUM(v.tiempo_servicio_min),0) AS Min_Servicio,
+  COALESCE(SUM(v.tiempo_espera_min),0) AS Min_Espera,
+  COALESCE(SUM(v.paradas_no_plan),0) AS Paradas_No_Plan,
+  COUNT(DISTINCT inc.id_incidencia) AS Incidencias,
+  COALESCE(SUM(inc.costo_estimado),0) AS Costo_Incidencias
+FROM VIAJE v
+JOIN VEHICULO ve ON v.id_vehiculo = ve.id_vehiculo
+LEFT JOIN VISITA vis ON vis.id_viaje = v.id_viaje
+LEFT JOIN INCIDENCIA_VIAJE inc ON inc.id_viaje = v.id_viaje
+GROUP BY v.fecha, ve.id_vehiculo, ve.placa, ve.marca, ve.modelo, ve.capacidad_kg
+ORDER BY v.fecha DESC, ve.placa;
+
+-- Performance por repartidor (por fecha)
+CREATE VIEW v_performance_repartidor AS
+SELECT
+  v.fecha AS Fecha,
+  r.id_repartidor,
+  CONCAT(r.codigo,' - ',r.nombre) AS Repartidor,
+  COUNT(DISTINCT v.id_viaje) AS Nro_viajes,
+  COALESCE(SUM(v.distancia_km),0) AS Km,
+  COALESCE(SUM(vis.pedidos),0) AS Pedidos,
+  SUM(CASE WHEN vis.estado_entrega = 'ENTREGADO' THEN vis.pedidos ELSE 0 END) AS Pedidos_Entregados,
+  CASE WHEN COALESCE(SUM(vis.pedidos),0) > 0
+       THEN SUM(CASE WHEN vis.estado_entrega = 'ENTREGADO' THEN vis.pedidos ELSE 0 END) / NULLIF(SUM(vis.pedidos),0)
+       ELSE NULL END AS Tasa_Entrega,
+  SUM(CASE WHEN vis.ventana_ini IS NOT NULL AND vis.ventana_fin IS NOT NULL AND vis.hora_llegada BETWEEN vis.ventana_ini AND vis.ventana_fin THEN 1 ELSE 0 END) AS Visitas_Puntuales,
+  COUNT(DISTINCT vis.id_visita) AS Visitas,
+  CASE WHEN COUNT(DISTINCT vis.id_visita) > 0
+       THEN SUM(CASE WHEN vis.ventana_ini IS NOT NULL AND vis.ventana_fin IS NOT NULL AND vis.hora_llegada BETWEEN vis.ventana_ini AND vis.ventana_fin THEN 1 ELSE 0 END) / COUNT(DISTINCT vis.id_visita)
+       ELSE NULL END AS Puntualidad,
+  COALESCE(SUM(v.tiempo_manejo_min + v.tiempo_servicio_min + IFNULL(v.tiempo_espera_min,0)),0) AS Min_Totales,
+  CASE WHEN COALESCE(SUM(v.tiempo_manejo_min + v.tiempo_servicio_min + IFNULL(v.tiempo_espera_min,0)),0) > 0
+       THEN (SUM(vis.pedidos) / NULLIF(SUM(v.tiempo_manejo_min + v.tiempo_servicio_min + IFNULL(v.tiempo_espera_min,0)),0)) * 60
+       ELSE NULL END AS Pedidos_por_Hora
+FROM VIAJE v
+JOIN REPARTIDOR r ON r.id_repartidor = v.id_repartidor
+LEFT JOIN VISITA vis ON vis.id_viaje = v.id_viaje
+GROUP BY v.fecha, r.id_repartidor, r.codigo, r.nombre
+ORDER BY v.fecha DESC, Repartidor;
+
+-- Cumplimiento de vehículo (documentos y mantenimiento)
+CREATE VIEW v_cumplimiento_vehiculo AS
+SELECT
+  ve.id_vehiculo,
+  ve.placa AS Placa,
+  CONCAT(ve.marca,' ',ve.modelo) AS Vehiculo,
+  -- Documentos
+  SUM(CASE WHEN vd.vencimiento IS NULL OR vd.vencimiento >= CURRENT_DATE THEN 1 ELSE 0 END) AS Docs_Vigentes,
+  SUM(CASE WHEN vd.vencimiento IS NOT NULL AND vd.vencimiento < CURRENT_DATE THEN 1 ELSE 0 END) AS Docs_Vencidos,
+  MIN(DATEDIFF(vd.vencimiento, CURRENT_DATE)) AS Dias_Prox_Venc,
+  -- Mantenimiento
+  MAX(m.fecha) AS Ult_Mant_Fecha,
+  MAX(m.odometro_km) AS Ult_Mant_Odo,
+  MAX(vv.odometro_fin) AS Ult_Odo_Registrado,
+  vc.mantenimiento_km_intervalo AS Intervalo_KM,
+  vc.mantenimiento_dias_intervalo AS Intervalo_Dias,
+  CASE
+    WHEN MAX(m.fecha) IS NULL THEN NULL
+    ELSE DATEDIFF(CURRENT_DATE, MAX(m.fecha))
+  END AS Dias_desde_ult_mant,
+  CASE
+    WHEN MAX(m.odometro_km) IS NULL OR MAX(vv.odometro_fin) IS NULL THEN NULL
+    ELSE MAX(vv.odometro_fin) - MAX(m.odometro_km)
+  END AS Km_desde_ult_mant,
+  CASE
+    WHEN vc.mantenimiento_km_intervalo IS NULL OR MAX(m.odometro_km) IS NULL OR MAX(vv.odometro_fin) IS NULL THEN NULL
+    ELSE vc.mantenimiento_km_intervalo - (MAX(vv.odometro_fin) - MAX(m.odometro_km))
+  END AS Km_para_prox_mant,
+  CASE
+    WHEN vc.mantenimiento_dias_intervalo IS NULL OR MAX(m.fecha) IS NULL THEN NULL
+    ELSE vc.mantenimiento_dias_intervalo - DATEDIFF(CURRENT_DATE, MAX(m.fecha))
+  END AS Dias_para_prox_mant
+FROM VEHICULO ve
+LEFT JOIN VEHICULO_DOCUMENTO vd ON vd.id_vehiculo = ve.id_vehiculo
+LEFT JOIN MANTENIMIENTO m ON m.id_vehiculo = ve.id_vehiculo
+LEFT JOIN VIAJE vv ON vv.id_vehiculo = ve.id_vehiculo
+LEFT JOIN VEHICULO_CONFIG vc ON vc.id_vehiculo = ve.id_vehiculo
+GROUP BY ve.id_vehiculo, ve.placa, ve.marca, ve.modelo, vc.mantenimiento_km_intervalo, vc.mantenimiento_dias_intervalo
+ORDER BY ve.placa;
 
 -- ==============================
 -- INSERCIÓN DE DATOS INICIALES
