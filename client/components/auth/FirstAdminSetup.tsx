@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 
 interface FormData {
+  username: string;
   password: string;
   confirmPassword: string;
   nombre_completo: string;
@@ -47,6 +48,7 @@ interface FormErrors {
 
 export default function FirstAdminSetup() {
   const [formData, setFormData] = useState<FormData>({
+    username: "",
     password: "",
     confirmPassword: "",
     nombre_completo: "",
@@ -74,6 +76,15 @@ export default function FirstAdminSetup() {
 
   const validateForm = () => {
     const newErrors: FormErrors = {};
+
+    // Validar username
+    if (formData.username) {
+      if (formData.username.length < 3) {
+        newErrors.username = "El username debe tener al menos 3 caracteres";
+      } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
+        newErrors.username = "Solo letras, números y guiones bajos";
+      }
+    }
 
     // Validar nombre completo
     if (formData.nombre_completo) {
@@ -154,8 +165,7 @@ export default function FirstAdminSetup() {
       case 1:
         return formData.nombre_completo && formData.email && !errors.nombre_completo && !errors.email;
       case 2:
-        // Saltamos la validación de username ya que usaremos el email
-        return true;
+        return formData.username && !errors.username;
       case 3:
         return formData.password && formData.confirmPassword &&
                !errors.password && !errors.confirmPassword &&
@@ -202,8 +212,8 @@ export default function FirstAdminSetup() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          nombre: formData.nombre_completo.split(" ")[0],
-          apellidos: formData.nombre_completo.split(" ").slice(1).join(" "),
+          username: formData.username,
+          nombre_completo: formData.nombre_completo,
           email: formData.email,
           password: formData.password,
           telefono: formData.telefono || null,

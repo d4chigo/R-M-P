@@ -8,10 +8,18 @@ export interface Visita {
   id_viaje: number;
   id_cliente: number;
   pedidos?: number;
+  // nuevos campos de estado de entrega
+  estado_entrega?: 'ENTREGADO' | 'NO_ENTREGADO' | 'REPROGRAMADO';
+  motivo_no_entrega?: string | null;
   entrega_cf?: number;
   recojo_cf?: number;
   peso_kg?: number;
   distancia_km?: number;
+  // tiempos y ventanas
+  hora_llegada?: string | null;
+  hora_salida?: string | null;
+  ventana_ini?: string | null;
+  ventana_fin?: string | null;
   created_at?: string;
   updated_at?: string;
   created_by?: number;
