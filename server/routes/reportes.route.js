@@ -8,12 +8,24 @@ const {
   getPerformanceRepartidores,
   getMetricasCumplimiento,
   getResumenRutasProcedimiento,
-  getMetricasDiaProcedimiento
+  getMetricasDiaProcedimiento,
+  // v2
+  getPerformanceVehiculosV2,
+  getPerformanceRepartidoresV2,
+  getCumplimientoVehiculo,
+  getCumplimientoVehiculoDetalle,
+  getCumplimientoVHVisitas,
+  // detalle por viaje
+  getResumenRutasPorViaje,
 } = require("../controllers/reportes.controller");
 
 // GET /api/reportes/resumen-rutas - Obtener resumen de rutas
 // Query params: ?fecha=2025-01-21 (opcional)
 router.get("/resumen-rutas", getResumenRutas);
+
+// GET /api/reportes/resumen-rutas/viajes - Resumen por viaje (detalle)
+// Query params: ?fecha=YYYY-MM-DD | ?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD [&placa=XXX] [&repartidor=texto]
+router.get("/resumen-rutas/viajes", getResumenRutasPorViaje);
 
 // GET /api/reportes/resumen-rutas/rango - Obtener resumen por rango de fechas
 // Query params: ?fechaInicio=2025-01-01&fechaFin=2025-01-31
@@ -34,6 +46,16 @@ router.get("/performance/repartidores", getPerformanceRepartidores);
 // GET /api/reportes/cumplimiento - Métricas de cumplimiento
 // Query params: ?fecha=2025-01-21 (opcional, default hoy)
 router.get("/cumplimiento", getMetricasCumplimiento);
+
+// V2 - Consultan directamente las vistas dedicadas
+router.get("/performance/vehiculos/v2", getPerformanceVehiculosV2);
+router.get("/performance/repartidores/v2", getPerformanceRepartidoresV2);
+router.get("/cumplimiento/vh", getCumplimientoVehiculo);
+// GET /api/reportes/cumplimiento/vh/:placa/detalle?umbralDias=30
+router.get("/cumplimiento/vh/:placa/detalle", getCumplimientoVehiculoDetalle);
+// GET /api/reportes/cumplimiento/vh/visitas - Cumplimiento por visita (ventanas horarias)
+// Query params: ?fecha=YYYY-MM-DD | ?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD [&placa=XXX] [&cliente=C001]
+router.get("/cumplimiento/vh/visitas", getCumplimientoVHVisitas);
 
 // GET /api/reportes/sp/resumen-rutas/:fecha - Usar procedimiento almacenado
 router.get("/sp/resumen-rutas/:fecha", getResumenRutasProcedimiento);
