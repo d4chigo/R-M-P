@@ -47,6 +47,27 @@ interface PerformanceVehiculo {
   Total_Recojo_CF: number;
 }
 
+// V2 views
+interface PerformanceVehiculoV2 {
+  Fecha: string; // YYYY-MM-DD
+  Placa: string;
+  Vehiculo: string;
+  Nro_viajes: number;
+  Km: number;
+  Litros: number;
+  Km_por_Litro: number;
+  Costo_por_Km: number;
+  Pedidos: number;
+  PesoKg: number;
+  Utilizacion_Prom: number;
+  Min_Manejo: number;
+  Min_Servicio: number;
+  Min_Espera: number;
+  Paradas_No_Plan: number;
+  Incidencias: number;
+  Costo_Incidencias: number;
+}
+
 interface PerformanceRepartidor {
   Repartidor: string;
   Dias_Trabajados: number;
@@ -56,6 +77,39 @@ interface PerformanceRepartidor {
   Total_Entrega_CF: number;
   Total_Recojo_CF: number;
   Total_Peso_Transportado: number;
+}
+
+interface PerformanceRepartidorV2 {
+  Fecha: string; // YYYY-MM-DD
+  Repartidor: string;
+  Nro_viajes: number;
+  Km: number;
+  Pedidos: number;
+  Pedidos_Entregados: number;
+  Tasa_Entrega: number;
+  Visitas_Puntuales: number;
+  Visitas: number;
+  Puntualidad: number;
+  Min_Totales: number;
+  Pedidos_por_Hora: number;
+}
+
+// Cumplimiento por vehículo (vista v_cumplimiento_vehiculo)
+interface CumplimientoVehiculo {
+  Placa: string;
+  Vehiculo: string;
+  Docs_Vigentes: number;
+  Docs_Vencidos: number;
+  Dias_Prox_Venc: number | null;
+  Ult_Mant_Fecha: string | null; // YYYY-MM-DD
+  Ult_Mant_Odo: number | null;
+  Ult_Odo_Registrado: number | null;
+  Intervalo_KM: number | null;
+  Intervalo_Dias: number | null;
+  Dias_desde_ult_mant: number | null;
+  Km_desde_ult_mant: number | null;
+  Km_para_prox_mant: number | null;
+  Dias_para_prox_mant: number | null;
 }
 
 interface MetricasCumplimiento {
@@ -93,6 +147,13 @@ interface UseReportesReturn {
     fechaInicio: string,
     fechaFin: string,
   ) => Promise<ResumenRuta[]>;
+  getResumenRutasPorViaje: (args?: {
+    fecha?: string;
+    fechaInicio?: string;
+    fechaFin?: string;
+    placa?: string;
+    repartidor?: string;
+  }) => Promise<any[]>;
   getMetricasDiarias: (fecha?: string) => Promise<MetricaDiaria[]>;
   getPerformanceVehiculos: (dias?: number) => Promise<PerformanceVehiculo[]>;
   getPerformanceRepartidores: (
@@ -103,6 +164,24 @@ interface UseReportesReturn {
   ) => Promise<MetricasCumplimiento | null>;
   getResumenRutasProcedimiento: (fecha: string) => Promise<ResumenRuta[]>;
   getMetricasDiaProcedimiento: (fecha: string) => Promise<MetricaDiaria | null>;
+  getPerformanceVehiculosV2: (args?: {
+    fechaInicio?: string;
+    fechaFin?: string;
+    placa?: string;
+  }) => Promise<PerformanceVehiculoV2[]>;
+  getPerformanceRepartidoresV2: (args?: {
+    fechaInicio?: string;
+    fechaFin?: string;
+    repartidor?: string;
+  }) => Promise<PerformanceRepartidorV2[]>;
+  getCumplimientoVehiculo: (placa?: string) => Promise<CumplimientoVehiculo[]>;
+  getCumplimientoVHVisitas: (args?: {
+    fecha?: string;
+    fechaInicio?: string;
+    fechaFin?: string;
+    placa?: string;
+    cliente?: string; // código o parte del nombre
+  }) => Promise<any[]>;
 }
 
 export function useReportes(): UseReportesReturn {
@@ -170,6 +249,26 @@ export function useReportes(): UseReportesReturn {
     }
     const url = `${API_BASE}/reportes/resumen-rutas${params.toString() ? `?${params}` : ""}`;
     return handleRequest<ResumenRuta[]>(url);
+  };
+
+  const getResumenRutasPorViaje = async (
+    args?: {
+      fecha?: string;
+      fechaInicio?: string;
+      fechaFin?: string;
+      placa?: string;
+      repartidor?: string;
+    },
+  ): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (args?.fecha) params.append("fecha", args.fecha);
+    if (args?.fechaInicio) params.append("fechaInicio", args.fechaInicio);
+    if (args?.fechaFin) params.append("fechaFin", args.fechaFin);
+    if (args?.placa) params.append("placa", args.placa);
+    if (args?.repartidor) params.append("repartidor", args.repartidor);
+    const qs = params.toString();
+    const url = `${API_BASE}/reportes/resumen-rutas/viajes${qs ? `?${qs}` : ""}`;
+    return handleRequest<any[]>(url);
   };
 
   const getResumenRutasRango = async (
@@ -248,16 +347,85 @@ export function useReportes(): UseReportesReturn {
     }
   };
 
+  // -------- V2 endpoints (direct views) --------
+  const getPerformanceVehiculosV2 = async (
+    args?: {
+      fechaInicio?: string;
+      fechaFin?: string;
+      placa?: string;
+    },
+  ): Promise<PerformanceVehiculoV2[]> => {
+    const params = new URLSearchParams();
+    if (args?.fechaInicio) params.append("fechaInicio", args.fechaInicio);
+    if (args?.fechaFin) params.append("fechaFin", args.fechaFin);
+    if (args?.placa) params.append("placa", args.placa);
+    const qs = params.toString();
+    const url = `${API_BASE}/reportes/performance/vehiculos/v2${qs ? `?${qs}` : ""}`;
+    return handleRequest<PerformanceVehiculoV2[]>(url);
+  };
+
+  const getPerformanceRepartidoresV2 = async (
+    args?: {
+      fechaInicio?: string;
+      fechaFin?: string;
+      repartidor?: string;
+    },
+  ): Promise<PerformanceRepartidorV2[]> => {
+    const params = new URLSearchParams();
+    if (args?.fechaInicio) params.append("fechaInicio", args.fechaInicio);
+    if (args?.fechaFin) params.append("fechaFin", args.fechaFin);
+    if (args?.repartidor) params.append("repartidor", args.repartidor);
+    const qs = params.toString();
+    const url = `${API_BASE}/reportes/performance/repartidores/v2${qs ? `?${qs}` : ""}`;
+    return handleRequest<PerformanceRepartidorV2[]>(url);
+  };
+
+  const getCumplimientoVehiculo = async (
+    placa?: string,
+  ): Promise<CumplimientoVehiculo[]> => {
+    const params = new URLSearchParams();
+    if (placa) params.append("placa", placa);
+    const qs = params.toString();
+    const url = `${API_BASE}/reportes/cumplimiento/vh${qs ? `?${qs}` : ""}`;
+    return handleRequest<CumplimientoVehiculo[]>(url);
+  };
+
+  const getCumplimientoVHVisitas = async (
+    args?: {
+      fecha?: string;
+      fechaInicio?: string;
+      fechaFin?: string;
+      placa?: string;
+      cliente?: string; // código o parte del nombre
+    },
+  ): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (args?.fecha) params.append("fecha", args.fecha);
+    if (args?.fechaInicio) params.append("fechaInicio", args.fechaInicio);
+    if (args?.fechaFin) params.append("fechaFin", args.fechaFin);
+    if (args?.placa) params.append("placa", args.placa);
+    if (args?.cliente) params.append("cliente", args.cliente);
+    const qs = params.toString();
+    const url = `${API_BASE}/reportes/cumplimiento/vh/visitas${qs ? `?${qs}` : ""}`;
+    return handleRequest<any[]>(url);
+  };
+
   return {
     loading,
     error,
     getResumenRutas,
     getResumenRutasRango,
+    getResumenRutasPorViaje,
     getMetricasDiarias,
     getPerformanceVehiculos,
     getPerformanceRepartidores,
     getMetricasCumplimiento,
     getResumenRutasProcedimiento,
     getMetricasDiaProcedimiento,
+    // v2
+    getPerformanceVehiculosV2,
+    getPerformanceRepartidoresV2,
+    getCumplimientoVehiculo,
+    getCumplimientoVHVisitas,
   };
 }
