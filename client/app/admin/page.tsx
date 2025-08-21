@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import UserManagement from "@/components/admin/UserManagement";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Shield, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button"; // Importar Button
+import { Shield, AlertTriangle, ArrowLeft } from "lucide-react";
 
 export default function AdminPage() {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
@@ -75,14 +76,24 @@ export default function AdminPage() {
         {/* Header con información de administrador */}
         <div className="mb-8">
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg shadow-lg p-6 text-white">
-            <div className="flex items-center">
-              <Shield className="h-8 w-8 mr-3" />
-              <div>
-                <h1 className="text-2xl font-bold">Panel de Administración</h1>
-                <p className="text-blue-100 mt-1">
-                  Gestiona usuarios, roles y configuraciones del sistema RMP
-                </p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Shield className="h-8 w-8 mr-3" />
+                <div>
+                  <h1 className="text-2xl font-bold">Panel de Administración</h1>
+                  <p className="text-blue-100 mt-1">
+                    Gestiona usuarios, roles y configuraciones del sistema RMP
+                  </p>
+                </div>
               </div>
+              <Button
+                onClick={() => router.push('/')}
+                className="bg-white text-blue-600 hover:bg-gray-100"
+                variant="outline"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Volver
+              </Button>
             </div>
           </div>
         </div>

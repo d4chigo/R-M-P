@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -20,9 +21,16 @@ import {
   Users2,
   Clock,
   Settings,
-  Package,
+  HelpCircle,
+  ClipboardCheck,
 } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   const modules = [
@@ -106,6 +114,15 @@ export default function HomePage() {
       href: "/reportes/cumplimiento-vh",
       color: "bg-violet-500",
     },
+  ];
+
+  const pasos = [
+    { step: 1, title: "Registrar Vehículos", desc: "Primero registra los vehículos de la flota.", icon: Truck },
+    { step: 2, title: "Registrar Repartidores", desc: "Luego agrega los repartidores.", icon: UserCheck },
+    { step: 3, title: "Definir Zonas", desc: "Define las zonas de operación.", icon: MapPin },
+    { step: 4, title: "Registrar Clientes", desc: "Ingresa los clientes y sus puntos de entrega.", icon: Users },
+    { step: 5, title: "Programar Viajes", desc: "Crea viajes con vehículos, repartidores y clientes asignados.", icon: Calendar },
+    { step: 6, title: "Registrar Visitas", desc: "Finalmente, registra las visitas realizadas.", icon: ClipboardCheck },
   ];
 
   return (
@@ -290,6 +307,45 @@ export default function HomePage() {
               </div>
             </div>
           </Link>
+
+          {/* Botón flotante del Manual */}
+          <div className="fixed bottom-24 right-6 z-50">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button className="rounded-full w-16 h-16 bg-emerald-600 hover:bg-emerald-700 shadow-lg">
+                  <HelpCircle className="w-7 h-7 text-white" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-96 p-6 rounded-xl shadow-xl">
+                <h3 className="font-bold text-xl mb-4 flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                  📘 Manual de Uso
+                </h3>
+                <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
+                  {pasos.map((p) => {
+                    const Icon = p.icon;
+                    return (
+                      <div
+                        key={p.step}
+                        className="flex items-start gap-3 bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:shadow-md transition"
+                      >
+                        <div className="bg-emerald-600 text-white p-2 rounded-full">
+                          <Icon className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-lg text-gray-900 dark:text-gray-100">
+                            {p.step}. {p.title}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            {p.desc}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
         </div>
       </div>
     </ProtectedRoute>
