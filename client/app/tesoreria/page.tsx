@@ -23,15 +23,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Wallet,
   ArrowLeft,
   Search as SearchIcon,
-  BarChart3,
-  ChevronDown,
-  ChevronUp,
   Filter,
   RefreshCcw,
   Plus,
@@ -45,37 +38,13 @@ export default function TesoreriaPage() {
 
   // UI state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [showStats, setShowStats] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategoria, setFilterCategoria] = useState<string>("");
-  const [fechaInicio, setFechaInicio] = useState<string>("");
-  const [fechaFin, setFechaFin] = useState<string>("");
+  const [fecha, setFecha] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"active" | "history" | "trash">("active");
 
-  const [stats, setStats] = useState({
-    totalIngresos: 0,
-    totalEgresos: 0,
-    balance: 0,
-    totalRegistros: 0,
-  });
-
-  useEffect(() => {
-    // Métricas simples con el esquema actual
-    const totalMonto = tesoreria.reduce((sum, item) => sum + (item.monto || 0), 0);
-    setStats({
-      totalIngresos: 0,
-      totalEgresos: 0,
-      balance: totalMonto,
-      totalRegistros: tesoreria.length,
-    });
-  }, [tesoreria]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("es-PE", {
-      style: "currency",
-      currency: "PEN",
-    }).format(amount);
-  };
+  // Conteo simple para tarjeta fija
+  const totalRegistros = tesoreria.length;
 
   const categorias = [
     "Combustible",
@@ -96,12 +65,14 @@ export default function TesoreriaPage() {
       const params: any = {};
       if (searchTerm) params.q = searchTerm;
       if (filterCategoria) params.categoria = filterCategoria;
-      if (fechaInicio) params.fecha_inicio = fechaInicio;
-      if (fechaFin) params.fecha_fin = fechaFin;
+      if (fecha) {
+        params.fecha_inicio = fecha;
+        params.fecha_fin = fecha;
+      }
       params.scope = activeTab;
       return params;
     };
-  }, [searchTerm, filterCategoria, fechaInicio, fechaFin, activeTab]);
+  }, [searchTerm, filterCategoria, fecha, activeTab]);
 
   // Debounced auto-search when fields change (avoid loops by not depending on function identity)
   const prevParamsRef = useRef("");
@@ -131,8 +102,7 @@ export default function TesoreriaPage() {
   const clearFilters = async () => {
     setSearchTerm("");
     setFilterCategoria("");
-    setFechaInicio("");
-    setFechaFin("");
+    setFecha("");
     await searchTesoreria({});
     window.dispatchEvent(new CustomEvent("tesoreria:search", { detail: {} }));
   };
@@ -233,23 +203,14 @@ export default function TesoreriaPage() {
                 </Select>
               </div>
 
-              {/* Fechas más útiles para Historial, pero disponibles en todas */}
+              {/* Filtro por fecha específica */}
               <div className="relative">
                 <Input
                   type="date"
-                  value={fechaInicio}
-                  onChange={(e) => setFechaInicio(e.target.value)}
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
                   className="w-[180px]"
-                  placeholder="Desde"
-                />
-              </div>
-              <div className="relative">
-                <Input
-                  type="date"
-                  value={fechaFin}
-                  onChange={(e) => setFechaFin(e.target.value)}
-                  className="w-[180px]"
-                  placeholder="Hasta"
+                  placeholder="Fecha"
                 />
               </div>
 
@@ -258,62 +219,10 @@ export default function TesoreriaPage() {
                 Limpiar
               </Button>
 
-              <div className="ml-auto">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowStats(!showStats)}
-                  className="flex items-center gap-2"
-                >
-                  <BarChart3 className="h-4 w-4" />
-                  Estadísticas
-                  {showStats ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                </Button>
-              </div>
+              {/* Se elimina botón de estadísticas */}
             </div>
           </CardContent>
         </Card>
-
-      {/* Stats - Collapsible */}
-      {showStats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Total Registros</CardTitle>
-                <Wallet className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="mt-2 text-2xl font-bold">{stats.totalRegistros}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Total Ingresos</CardTitle>
-                <TrendingUp className="h-4 w-4 text-green-600" />
-              </div>
-              <div className="mt-2 text-2xl font-bold text-green-600">{formatCurrency(stats.totalIngresos)}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Total Egresos</CardTitle>
-                <TrendingDown className="h-4 w-4 text-red-600" />
-              </div>
-              <div className="mt-2 text-2xl font-bold text-red-600">{formatCurrency(stats.totalEgresos)}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Balance</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className={`mt-2 text-2xl font-bold ${stats.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(stats.balance)}</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
         {/* Tab: Hoy */}
         <TabsContent value="active" className="mt-4">
