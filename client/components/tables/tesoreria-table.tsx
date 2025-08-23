@@ -73,7 +73,12 @@ interface TesoreriaTableProps {
   onRefresh?: () => void;
 }
 
-export function TesoreriaTable({ onRefresh }: TesoreriaTableProps) {
+interface TesoreriaTableProps {
+  onRefresh?: () => void;
+  variant?: "full" | "simple";
+}
+
+export function TesoreriaTable({ onRefresh, variant = "full" }: TesoreriaTableProps) {
   const {
     tesoreria,
     loading,
@@ -211,6 +216,13 @@ export function TesoreriaTable({ onRefresh }: TesoreriaTableProps) {
   const promedioMonto = totalRegistros > 0 ? totalMonto / totalRegistros : 0;
 
   if (loading) {
+    if (variant === "simple") {
+      return (
+        <div className="flex items-center justify-center h-32">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
+      );
+    }
     return (
       <Card>
         <CardHeader>
@@ -226,6 +238,9 @@ export function TesoreriaTable({ onRefresh }: TesoreriaTableProps) {
   }
 
   if (error) {
+    if (variant === "simple") {
+      return <p className="text-red-600">{error}</p>;
+    }
     return (
       <Card>
         <CardHeader>
@@ -238,6 +253,228 @@ export function TesoreriaTable({ onRefresh }: TesoreriaTableProps) {
     );
   }
 
+  // Simple variant: render only table and pagination so the page can own layout
+  if (variant === "simple") {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead>
+                <TableHead>Placa</TableHead>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Cargo</TableHead>
+                <TableHead>Categoría</TableHead>
+                <TableHead>Detalle</TableHead>
+                <TableHead>Reembolso</TableHead>
+                <TableHead>Distrito</TableHead>
+                <TableHead>Turno</TableHead>
+                <TableHead>Encargado</TableHead>
+                <TableHead>Monto</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tesoreria.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8">
+                    No se encontraron registros de tesorería
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedData.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-gray-500" />
+                        {format(new Date(item.fecha), "dd/MM/yyyy", { locale: es })}
+                      </div>
+                    </TableCell>
+                    <TableCell>{item.placa || "-"}</TableCell>
+                    <TableCell>{item.nombre}</TableCell>
+                    <TableCell>{item.cargo || "-"}</TableCell>
+                    <TableCell>
+                      <div>
+                        <div className="font-medium">{item.categoria}</div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="max-w-xs truncate" title={item.detalle || ""}>
+                        {item.detalle || "-"}
+                      </div>
+                    </TableCell>
+                    <TableCell>{item.reembolso || "-"}</TableCell>
+                    <TableCell>{item.distrito || "-"}</TableCell>
+                    <TableCell>{item.turno ?? "-"}</TableCell>
+                    <TableCell>{item.encargado || "-"}</TableCell>
+                    <TableCell>
+                      <div className="font-medium">{formatCurrency(item.monto)}</div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleView(item)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            Ver detalles
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEdit(item)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta acción no se puede deshacer. Se eliminará
+                                  permanentemente el registro de tesorería.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(item.id)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Eliminar
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalItems={tesoreria.length}
+          onPageChange={handlePageChange}
+          onPageSizeChange={handlePageSizeChange}
+        />
+
+        {/* Dialogos de Ver y Editar */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Editar Registro de Tesorería</DialogTitle>
+              <DialogDescription>
+                Modifique los datos del registro de tesorería.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedTesoreria && (
+              <TesoreriaForm
+                tesoreria={selectedTesoreria}
+                onSubmit={handleUpdate}
+                onCancel={() => {
+                  setIsEditDialogOpen(false);
+                  setSelectedTesoreria(null);
+                }}
+                loading={loading}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Diálogo de visualización */}
+        <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Detalles del Registro de Tesorería</DialogTitle>
+            </DialogHeader>
+            {selectedTesoreria && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Fecha</label>
+                    <p className="text-sm">
+                      {format(new Date(selectedTesoreria.fecha), "dd/MM/yyyy", { locale: es })}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Placa</label>
+                    <p className="text-sm">{selectedTesoreria.placa || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Nombre</label>
+                    <p className="text-sm">{selectedTesoreria.nombre}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Cargo</label>
+                    <p className="text-sm">{selectedTesoreria.cargo || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Categoría</label>
+                    <p className="text-sm">{selectedTesoreria.categoria}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Reembolso</label>
+                    <p className="text-sm">{selectedTesoreria.reembolso || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Distrito</label>
+                    <p className="text-sm">{selectedTesoreria.distrito || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Turno</label>
+                    <p className="text-sm">{selectedTesoreria.turno ?? "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Encargado</label>
+                    <p className="text-sm">{selectedTesoreria.encargado || "-"}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Monto</label>
+                    <p className="text-sm font-medium">{formatCurrency(selectedTesoreria.monto)}</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-500">Detalle</label>
+                  <p className="text-sm mt-1">{selectedTesoreria.detalle || "-"}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Creado</label>
+                    <p className="text-sm">{format(new Date(selectedTesoreria.created_at), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Actualizado</label>
+                    <p className="text-sm">{format(new Date(selectedTesoreria.updated_at), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  // Full variant (original layout)
   return (
     <div className="space-y-6">
       {/* Header con búsqueda y filtros */}
