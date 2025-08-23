@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TesoreriaTable } from "@/components/tables/tesoreria-table";
 import { TesoreriaForm } from "@/components/forms/tesoreria-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,15 +36,19 @@ import {
   Plus,
 } from "lucide-react";
 import { useTesoreria } from "@/hooks/use-tesoreria";
+import { useToast } from "@/hooks/use-toast";
 
 export default function TesoreriaPage() {
   const { tesoreria, loading, createTesoreria, searchTesoreria } = useTesoreria();
+  const { toast } = useToast();
 
   // UI state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategoria, setFilterCategoria] = useState<string>("");
+  const [fechaInicio, setFechaInicio] = useState<string>("");
+  const [fechaFin, setFechaFin] = useState<string>("");
 
   const [stats, setStats] = useState({
     totalIngresos: 0,
@@ -85,23 +89,51 @@ export default function TesoreriaPage() {
     "Otros",
   ];
 
-  const handleSearch = async () => {
-    const params: any = {};
-    if (searchTerm) params.q = searchTerm;
-    if (filterCategoria) params.categoria = filterCategoria;
-    await searchTesoreria(params);
-  };
+  const buildParams = useMemo(() => {
+    return () => {
+      const params: any = {};
+      if (searchTerm) params.q = searchTerm;
+      if (filterCategoria) params.categoria = filterCategoria;
+      if (fechaInicio) params.fecha_inicio = fechaInicio;
+      if (fechaFin) params.fecha_fin = fechaFin;
+      return params;
+    };
+  }, [searchTerm, filterCategoria, fechaInicio, fechaFin]);
+
+  // Debounced auto-search when fields change (avoid loops by not depending on function identity)
+  const prevParamsRef = useRef("");
+  useEffect(() => {
+    const handler = setTimeout(async () => {
+      const params = buildParams();
+      const paramsStr = JSON.stringify(params);
+      if (prevParamsRef.current !== paramsStr) {
+        prevParamsRef.current = paramsStr;
+        await searchTesoreria(params);
+        // Notify table simple variant to stay in sync
+        window.dispatchEvent(new CustomEvent("tesoreria:search", { detail: params }));
+      }
+    }, 350);
+    return () => clearTimeout(handler);
+  }, [buildParams]);
 
   const clearFilters = async () => {
     setSearchTerm("");
     setFilterCategoria("");
+    setFechaInicio("");
+    setFechaFin("");
     await searchTesoreria({});
+    window.dispatchEvent(new CustomEvent("tesoreria:search", { detail: {} }));
   };
 
   const handleCreate = async (data: any) => {
     const success = await createTesoreria(data);
     if (success) {
+      toast({ title: "Éxito", description: "Registro creado correctamente" });
       setIsCreateDialogOpen(false);
+      // Ensure table refreshes even if it uses a separate hook instance
+      window.dispatchEvent(new Event("tesoreria:refresh"));
+    } else {
+      toast({ title: "Error", description: "No se pudo crear el registro", variant: "destructive" });
     }
     return success;
   };
@@ -151,46 +183,65 @@ export default function TesoreriaPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="relative">
-              <SearchIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[220px]">
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
-                onKeyPress={(e) => e.key === "Enter" && handleSearch()}
               />
             </div>
-            <Select
-              value={filterCategoria || "all"}
-              onValueChange={(val) => setFilterCategoria(val === "all" ? "" : val)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {categorias.map((categoria) => (
-                  <SelectItem key={categoria} value={categoria}>
-                    {categoria}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex gap-2">
-              <Button onClick={handleSearch} className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                Filtrar
-              </Button>
-              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-2">
-                <RefreshCcw className="h-4 w-4" />
-                Limpiar
-              </Button>
+
+            <div className="w-[200px]">
+              <Select
+                value={filterCategoria || "all"}
+                onValueChange={(val) => setFilterCategoria(val === "all" ? "" : val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {categorias.map((categoria) => (
+                    <SelectItem key={categoria} value={categoria}>
+                      {categoria}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="relative">
+              <Input
+                type="date"
+                value={fechaInicio}
+                onChange={(e) => setFechaInicio(e.target.value)}
+                className="w-[180px]"
+                placeholder="Desde"
+              />
+            </div>
+            <div className="relative">
+              <Input
+                type="date"
+                value={fechaFin}
+                onChange={(e) => setFechaFin(e.target.value)}
+                className="w-[180px]"
+                placeholder="Hasta"
+              />
+            </div>
+
+            <Button variant="outline" onClick={clearFilters} className="flex items-center gap-2">
+              <RefreshCcw className="h-4 w-4" />
+              Limpiar
+            </Button>
+
+            <div className="ml-auto">
               <Button
                 variant="outline"
                 onClick={() => setShowStats(!showStats)}
-                className="ml-auto flex items-center gap-2"
+                className="flex items-center gap-2"
               >
                 <BarChart3 className="h-4 w-4" />
                 Estadísticas
