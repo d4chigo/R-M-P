@@ -6,6 +6,7 @@ import { TesoreriaForm } from "@/components/forms/tesoreria-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -49,6 +50,7 @@ export default function TesoreriaPage() {
   const [filterCategoria, setFilterCategoria] = useState<string>("");
   const [fechaInicio, setFechaInicio] = useState<string>("");
   const [fechaFin, setFechaFin] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"active" | "history" | "trash">("active");
 
   const [stats, setStats] = useState({
     totalIngresos: 0,
@@ -96,9 +98,10 @@ export default function TesoreriaPage() {
       if (filterCategoria) params.categoria = filterCategoria;
       if (fechaInicio) params.fecha_inicio = fechaInicio;
       if (fechaFin) params.fecha_fin = fechaFin;
+      params.scope = activeTab;
       return params;
     };
-  }, [searchTerm, filterCategoria, fechaInicio, fechaFin]);
+  }, [searchTerm, filterCategoria, fechaInicio, fechaFin, activeTab]);
 
   // Debounced auto-search when fields change (avoid loops by not depending on function identity)
   const prevParamsRef = useRef("");
@@ -115,6 +118,15 @@ export default function TesoreriaPage() {
     }, 350);
     return () => clearTimeout(handler);
   }, [buildParams]);
+
+  // Sincronizar cambio de pestaña con tablas hijas
+  useEffect(() => {
+    const params = buildParams();
+    window.dispatchEvent(new CustomEvent("tesoreria:search", { detail: params }));
+    // También podemos forzar un refresh para modo trash/historial
+    window.dispatchEvent(new Event("tesoreria:refresh"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const clearFilters = async () => {
     setSearchTerm("");
@@ -174,83 +186,92 @@ export default function TesoreriaPage() {
         </Dialog>
       </div>
 
-      {/* Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SearchIcon className="h-5 w-5" />
-            Buscar Registros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[220px]">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <TabsList>
+          <TabsTrigger value="active">Hoy</TabsTrigger>
+          <TabsTrigger value="history">Historial</TabsTrigger>
+          <TabsTrigger value="trash">Papelera</TabsTrigger>
+        </TabsList>
 
-            <div className="w-[200px]">
-              <Select
-                value={filterCategoria || "all"}
-                onValueChange={(val) => setFilterCategoria(val === "all" ? "" : val)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Categoría" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {categorias.map((categoria) => (
-                    <SelectItem key={categoria} value={categoria}>
-                      {categoria}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        {/* Search (común) */}
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <SearchIcon className="h-5 w-5" />
+              Buscar Registros
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[220px]">
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
 
-            <div className="relative">
-              <Input
-                type="date"
-                value={fechaInicio}
-                onChange={(e) => setFechaInicio(e.target.value)}
-                className="w-[180px]"
-                placeholder="Desde"
-              />
-            </div>
-            <div className="relative">
-              <Input
-                type="date"
-                value={fechaFin}
-                onChange={(e) => setFechaFin(e.target.value)}
-                className="w-[180px]"
-                placeholder="Hasta"
-              />
-            </div>
+              <div className="w-[200px]">
+                <Select
+                  value={filterCategoria || "all"}
+                  onValueChange={(val) => setFilterCategoria(val === "all" ? "" : val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {categorias.map((categoria) => (
+                      <SelectItem key={categoria} value={categoria}>
+                        {categoria}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <Button variant="outline" onClick={clearFilters} className="flex items-center gap-2">
-              <RefreshCcw className="h-4 w-4" />
-              Limpiar
-            </Button>
+              {/* Fechas más útiles para Historial, pero disponibles en todas */}
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={fechaInicio}
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                  className="w-[180px]"
+                  placeholder="Desde"
+                />
+              </div>
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={fechaFin}
+                  onChange={(e) => setFechaFin(e.target.value)}
+                  className="w-[180px]"
+                  placeholder="Hasta"
+                />
+              </div>
 
-            <div className="ml-auto">
-              <Button
-                variant="outline"
-                onClick={() => setShowStats(!showStats)}
-                className="flex items-center gap-2"
-              >
-                <BarChart3 className="h-4 w-4" />
-                Estadísticas
-                {showStats ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-2">
+                <RefreshCcw className="h-4 w-4" />
+                Limpiar
               </Button>
+
+              <div className="ml-auto">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowStats(!showStats)}
+                  className="flex items-center gap-2"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Estadísticas
+                  {showStats ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
       {/* Stats - Collapsible */}
       {showStats && (
@@ -294,15 +315,42 @@ export default function TesoreriaPage() {
         </div>
       )}
 
-      {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Registros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TesoreriaTable variant="simple" />
-        </CardContent>
-      </Card>
+        {/* Tab: Hoy */}
+        <TabsContent value="active" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de Registros (Hoy)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TesoreriaTable variant="simple" mode="active" />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Historial */}
+        <TabsContent value="history" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Historial de Registros</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TesoreriaTable variant="simple" mode="history" />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Papelera */}
+        <TabsContent value="trash" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Papelera</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TesoreriaTable variant="simple" mode="trash" />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

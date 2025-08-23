@@ -72,9 +72,10 @@ import { BarChart3, RefreshCcw } from "lucide-react";
 interface TesoreriaTableProps {
   onRefresh?: () => void;
   variant?: "full" | "simple";
+  mode?: "active" | "history" | "trash";
 }
 
-export function TesoreriaTable({ onRefresh, variant = "full" }: TesoreriaTableProps) {
+export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }: TesoreriaTableProps) {
   const {
     tesoreria,
     loading,
@@ -84,6 +85,10 @@ export function TesoreriaTable({ onRefresh, variant = "full" }: TesoreriaTablePr
     deleteTesoreria,
     searchTesoreria,
     fetchTesoreria,
+    fetchActive,
+    fetchHistory,
+    fetchTrash,
+    restoreTesoreria,
   } = useTesoreria();
 
   const { toast } = useToast();
@@ -98,11 +103,16 @@ export function TesoreriaTable({ onRefresh, variant = "full" }: TesoreriaTablePr
   // Mantener sincronizado con la página (variant="simple")
   useEffect(() => {
     const onRefresh = () => {
-      fetchTesoreria();
+      if (mode === "active") return fetchActive();
+      if (mode === "history") return fetchHistory();
+      if (mode === "trash") return fetchTrash();
     };
     const onSearch = (e: Event) => {
       const detail = (e as CustomEvent).detail || {};
-      searchTesoreria(detail);
+      // Asegurar que el scope se respete según el modo de la tabla
+      const params = { ...detail, scope: mode } as any;
+      // Para history, si no hay fechas, el backend decidirá por fecha < hoy
+      searchTesoreria(params);
     };
     window.addEventListener("tesoreria:refresh", onRefresh as EventListener);
     window.addEventListener("tesoreria:search", onSearch as EventListener);
@@ -110,7 +120,15 @@ export function TesoreriaTable({ onRefresh, variant = "full" }: TesoreriaTablePr
       window.removeEventListener("tesoreria:refresh", onRefresh as EventListener);
       window.removeEventListener("tesoreria:search", onSearch as EventListener);
     };
-  }, [fetchTesoreria, searchTesoreria]);
+  }, [fetchActive, fetchHistory, fetchTrash, searchTesoreria, mode]);
+
+  // Carga inicial según el modo
+  useEffect(() => {
+    if (mode === "active") fetchActive();
+    if (mode === "history") fetchHistory();
+    if (mode === "trash") fetchTrash();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   // Paginación
   const {
@@ -194,15 +212,27 @@ export function TesoreriaTable({ onRefresh, variant = "full" }: TesoreriaTablePr
     if (success) {
       toast({
         title: "Éxito",
-        description: "Registro de tesorería eliminado exitosamente",
+        description: "Registro movido a la papelera",
       });
       onRefresh?.();
     } else {
       toast({
         title: "Error",
-        description: "Error al eliminar el registro de tesorería",
+        description: "Error al mover a la papelera",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleRestore = async (id: number) => {
+    const success = await restoreTesoreria(id);
+    if (success) {
+      toast({ title: "Éxito", description: "Registro restaurado correctamente" });
+      onRefresh?.();
+      // Tras restaurar, recargar trash
+      await fetchTrash();
+    } else {
+      toast({ title: "Error", description: "No se pudo restaurar el registro", variant: "destructive" });
     }
   };
 
@@ -327,44 +357,57 @@ export function TesoreriaTable({ onRefresh, variant = "full" }: TesoreriaTablePr
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => handleEdit(item)}
-                          aria-label="Editar"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
+                        {mode !== "trash" ? (
+                          <>
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              aria-label="Eliminar"
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleEdit(item)}
+                              aria-label="Editar"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Edit className="h-4 w-4" />
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Esta acción no se puede deshacer. Se eliminará permanentemente el registro de tesorería.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(item.id)}
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                Eliminar
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  aria-label="Eliminar"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Mover a papelera?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta acción moverá el registro a la papelera. Podrás restaurarlo durante 7 días.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleDelete(item.id)}
+                                    className="bg-red-600 hover:bg-red-700"
+                                  >
+                                    Mover a papelera
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 px-2"
+                            onClick={() => handleRestore(item.id)}
+                          >
+                            Restaurar
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

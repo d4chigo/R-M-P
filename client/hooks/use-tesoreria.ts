@@ -16,6 +16,7 @@ export interface Tesoreria {
   monto: number;
   created_at: string;
   updated_at: string;
+  deleted_at?: string | null;
 }
 
 export interface TesoreriaFormData {
@@ -41,6 +42,8 @@ export interface SearchParams {
   turno?: number;
   distrito?: string;
   encargado?: string;
+  scope?: 'active' | 'history' | 'trash';
+  fecha?: string; // soporte para filtrar por un día puntual
 }
 
 export const useTesoreria = () => {
@@ -50,12 +53,21 @@ export const useTesoreria = () => {
   // useApi baseUrl already points to http://.../api, so pass resource paths without the /api prefix
   const { request } = useApi<any>("");
 
-  // Obtener todos los registros
-  const fetchTesoreria = async () => {
+  // Obtener registros por scope y filtros opcionales
+  const fetchTesoreria = async (params?: Partial<SearchParams>) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await request('/tesoreria');
+      const queryParams = new URLSearchParams();
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== '') {
+            queryParams.append(key, String(value));
+          }
+        });
+      }
+      const qp = queryParams.toString();
+      const response = await request(`/tesoreria${qp ? `?${qp}` : ''}`);
       if (response.success) {
         setTesoreria(response.data);
       } else {
@@ -67,6 +79,20 @@ export const useTesoreria = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helpers para scopes
+  const fetchActive = async () => {
+    // Asumimos que backend aplica scope=active (hoy) si se envía scope
+    return fetchTesoreria({ scope: 'active' });
+  };
+
+  const fetchHistory = async (opts?: { fecha?: string; fecha_inicio?: string; fecha_fin?: string }) => {
+    return fetchTesoreria({ scope: 'history', ...opts });
+  };
+
+  const fetchTrash = async () => {
+    return fetchTesoreria({ scope: 'trash' });
   };
 
   // Obtener un registro por ID
@@ -140,7 +166,7 @@ export const useTesoreria = () => {
     }
   };
 
-  // Eliminar registro
+  // Eliminar registro (Soft delete en backend)
   const deleteTesoreria = async (id: number): Promise<boolean> => {
     setLoading(true);
     setError(null);
@@ -149,7 +175,8 @@ export const useTesoreria = () => {
         method: 'DELETE',
       });
       if (response.success) {
-        await fetchTesoreria(); // Recargar la lista
+        // No conocemos el scope actual desde aquí, pero recargar activos por defecto ayuda a mantener en sincronía
+        await fetchActive();
         return true;
       } else {
         setError(response.message || 'Error al eliminar el registro');
@@ -158,6 +185,30 @@ export const useTesoreria = () => {
     } catch (err) {
       setError('Error de conexión al eliminar el registro');
       console.error('Error deleting tesoreria:', err);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Restaurar un registro desde la papelera
+  const restoreTesoreria = async (id: number): Promise<boolean> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await request(`/tesoreria/${id}/restore`, {
+        method: 'POST',
+      });
+      if (response.success) {
+        await fetchTrash();
+        return true;
+      } else {
+        setError(response.message || 'Error al restaurar el registro');
+        return false;
+      }
+    } catch (err) {
+      setError('Error de conexión al restaurar el registro');
+      console.error('Error restoring tesoreria:', err);
       return false;
     } finally {
       setLoading(false);
@@ -195,7 +246,8 @@ export const useTesoreria = () => {
 
   // Cargar datos al montar el componente
   useEffect(() => {
-    fetchTesoreria();
+    // Por defecto, cargar "Hoy" (scope=active)
+    fetchActive();
   }, []);
 
   return {
@@ -203,10 +255,14 @@ export const useTesoreria = () => {
     loading,
     error,
     fetchTesoreria,
+    fetchActive,
+    fetchHistory,
+    fetchTrash,
     fetchTesoreriaById,
     createTesoreria,
     updateTesoreria,
     deleteTesoreria,
+    restoreTesoreria,
     searchTesoreria,
   };
-}; 
+};
