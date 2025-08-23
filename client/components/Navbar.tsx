@@ -99,8 +99,10 @@ export const Navbar: React.FC = () => {
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Perfil</span>
+                    <Link href="/perfil" className="flex items-center">
+                      <User  className="mr-2 h-4 w-4" />
+                      <span>Perfil</span>
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md">
                     <Settings className="mr-2 h-4 w-4" />
