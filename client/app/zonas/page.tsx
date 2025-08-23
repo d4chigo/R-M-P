@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -40,7 +40,8 @@ import { ZonaMapa } from "@/components/zona-mapa";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ZonasPage() {
-  const { zonas, createZona, updateZona, deleteZona, isLoading, error } = useZonas();
+  const { zonas, createZona, updateZona, deleteZona, isLoading, error } =
+    useZonas();
   const { toast } = useToast();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -49,89 +50,28 @@ export default function ZonasPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [showStats, setShowStats] = useState(false);
-  const [filteredZonas, setFilteredZonas] = useState<Zona[]>([]);
 
-  // PAGINACIÓN
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  // 🔧 Normalizar fecha a YYYY-MM-DD
+  const toLocalYMD = (dateString: string | Date | null | undefined): string => {
+    if (!dateString) return "";
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  };
 
-  // Efecto para filtrar zonas cuando cambian los filtros o las zonas
-  useEffect(() => {
-    const filterZonas = () => {
-      let filtered = [...zonas];
+  // 🔍 Filtrado (búsqueda y fecha)
+  const filteredZonas = zonas.filter((z) => {
+    const matchesSearch =
+      z.codigo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      z.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      z.ubicacion?.toLowerCase().includes(searchTerm.toLowerCase());
 
-      // Filtro por búsqueda
-      if (searchTerm.trim()) {
-        filtered = filtered.filter((zona) =>
-          (zona.codigo || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (zona.descripcion || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (zona.ubicacion || "").toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      }
+    const matchesDate = dateFilter
+      ? toLocalYMD(z.fecha_creacion) === dateFilter
+      : true;
 
-      // Filtro por fecha - CORREGIDO para manejar zona horaria
-      if (dateFilter) {
-        console.log('=== FILTRO POR FECHA ===');
-        console.log('Fecha seleccionada en input:', dateFilter);
-        
-        // Convertir la fecha seleccionada a objeto Date
-        const selectedDate = new Date(dateFilter);
-        
-        // Obtener componentes de la fecha seleccionada (en zona horaria local)
-        const selectedYear = selectedDate.getFullYear();
-        const selectedMonth = selectedDate.getMonth();
-        const selectedDay = selectedDate.getDate();
-        
-        console.log('Fecha seleccionada (local):', selectedDate.toLocaleDateString());
-        console.log('Año/Mes/Día:', selectedYear, selectedMonth + 1, selectedDay);
-
-        filtered = filtered.filter((zona) => {
-          if (!zona.fecha_creacion) {
-            console.log('Zona sin fecha_creacion:', zona.codigo);
-            return false;
-          }
-          
-          try {
-            const zonaDate = new Date(zona.fecha_creacion);
-            
-            // Obtener componentes de la fecha de la zona (en zona horaria local)
-            const zonaYear = zonaDate.getFullYear();
-            const zonaMonth = zonaDate.getMonth();
-            const zonaDay = zonaDate.getDate();
-            
-            console.log('Zona:', zona.codigo);
-            console.log('Fecha zona (BD):', zona.fecha_creacion);
-            console.log('Fecha zona (local):', zonaDate.toLocaleDateString());
-            console.log('Año/Mes/Día zona:', zonaYear, zonaMonth + 1, zonaDay);
-            
-            // Comparar año, mes y día individualmente
-            const matches = selectedYear === zonaYear && 
-                           selectedMonth === zonaMonth && 
-                           selectedDay === zonaDay;
-            
-            console.log('Coincide:', matches);
-            console.log('---');
-            
-            return matches;
-          } catch (error) {
-            console.error('Error parsing date:', zona.fecha_creacion, error);
-            return false;
-          }
-        });
-
-        console.log('Zonas después de filtrar:', filtered.length);
-      }
-
-      setFilteredZonas(filtered);
-      setCurrentPage(1);
-    };
-
-    filterZonas();
-  }, [searchTerm, dateFilter, zonas]);
-
-  const startIndex = (currentPage - 1) * rowsPerPage;
-  const endIndex = startIndex + rowsPerPage;
-  const zonasPaginated = filteredZonas.slice(startIndex, endIndex);
+    return matchesSearch && matchesDate;
+  });
 
   const handleSubmit = async (zonaData: Omit<Zona, "id_zona">) => {
     try {
@@ -148,7 +88,6 @@ export default function ZonasPage() {
           description: editingZona
             ? `Se actualizó la zona ${zonaData.codigo}`
             : `Se registró exitosamente la zona ${zonaData.codigo}`,
-          variant: "default",
         });
         setIsDialogOpen(false);
         setEditingZona(null);
@@ -160,25 +99,21 @@ export default function ZonasPage() {
         ) {
           toast({
             title: "Código duplicado",
-            description: `El código "${zonaData.codigo}" ya está en uso. Por favor, utilice un código diferente.`,
+            description: `El código "${zonaData.codigo}" ya está en uso.`,
             variant: "destructive",
           });
         } else {
           toast({
             title: "Error al guardar",
-            description:
-              result.error ||
-              "No se pudo guardar la zona. Inténtelo nuevamente.",
+            description: result.error || "No se pudo guardar la zona.",
             variant: "destructive",
           });
         }
       }
     } catch (error) {
-      console.error("Error al guardar zona:", error);
       toast({
         title: "Error de conexión",
-        description:
-          "No se pudo conectar con el servidor. Verifique su conexión a internet.",
+        description: "No se pudo conectar con el servidor.",
         variant: "destructive",
       });
     }
@@ -190,47 +125,25 @@ export default function ZonasPage() {
   };
 
   const handleDelete = async (zona: Zona) => {
-    const descripcionCorta =
-      zona.descripcion && zona.descripcion.length > 50
-        ? zona.descripcion.substring(0, 50) + "..."
-        : zona.descripcion || "";
-    
     if (
-      confirm(
-        `¿Está seguro de eliminar la zona ${zona.codigo}?\n\n${descripcionCorta}`,
-      )
+      confirm(`¿Está seguro de eliminar la zona ${zona.codigo}?`)
     ) {
       if (zona.id_zona) {
-        try {
-          const result = await deleteZona(zona.id_zona);
-          if (result.success) {
-            toast({
-              title: "Zona eliminada",
-              description: `Se eliminó exitosamente la zona ${zona.codigo}`,
-              variant: "default",
-            });
-          } else {
-            toast({
-              title: "Error al eliminar",
-              description: result.error || "No se pudo eliminar la zona",
-              variant: "destructive",
-            });
-          }
-        } catch (error) {
+        const result = await deleteZona(zona.id_zona);
+        if (result.success) {
           toast({
-            title: "Error de conexión",
-            description:
-              "No se pudo conectar con el servidor. Inténtelo nuevamente.",
+            title: "Zona eliminada",
+            description: `Se eliminó exitosamente la zona ${zona.codigo}`,
+          });
+        } else {
+          toast({
+            title: "Error al eliminar",
+            description: result.error || "No se pudo eliminar la zona",
             variant: "destructive",
           });
         }
       }
     }
-  };
-
-  const handleCancel = () => {
-    setEditingZona(null);
-    setIsDialogOpen(false);
   };
 
   const handleNewZona = () => {
@@ -243,50 +156,17 @@ export default function ZonasPage() {
     setDateFilter("");
   };
 
-  const handleDateFilterChange = (date: string) => {
-    console.log('Cambiando filtro de fecha a:', date);
-    setDateFilter(date);
-  };
-
   const hasActiveFilters = searchTerm || dateFilter;
-
-  // Función para debugging - mostrar información de fechas
-  const mostrarInfoFechas = () => {
-    console.log('=== DEBUG: INFORMACIÓN COMPLETA DE FECHAS ===');
-    console.log('Fecha seleccionada para filtro:', dateFilter);
-    console.log('Total de zonas:', zonas.length);
-    
-    if (zonas.length > 0) {
-      console.log('Primeras 5 zonas con sus fechas:');
-      zonas.slice(0, 5).forEach((zona, index) => {
-        console.log(`Zona ${index + 1}:`);
-        console.log('  Código:', zona.codigo);
-        console.log('  fecha_creacion (BD):', zona.fecha_creacion);
-        if (zona.fecha_creacion) {
-          try {
-            const fecha = new Date(zona.fecha_creacion);
-            console.log('  Fecha parseada (ISO):', fecha.toISOString());
-            console.log('  Fecha local:', fecha.toLocaleDateString());
-            console.log('  Hora local:', fecha.toLocaleTimeString());
-            console.log('  Timestamp:', fecha.getTime());
-          } catch (error) {
-            console.log('  Error parsing date:', error);
-          }
-        }
-        console.log('---');
-      });
-    }
-  };
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md mx-4">
           <CardHeader>
             <CardTitle className="text-red-600">Error</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+            <p className="mb-4">{error}</p>
             <Button onClick={() => window.location.reload()} className="w-full">
               Reintentar
             </Button>
@@ -312,49 +192,38 @@ export default function ZonasPage() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold">Zonas</h1>
-            <p className="text-muted-foreground">
-              Gestión de zonas geográficas
-            </p>
+            <p className="text-muted-foreground">Gestión de zonas geográficas</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={mostrarInfoFechas}
-            title="Debug: Mostrar información de fechas"
-          >
-            <Info className="h-4 w-4" />
-          </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleNewZona}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nueva Zona
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md mx-4 sm:mx-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingZona ? "Editar Zona" : "Crear Nueva Zona"}
-                </DialogTitle>
-                <DialogDescription>
-                  {editingZona
-                    ? "Modifique los campos necesarios para actualizar la zona."
-                    : "Complete los campos para crear una nueva zona geográfica."}
-                </DialogDescription>
-              </DialogHeader>
-              <ZonaForm
-                zona={editingZona}
-                onSubmit={handleSubmit}
-                onCancel={handleCancel}
-                isEditing={!!editingZona}
-              />
-            </DialogContent>
-          </Dialog>
-        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNewZona}>
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Zona
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md mx-4 sm:mx-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {editingZona ? "Editar Zona" : "Crear Nueva Zona"}
+              </DialogTitle>
+              <DialogDescription>
+                {editingZona
+                  ? "Modifique los campos necesarios para actualizar la zona."
+                  : "Complete los campos para crear una nueva zona."}
+              </DialogDescription>
+            </DialogHeader>
+            <ZonaForm
+              zona={editingZona}
+              onSubmit={handleSubmit}
+              onCancel={() => setIsDialogOpen(false)}
+              isEditing={!!editingZona}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
 
+      {/* Tabs */}
       <Tabs defaultValue="lista" className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-6">
           <TabsTrigger value="lista" className="flex items-center gap-2">
@@ -371,44 +240,36 @@ export default function ZonasPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="lista" className="mt-0">
-          {/* Search */}
+        {/* TAB LISTA */}
+        <TabsContent value="lista">
+          {/* Filtros */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Search className="h-5 w-5" />
                 Buscar Zonas
               </CardTitle>
-              <CardDescription>
-                {hasActiveFilters && `Mostrando ${filteredZonas.length} de ${zonas.length} zonas`}
-                {dateFilter && ` • Filtrado por: ${new Date(dateFilter).toLocaleDateString()}`}
-              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4 items-center flex-wrap">
+              <div className="flex flex-wrap gap-4 items-center">
                 <Input
                   placeholder="Buscar por código, descripción o ubicación..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="flex-1 min-w-[200px]"
+                  className="flex-1"
                 />
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
                     type="date"
                     value={dateFilter}
-                    onChange={(e) => handleDateFilterChange(e.target.value)}
-                    className="pl-10 min-w-[150px]"
-                    placeholder="Filtrar por fecha"
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="pl-10"
                   />
                 </div>
                 {hasActiveFilters && (
-                  <Button
-                    variant="outline"
-                    onClick={handleClearFilters}
-                    className="flex items-center gap-2"
-                  >
-                    Limpiar Filtros
+                  <Button variant="outline" onClick={handleClearFilters}>
+                    Limpiar
                   </Button>
                 )}
                 <Button
@@ -428,87 +289,70 @@ export default function ZonasPage() {
             </CardContent>
           </Card>
 
-          {/* Stats - Collapsible */}
+          {/* Estadísticas */}
           {showStats && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-8 w-8 text-blue-600" />
-                    <div>
-                      <p className="text-2xl font-bold">{filteredZonas.length}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Zonas Filtradas
-                      </p>
-                    </div>
+                <CardContent className="pt-6 flex items-center space-x-2">
+                  <MapPin className="h-8 w-8 text-blue-600" />
+                  <div>
+                    <p className="text-2xl font-bold">{zonas.length}</p>
+                    <p className="text-sm text-muted-foreground">Total Zonas</p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <Activity className="h-8 w-8 text-green-600" />
-                    <div>
-                      <p className="text-2xl font-bold">
-                        {filteredZonas.filter((z) => z.latitud && z.longitud).length}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Con Coordenadas
-                      </p>
-                    </div>
+                <CardContent className="pt-6 flex items-center space-x-2">
+                  <Activity className="h-8 w-8 text-green-600" />
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {zonas.filter((z) => z.latitud && z.longitud).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Con Coordenadas
+                    </p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <Users className="h-8 w-8 text-purple-600" />
-                    <div>
-                      <p className="text-2xl font-bold">
-                        {filteredZonas.filter((z) => z.codigo && z.codigo.length > 0).length}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Con Código
-                      </p>
-                    </div>
+                <CardContent className="pt-6 flex items-center space-x-2">
+                  <Users className="h-8 w-8 text-purple-600" />
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {zonas.filter((z) => z.codigo).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Con Código</p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <Info className="h-8 w-8 text-orange-600" />
-                    <div>
-                      <p className="text-2xl font-bold">
-                        {filteredZonas.filter((z) => z.descripcion && z.descripcion.length > 0).length}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Con Descripción
-                      </p>
-                    </div>
+                <CardContent className="pt-6 flex items-center space-x-2">
+                  <Info className="h-8 w-8 text-orange-600" />
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {zonas.filter((z) => z.descripcion).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Con Descripción
+                    </p>
                   </div>
                 </CardContent>
               </Card>
             </div>
           )}
 
-          {/* Table */}
-          <Card>
+          {/* Tabla */}
+          <Card className="mt-6">
             <CardHeader>
               <CardTitle>Lista de Zonas</CardTitle>
-              <CardDescription>
-                {hasActiveFilters && `${filteredZonas.length} resultados encontrados`}
-              </CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <div className="text-center py-4">Cargando zonas...</div>
-              ) : zonas.length === 0 ? (
+              ) : filteredZonas.length === 0 ? (
                 <div className="text-center py-8">
                   <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    No hay zonas registradas
-                  </h3>
+                  <h3 className="text-lg font-medium">No hay zonas registradas</h3>
                   <p className="text-gray-600 mb-4">
                     Comienza creando tu primera zona geográfica
                   </p>
@@ -517,40 +361,25 @@ export default function ZonasPage() {
                     Crear Primera Zona
                   </Button>
                 </div>
-              ) : filteredZonas.length === 0 ? (
-                <div className="text-center py-8">
-                  <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    No se encontraron zonas
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    {hasActiveFilters 
-                      ? 'Intenta con otros criterios de búsqueda o limpia los filtros'
-                      : 'No hay zonas que coincidan con los criterios'
-                    }
-                  </p>
-                  {hasActiveFilters && (
-                    <Button variant="outline" onClick={handleClearFilters}>
-                      Limpiar Filtros
-                    </Button>
-                  )}
-                </div>
               ) : (
                 <ZonasTable
-                  zonas={zonasPaginated}
+                  zonas={filteredZonas}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
-                  initialPageSize={rowsPerPage}
+                  onViewMap={setSelectedZona}
+                  initialPageSize={10}
                 />
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* TAB ESTADÍSTICAS */}
         <TabsContent value="estadisticas" className="mt-6">
           <ZonaEstadisticas />
         </TabsContent>
 
+        {/* TAB MAPA */}
         <TabsContent value="mapa" className="mt-6">
           <ZonaMapa
             zonas={zonas}
