@@ -14,7 +14,7 @@ const {
   getPerformanceRepartidoresV2,
   getCumplimientoVehiculo,
   getCumplimientoVehiculoDetalle,
-  getCumplimientoVHVisitas,
+
   // detalle por viaje
   getResumenRutasPorViaje,
 } = require("../controllers/reportes.controller");
@@ -53,9 +53,7 @@ router.get("/performance/repartidores/v2", getPerformanceRepartidoresV2);
 router.get("/cumplimiento/vh", getCumplimientoVehiculo);
 // GET /api/reportes/cumplimiento/vh/:placa/detalle?umbralDias=30
 router.get("/cumplimiento/vh/:placa/detalle", getCumplimientoVehiculoDetalle);
-// GET /api/reportes/cumplimiento/vh/visitas - Cumplimiento por visita (ventanas horarias)
-// Query params: ?fecha=YYYY-MM-DD | ?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD [&placa=XXX] [&cliente=C001]
-router.get("/cumplimiento/vh/visitas", getCumplimientoVHVisitas);
+
 
 // GET /api/reportes/sp/resumen-rutas/:fecha - Usar procedimiento almacenado
 router.get("/sp/resumen-rutas/:fecha", getResumenRutasProcedimiento);

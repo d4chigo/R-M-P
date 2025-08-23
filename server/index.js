@@ -13,10 +13,9 @@ const authRoutes = require("./routes/auth.route");
 const adminRoutes = require("./routes/admin.route");
 const vehiculoRoutes = require("./routes/vehiculo.route");
 const zonaRoutes = require("./routes/zona.route");
-const clienteRoutes = require("./routes/cliente.route");
+const tesoreriaRoutes = require("./routes/tesoreria.route");
 const repartidorRoutes = require("./routes/repartidor.route");
 const viajeRoutes = require("./routes/viaje.route");
-const visitaRoutes = require("./routes/visita.route");
 const usuarioRoutes = require("./routes/usuario.route");
 const reportesRoutes = require("./routes/reportes.route");
 
@@ -66,9 +65,8 @@ app.get("/api/test", async (req, res) => {
       "ZONA",
       "VEHICULO",
       "REPARTIDOR",
-      "CLIENTE",
       "VIAJE",
-      "VISITA",
+      "TESORERIA",
     ];
     const existingTables = tables.map((t) => Object.values(t)[0]);
     const missingTables = expectedTables.filter(
@@ -142,9 +140,7 @@ app.get("/api/schema", async (req, res) => {
       "ZONA",
       "VEHICULO",
       "REPARTIDOR",
-      "CLIENTE",
       "VIAJE",
-      "VISITA",
     ];
 
     for (const table of mainTables) {
@@ -161,7 +157,7 @@ app.get("/api/schema", async (req, res) => {
       SELECT TABLE_NAME, INDEX_NAME, COLUMN_NAME
       FROM INFORMATION_SCHEMA.STATISTICS
       WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME IN ('ZONA', 'VEHICULO', 'REPARTIDOR', 'CLIENTE', 'VIAJE', 'VISITA')
+      AND TABLE_NAME IN ('ZONA', 'VEHICULO', 'REPARTIDOR', 'VIAJE')
       ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX
     `);
 
@@ -186,58 +182,7 @@ app.get("/api/schema", async (req, res) => {
   }
 });
 
-// Endpoint temporal para debug de estadísticas (SIN AUTENTICACIÓN)
-// NOTA: Comentado para producción - descomentar solo para debugging
-/*
-app.get("/api/debug/zonas/estadisticas", async (req, res) => {
-  try {
-    console.log("🔍 Debug: Obteniendo zonas con estadísticas...");
-    const db = require("./config/db");
 
-    const [zonas] = await db.query(`
-      SELECT
-        z.id_zona,
-        z.codigo,
-        z.descripcion,
-        z.latitud,
-        z.longitud,
-        COALESCE(stats.total_clientes, 0) as total_clientes,
-        COALESCE(stats.clientes_activos, 0) as clientes_activos,
-        z.created_at,
-        z.updated_at
-      FROM ZONA z
-      LEFT JOIN (
-        SELECT
-          id_zona,
-          COUNT(*) as total_clientes,
-          SUM(CASE WHEN activo = TRUE THEN 1 ELSE 0 END) as clientes_activos
-        FROM CLIENTE
-        WHERE id_zona IS NOT NULL
-        GROUP BY id_zona
-      ) stats ON z.id_zona = stats.id_zona
-      ORDER BY z.codigo ASC
-    `);
-
-    console.log(`✅ Debug: Se encontraron ${zonas.length} zonas con estadísticas`);
-
-    res.json({
-      success: true,
-      data: zonas,
-      count: zonas.length,
-      message: "Debug: Zonas con estadísticas obtenidas exitosamente",
-      debug: true
-    });
-  } catch (error) {
-    console.error("❌ Debug Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Debug: Error al obtener zonas con estadísticas",
-      error: error.message,
-      debug: true
-    });
-  }
-});
-*/
 
 // Registrar rutas públicas
 app.use("/api/auth", authRoutes);
@@ -246,10 +191,9 @@ app.use("/api/admin", adminRoutes);
 // Registrar rutas protegidas (requieren autenticación)
 app.use("/api/vehiculos", authenticateToken, vehiculoRoutes);
 app.use("/api/zonas", authenticateToken, zonaRoutes);
-app.use("/api/clientes", authenticateToken, clienteRoutes);
+app.use("/api/tesoreria", tesoreriaRoutes);
 app.use("/api/repartidores", authenticateToken, repartidorRoutes);
 app.use("/api/viajes", authenticateToken, viajeRoutes);
-app.use("/api/visitas", authenticateToken, visitaRoutes);
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/reportes", authenticateToken, reportesRoutes);
 
@@ -292,11 +236,12 @@ app.use("*", (req, res) => {
       "PUT /api/zonas/:id - Actualizar zona",
       "DELETE /api/zonas/:id - Eliminar zona",
       "",
-      "GET /api/clientes - Lista de clientes",
-      "GET /api/clientes/:id - Cliente por ID",
-      "POST /api/clientes - Crear cliente",
-      "PUT /api/clientes/:id - Actualizar cliente",
-      "DELETE /api/clientes/:id - Eliminar cliente",
+      "GET /api/tesoreria - Lista de tesorería",
+      "GET /api/tesoreria/:id - Registro de tesorería por ID",
+      "POST /api/tesoreria - Crear registro de tesorería",
+      "PUT /api/tesoreria/:id - Actualizar registro de tesorería",
+      "DELETE /api/tesoreria/:id - Eliminar registro de tesorería",
+      "GET /api/tesoreria/search - Buscar registros de tesorería",
       "",
       "GET /api/repartidores - Lista de repartidores",
       "GET /api/repartidores/:id - Repartidor por ID",
@@ -315,12 +260,6 @@ app.use("*", (req, res) => {
       "POST /api/viajes - Crear viaje",
       "PUT /api/viajes/:id - Actualizar viaje",
       "DELETE /api/viajes/:id - Eliminar viaje",
-      "",
-      "GET /api/visitas - Lista de visitas",
-      "GET /api/visitas/:id - Visita por ID",
-      "POST /api/visitas - Crear visita",
-      "PUT /api/visitas/:id - Actualizar visita",
-      "DELETE /api/visitas/:id - Eliminar visita",
       "",
       "=== REPORTES ===",
       "GET /api/reportes/resumen-rutas - Resumen de rutas",
@@ -366,10 +305,9 @@ async function startServer() {
       console.log("📦 Entidades principales (Auth requerida):");
       console.log("   🚛  /api/vehiculos - Gestión de vehículos");
       console.log("   🗺️   /api/zonas - Gestión de zonas");
-      console.log("   👥  /api/clientes - Gestión de clientes");
+      console.log("   💰  /api/tesoreria - Gestión de tesorería");
       console.log("   👤  /api/repartidores - Gestión de repartidores");
       console.log("   🚚  /api/viajes - Gestión de viajes");
-      console.log("   📍  /api/visitas - Gestión de visitas");
       console.log("   👥  /api/usuarios - Gestión de usuarios");
       console.log("");
       console.log("📊 Reportes y analytics:");

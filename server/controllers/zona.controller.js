@@ -333,18 +333,7 @@ const deleteZona = async (req, res) => {
       });
     }
 
-    // Verificar si tiene clientes asociados
-    const [clientes] = await db.query(
-      "SELECT COUNT(*) as count FROM CLIENTE WHERE id_zona = ?",
-      [id],
-    );
 
-    if (clientes[0].count > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No se puede eliminar la zona porque tiene clientes asociados",
-      });
-    }
 
     await db.query("DELETE FROM ZONA WHERE id_zona = ?", [id]);
 
@@ -417,7 +406,7 @@ const searchZonas = async (req, res) => {
   }
 };
 
-// Obtener zonas con estadísticas de clientes
+// Obtener zonas con estadísticas
 const getZonasConEstadisticas = async (req, res) => {
   try {
     console.log("📊 Obteniendo zonas con estadísticas...");
@@ -429,20 +418,11 @@ const getZonasConEstadisticas = async (req, res) => {
         z.descripcion,
         z.latitud,
         z.longitud,
-        COALESCE(stats.total_clientes, 0) as total_clientes,
-        COALESCE(stats.clientes_activos, 0) as clientes_activos,
+        0 as total_clientes,
+        0 as clientes_activos,
         z.created_at,
         z.updated_at
       FROM ZONA z
-      LEFT JOIN (
-        SELECT
-          id_zona,
-          COUNT(*) as total_clientes,
-          SUM(CASE WHEN activo = TRUE THEN 1 ELSE 0 END) as clientes_activos
-        FROM CLIENTE
-        WHERE id_zona IS NOT NULL
-        GROUP BY id_zona
-      ) stats ON z.id_zona = stats.id_zona
       ORDER BY z.codigo ASC
     `);
 

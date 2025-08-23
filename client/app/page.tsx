@@ -23,6 +23,7 @@ import {
   Settings,
   HelpCircle,
   ClipboardCheck,
+  DollarSign,
 } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import {
@@ -56,25 +57,21 @@ export default function HomePage() {
       color: "bg-red-500",
     },
     {
-      title: "Clientes",
-      description: "Gestión de clientes y contactos",
-      icon: Users,
-      href: "/clientes",
-      color: "bg-orange-500",
-    },
-    {
       title: "Viajes",
       description: "Programación y seguimiento de viajes",
       icon: Calendar,
       href: "/viajes",
       color: "bg-indigo-500",
     },
+  ];
+
+  const financeModules = [
     {
-      title: "Visitas",
-      description: "Registro de visitas a clientes",
-      icon: FileText,
-      href: "/visitas",
-      color: "bg-pink-500",
+      title: "Tesorería",
+      description: "Gestión de ingresos y egresos",
+      icon: DollarSign,
+      href: "/tesoreria",
+      color: "bg-green-600",
     },
   ];
 
@@ -129,13 +126,16 @@ export default function HomePage() {
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-4 py-4 sm:py-8">
-          <div className="text-center mb-8 sm:mb-12">
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-              Sistema R-M-P v2.0
-            </h1>
-            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Plataforma de Gestión de Rutas - Sistema integral para la gestión de
-              rutas, vehículos y logística
+          <div className="text-center mb-8 sm:mb-12 bg-gradient-to-r from-blue-50 to-white dark:from-gray-800 dark:to-gray-900 py-6 sm:py-8">
+            <div className="flex justify-center items-center mb-4">
+              <span className="text-4xl sm:text-5xl font-bold text-blue-600 mr-2">📦</span>
+              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100 inline">
+                Sistema R-M-P
+              </h1>
+            </div>
+            <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto px-4">
+              Plataforma de Gestión de Rutas - Sistema integral para la gestión de rutas,
+              vehículos y logística
             </p>
           </div>
 
@@ -144,8 +144,41 @@ export default function HomePage() {
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
               Módulos Principales
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
               {modules.map((module) => {
+                const IconComponent = module.icon;
+                return (
+                  <Link key={module.href} href={module.href}>
+                    <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full dark:bg-gray-800 dark:border-gray-700 dark:hover:shadow-gray-700/25">
+                      <CardHeader className="text-center pb-4">
+                        <div
+                          className={`w-16 h-16 ${module.color} rounded-full flex items-center justify-center mx-auto mb-4`}
+                        >
+                          <IconComponent className="w-8 h-8 text-white" />
+                        </div>
+                        <CardTitle className="text-lg dark:text-gray-100">
+                          {module.title}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <CardDescription className="text-center dark:text-gray-300">
+                          {module.description}
+                        </CardDescription>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Módulo de Finanzas */}
+          <div className="mb-12">
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
+              Módulo de Finanzas
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+              {financeModules.map((module) => {
                 const IconComponent = module.icon;
                 return (
                   <Link key={module.href} href={module.href}>
@@ -177,7 +210,7 @@ export default function HomePage() {
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
               Reportes y Análisis
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
               {reportes.map((reporte) => {
                 const IconComponent = reporte.icon;
                 return (
@@ -231,9 +264,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600 mb-2">
-                  🔧
-                </div>
+                <div className="text-3xl font-bold text-purple-600 mb-2">🗃️</div>
                 <div className="font-semibold text-gray-900 dark:text-gray-100 mb-1">
                   Procedimientos Almacenados
                 </div>
@@ -250,47 +281,6 @@ export default function HomePage() {
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">
                   KPIs de cumplimiento y performance
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Estadísticas del Sistema */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg shadow-sm p-6 sm:p-8">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6 text-center">
-              Sistema R-M-P v2.0
-            </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-              <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-blue-600 mb-2">
-                  6
-                </div>
-                <div className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
-                  Entidades Principales
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-emerald-600 mb-2">
-                  15+
-                </div>
-                <div className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
-                  Endpoints de Reportes
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-green-600 mb-2">
-                  1
-                </div>
-                <div className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
-                  Vista Principal
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold text-purple-600 mb-2">
-                  2
-                </div>
-                <div className="text-sm sm:text-base text-gray-600 dark:text-gray-300">
-                  Procedimientos
                 </div>
               </div>
             </div>

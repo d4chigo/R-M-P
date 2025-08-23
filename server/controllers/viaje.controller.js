@@ -547,50 +547,7 @@ const deleteViaje = async (req, res) => {
 
     const viaje = existing[0];
 
-    // Verificar si tiene visitas asociadas con información detallada
-    const [visitas] = await db.query(
-      `
-      SELECT
-        COUNT(*) as count,
-        GROUP_CONCAT(DISTINCT c.nombre ORDER BY c.nombre SEPARATOR ', ') as clientes_nombres
-      FROM VISITA vis
-      LEFT JOIN CLIENTE c ON vis.id_cliente = c.id_cliente
-      WHERE vis.id_viaje = ?
-    `,
-      [id],
-    );
 
-    if (visitas[0].count > 0) {
-      const clientesInfo = visitas[0].clientes_nombres || "clientes sin nombre";
-
-      console.log(
-        `⚠️ No se puede eliminar viaje ${id}: tiene ${visitas[0].count} visitas asociadas`,
-      );
-
-      return res.status(400).json({
-        success: false,
-        message: `No se puede eliminar el viaje porque tiene ${visitas[0].count} visitas asociadas`,
-        error:
-          `Este viaje del ${new Date(viaje.fecha).toLocaleDateString("es-PE")} ` +
-          `(Vehículo: ${viaje.vehiculo_placa}, Repartidor: ${viaje.repartidor_nombre}) ` +
-          `tiene ${visitas[0].count} visita${visitas[0].count > 1 ? "s" : ""} asociada${visitas[0].count > 1 ? "s" : ""} ` +
-          `a los siguientes clientes: ${clientesInfo}. ` +
-          `Para eliminar este viaje, primero debe eliminar todas las visitas relacionadas ` +
-          `o transferirlas a otro viaje.`,
-        details: {
-          viaje_id: viaje.id_viaje,
-          fecha: viaje.fecha,
-          vehiculo: `${viaje.vehiculo_placa} - ${viaje.vehiculo_marca} ${viaje.vehiculo_modelo}`,
-          repartidor: `${viaje.repartidor_codigo} - ${viaje.repartidor_nombre}`,
-          visitas_count: visitas[0].count,
-          clientes_afectados: clientesInfo,
-          solucion:
-            "Elimine primero las visitas asociadas o transfiéralas a otro viaje",
-        },
-      });
-    }
-
-    // Si no hay visitas, proceder con la eliminación
     await db.query("DELETE FROM VIAJE WHERE id_viaje = ?", [id]);
 
     const successMessage =
@@ -785,7 +742,7 @@ const getViajesByFecha = async (req, res) => {
   }
 };
 
-// Obtener viajes con estadísticas de visitas
+// Obtener viajes con estadísticas
 const getViajesConEstadisticas = async (req, res) => {
   try {
     console.log("📊 Obteniendo viajes con estadísticas...");
@@ -810,27 +767,16 @@ const getViajesConEstadisticas = async (req, res) => {
         vh.modelo as vehiculo_modelo,
         r.codigo as repartidor_codigo,
         r.nombre as repartidor_nombre,
-        COALESCE(stats.total_visitas, 0) as total_visitas,
-        COALESCE(stats.total_pedidos, 0) as total_pedidos,
-        COALESCE(stats.total_entrega_cf, 0) as total_entrega_cf,
-        COALESCE(stats.total_recojo_cf, 0) as total_recojo_cf,
-        COALESCE(stats.total_peso_kg, 0) as total_peso_kg,
+        0 as total_visitas,
+        0 as total_pedidos,
+        0 as total_entrega_cf,
+        0 as total_recojo_cf,
+        0 as total_peso_kg,
         v.created_at,
         v.updated_at
       FROM VIAJE v
       LEFT JOIN VEHICULO vh ON v.id_vehiculo = vh.id_vehiculo
       LEFT JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
-      LEFT JOIN (
-        SELECT
-          id_viaje,
-          COUNT(*) as total_visitas,
-          SUM(pedidos) as total_pedidos,
-          SUM(entrega_cf) as total_entrega_cf,
-          SUM(recojo_cf) as total_recojo_cf,
-          SUM(peso_kg) as total_peso_kg
-        FROM VISITA
-        GROUP BY id_viaje
-      ) stats ON v.id_viaje = stats.id_viaje
       ORDER BY v.fecha DESC, v.nro_viaje ASC
     `);
 
