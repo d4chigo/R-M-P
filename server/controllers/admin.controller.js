@@ -534,13 +534,9 @@ const deleteUser = exports.deleteUser = async (req, res) => {
       });
     }
 
-    // Verificar si tiene registros asociados (viajes o visitas)
+    // Verificar si tiene registros asociados (viajes)
     const [viajes] = await db.query(
       "SELECT COUNT(*) as count FROM VIAJE WHERE created_by = ? OR updated_by = ?",
-      [id, id]
-    );
-    const [visitas] = await db.query(
-      "SELECT COUNT(*) as count FROM VISITA WHERE created_by = ? OR updated_by = ?",
       [id, id]
     );
 
@@ -549,7 +545,7 @@ const deleteUser = exports.deleteUser = async (req, res) => {
       // Eliminar roles del usuario
       await db.query("DELETE FROM USUARIO_ROL WHERE id_usuario = ?", [id]);
 
-      if (viajes[0].count === 0 && visitas[0].count === 0) {
+      if (viajes[0].count === 0) {
         // Borrado físico si no tiene registros asociados
         await db.query("DELETE FROM USUARIO WHERE id_usuario = ?", [id]);
         console.log(`✅ Usuario ${id} eliminado completamente (borrado físico)`);

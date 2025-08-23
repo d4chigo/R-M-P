@@ -384,12 +384,8 @@ const deleteUsuario = async (req, res) => {
       [id, id],
     );
 
-    const [visitas] = await db.query(
-      "SELECT COUNT(*) as count FROM VISITA WHERE created_by = ? OR updated_by = ?",
-      [id, id],
-    );
 
-    if (viajes[0].count > 0 || visitas[0].count > 0) {
+    if (viajes[0].count > 0) {
       // Si tiene registros asociados, hacer soft delete
       await db.query(
         "UPDATE USUARIO SET activo = FALSE, updated_at = CURRENT_TIMESTAMP WHERE id_usuario = ?",
@@ -603,8 +599,8 @@ const getUsuariosConEstadisticas = async (req, res) => {
         u.activo,
         COALESCE(stats_viajes.total_viajes_creados, 0) as total_viajes_creados,
         COALESCE(stats_viajes.total_viajes_actualizados, 0) as total_viajes_actualizados,
-        COALESCE(stats_visitas.total_visitas_creadas, 0) as total_visitas_creadas,
-        COALESCE(stats_visitas.total_visitas_actualizadas, 0) as total_visitas_actualizadas,
+        0 as total_visitas_creadas,
+        0 as total_visitas_actualizadas,
         u.created_at,
         u.updated_at
       FROM USUARIO u
@@ -625,23 +621,7 @@ const getUsuariosConEstadisticas = async (req, res) => {
         WHERE updated_by IS NOT NULL AND updated_by != created_by
         GROUP BY updated_by
       ) stats_viajes ON u.id_usuario = stats_viajes.created_by
-      LEFT JOIN (
-        SELECT
-          created_by,
-          COUNT(*) as total_visitas_creadas,
-          0 as total_visitas_actualizadas
-        FROM VISITA
-        WHERE created_by IS NOT NULL
-        GROUP BY created_by
-        UNION ALL
-        SELECT
-          updated_by,
-          0 as total_visitas_creadas,
-          COUNT(*) as total_visitas_actualizadas
-        FROM VISITA
-        WHERE updated_by IS NOT NULL AND updated_by != created_by
-        GROUP BY updated_by
-      ) stats_visitas ON u.id_usuario = stats_visitas.created_by
+
       ORDER BY u.nombre_completo ASC
     `);
 

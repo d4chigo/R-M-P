@@ -87,18 +87,7 @@ CREATE TABLE REPARTIDOR (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Tabla CLIENTE: clientes atendidos
-CREATE TABLE CLIENTE (
-    id_cliente INT PRIMARY KEY AUTO_INCREMENT,
-    codigo VARCHAR(20) NOT NULL UNIQUE,
-    nombre VARCHAR(100) NOT NULL,
-    direccion TEXT,
-    id_zona INT,
-    activo BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_zona) REFERENCES ZONA(id_zona)
-);
+
 
 -- ==============================
 -- TABLAS TRANSACCIONALES
@@ -136,31 +125,7 @@ CREATE TABLE VIAJE (
     FOREIGN KEY (updated_by) REFERENCES USUARIO(id_usuario)
 );
 
--- Tabla VISITA: detalle de cada cliente atendido en un viaje
-CREATE TABLE VISITA (
-    id_visita INT PRIMARY KEY AUTO_INCREMENT,
-    id_viaje INT NOT NULL,
-    id_cliente INT NOT NULL,
-    pedidos INT DEFAULT 0,
-    estado_entrega ENUM('ENTREGADO','NO_ENTREGADO','REPROGRAMADO') DEFAULT 'ENTREGADO',
-    motivo_no_entrega VARCHAR(150) NULL,
-    entrega_cf DECIMAL(10,2) DEFAULT 0,
-    recojo_cf DECIMAL(10,2) DEFAULT 0,
-    peso_kg DECIMAL(10,2) DEFAULT 0,
-    distancia_km DECIMAL(10,2) DEFAULT 0,
-    hora_llegada DATETIME NULL,
-    hora_salida DATETIME NULL,
-    ventana_ini DATETIME NULL,
-    ventana_fin DATETIME NULL,
-    created_by INT,
-    updated_by INT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_viaje) REFERENCES VIAJE(id_viaje),
-    FOREIGN KEY (id_cliente) REFERENCES CLIENTE(id_cliente),
-    FOREIGN KEY (created_by) REFERENCES USUARIO(id_usuario),
-    FOREIGN KEY (updated_by) REFERENCES USUARIO(id_usuario)
-);
+
 
 -- ==============================
 -- TABLAS DE SOPORTE
@@ -179,19 +144,17 @@ CREATE TABLE AUDITORIA (
     FOREIGN KEY (realizado_por) REFERENCES USUARIO(id_usuario)
 );
 
--- Tabla de incidencias por viaje/visita
+-- Tabla de incidencias por viaje
 CREATE TABLE INCIDENCIA_VIAJE (
     id_incidencia INT PRIMARY KEY AUTO_INCREMENT,
     id_viaje INT NOT NULL,
-    id_visita INT NULL,
     tipo VARCHAR(50) NOT NULL, -- 'AVERIA','RETRASO','ACCIDENTE','ROBO','OTRO'
     severidad ENUM('BAJA','MEDIA','ALTA') DEFAULT 'BAJA',
     descripcion VARCHAR(255),
     costo_estimado DECIMAL(10,2) DEFAULT 0,
     ocurrio_en DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_viaje) REFERENCES VIAJE(id_viaje),
-    FOREIGN KEY (id_visita) REFERENCES VISITA(id_visita)
+    FOREIGN KEY (id_viaje) REFERENCES VIAJE(id_viaje)
 );
 
 -- Asistencia de repartidores
@@ -249,6 +212,24 @@ CREATE TABLE VEHICULO_CONFIG (
     FOREIGN KEY (id_vehiculo) REFERENCES VEHICULO(id_vehiculo)
 );
 
+-- Tabla tesoreria (nuevo esquema simplificado y alineado con backend)
+CREATE TABLE tesoreria (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    fecha DATE NOT NULL,
+    placa VARCHAR(20) NULL,
+    nombre VARCHAR(150) NOT NULL,
+    cargo VARCHAR(100) NULL,
+    categoria VARCHAR(100) NOT NULL,
+    detalle TEXT NULL,
+    reembolso VARCHAR(50) NULL,
+    distrito VARCHAR(100) NULL,
+    turno TINYINT NULL,
+    encargado VARCHAR(100) NULL,
+    monto DECIMAL(12,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- ==============================
 -- CREACIÓN DE ÍNDICES
 -- ==============================
@@ -256,15 +237,20 @@ CREATE TABLE VEHICULO_CONFIG (
 CREATE INDEX idx_viaje_fecha ON VIAJE(fecha);
 CREATE INDEX idx_viaje_vehiculo_fecha ON VIAJE(id_vehiculo, fecha);
 CREATE INDEX idx_viaje_repartidor ON VIAJE(id_repartidor);
-CREATE INDEX idx_visita_viaje ON VISITA(id_viaje);
-CREATE INDEX idx_visita_cliente ON VISITA(id_cliente);
-CREATE INDEX idx_cliente_zona ON CLIENTE(id_zona);
+
+
+
 CREATE INDEX idx_vehiculo_placa ON VEHICULO(placa);
 CREATE INDEX idx_repartidor_codigo ON REPARTIDOR(codigo);
-CREATE INDEX idx_cliente_codigo ON CLIENTE(codigo);
+
 CREATE INDEX idx_zona_codigo ON ZONA(codigo);
 CREATE INDEX idx_viaje_fecha_vehiculo_repartidor ON VIAJE(fecha, id_vehiculo, id_repartidor);
-CREATE INDEX idx_visita_viaje_cliente ON VISITA(id_viaje, id_cliente);
+CREATE INDEX idx_tesoreria_fecha ON tesoreria(fecha);
+CREATE INDEX idx_tesoreria_categoria ON tesoreria(categoria);
+CREATE INDEX idx_tesoreria_reembolso ON tesoreria(reembolso);
+CREATE INDEX idx_tesoreria_turno ON tesoreria(turno);
+CREATE INDEX idx_tesoreria_distrito ON tesoreria(distrito);
+
 
 -- ==============================
 -- VISTA PARA RESUMEN DE RUTAS
@@ -278,7 +264,7 @@ SELECT
     CONCAT(r.codigo, ' - ', r.nombre) AS Repartidor,
     r.estado_disponibilidad AS `Estado Repartidor`,
     COUNT(DISTINCT v.id_viaje) AS `Nro de viajes`,
-    COUNT(DISTINCT c.id_zona) AS Zona,
+    0 AS Zona,
     COALESCE(SUM(v.distancia_km), 0) AS Distancia,
     MIN(v.salida_cd) AS `Salida del CD`,
     MAX(v.llegada_cd) AS `Llegada al CD`,
@@ -287,17 +273,14 @@ SELECT
         THEN TIMEDIFF(MAX(v.llegada_cd), MIN(v.salida_cd))
         ELSE NULL
     END AS Tiempo,
-    COUNT(DISTINCT vis.id_cliente) AS `Nro de clientes`,
-    COALESCE(SUM(vis.pedidos), 0) AS `Nro de pedidos`,
-    COALESCE(SUM(vis.entrega_cf), 0) AS `Entrega (CF)`,
-    COALESCE(SUM(vis.recojo_cf), 0) AS `Recojo (CF)`,
-    COALESCE(SUM(vis.peso_kg), 0) AS `Peso (Kg)`
+    0 AS `Nro de clientes`,
+    0 AS `Nro de pedidos`,
+    0 AS `Entrega (CF)`,
+    0 AS `Recojo (CF)`,
+    0 AS `Peso (Kg)`
 FROM VIAJE v
 JOIN VEHICULO ve ON v.id_vehiculo = ve.id_vehiculo
 JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
-LEFT JOIN VISITA vis ON v.id_viaje = vis.id_viaje
-LEFT JOIN CLIENTE c ON vis.id_cliente = c.id_cliente
-LEFT JOIN ZONA z ON c.id_zona = z.id_zona
 GROUP BY
     v.fecha,
     ve.id_vehiculo,
@@ -326,11 +309,9 @@ SELECT
   COALESCE(SUM(v.combustible_litros),0) AS Litros,
   CASE WHEN COALESCE(SUM(v.combustible_litros),0) > 0 THEN COALESCE(SUM(v.distancia_km),0) / NULLIF(SUM(v.combustible_litros),0) ELSE NULL END AS Km_por_Litro,
   CASE WHEN COALESCE(SUM(v.distancia_km),0) > 0 THEN COALESCE(SUM(v.combustible_costo),0) / NULLIF(SUM(v.distancia_km),0) ELSE NULL END AS Costo_por_Km,
-  COALESCE(SUM(vis.pedidos),0) AS Pedidos,
-  COALESCE(SUM(vis.peso_kg),0) AS PesoKg,
-  CASE WHEN COALESCE(SUM(vis.peso_kg),0) > 0 AND ve.capacidad_kg IS NOT NULL AND ve.capacidad_kg > 0
-       THEN (SUM(vis.peso_kg) / (ve.capacidad_kg * COUNT(DISTINCT v.id_viaje)))
-       ELSE NULL END AS Utilizacion_Prom,
+  0 AS Pedidos,
+  0 AS PesoKg,
+  NULL AS Utilizacion_Prom,
   COALESCE(SUM(v.tiempo_manejo_min),0) AS Min_Manejo,
   COALESCE(SUM(v.tiempo_servicio_min),0) AS Min_Servicio,
   COALESCE(SUM(v.tiempo_espera_min),0) AS Min_Espera,
@@ -339,7 +320,7 @@ SELECT
   COALESCE(SUM(inc.costo_estimado),0) AS Costo_Incidencias
 FROM VIAJE v
 JOIN VEHICULO ve ON v.id_vehiculo = ve.id_vehiculo
-LEFT JOIN VISITA vis ON vis.id_viaje = v.id_viaje
+
 LEFT JOIN INCIDENCIA_VIAJE inc ON inc.id_viaje = v.id_viaje
 GROUP BY v.fecha, ve.id_vehiculo, ve.placa, ve.marca, ve.modelo, ve.capacidad_kg
 ORDER BY v.fecha DESC, ve.placa;
@@ -352,23 +333,16 @@ SELECT
   CONCAT(r.codigo,' - ',r.nombre) AS Repartidor,
   COUNT(DISTINCT v.id_viaje) AS Nro_viajes,
   COALESCE(SUM(v.distancia_km),0) AS Km,
-  COALESCE(SUM(vis.pedidos),0) AS Pedidos,
-  SUM(CASE WHEN vis.estado_entrega = 'ENTREGADO' THEN vis.pedidos ELSE 0 END) AS Pedidos_Entregados,
-  CASE WHEN COALESCE(SUM(vis.pedidos),0) > 0
-       THEN SUM(CASE WHEN vis.estado_entrega = 'ENTREGADO' THEN vis.pedidos ELSE 0 END) / NULLIF(SUM(vis.pedidos),0)
-       ELSE NULL END AS Tasa_Entrega,
-  SUM(CASE WHEN vis.ventana_ini IS NOT NULL AND vis.ventana_fin IS NOT NULL AND vis.hora_llegada BETWEEN vis.ventana_ini AND vis.ventana_fin THEN 1 ELSE 0 END) AS Visitas_Puntuales,
-  COUNT(DISTINCT vis.id_visita) AS Visitas,
-  CASE WHEN COUNT(DISTINCT vis.id_visita) > 0
-       THEN SUM(CASE WHEN vis.ventana_ini IS NOT NULL AND vis.ventana_fin IS NOT NULL AND vis.hora_llegada BETWEEN vis.ventana_ini AND vis.ventana_fin THEN 1 ELSE 0 END) / COUNT(DISTINCT vis.id_visita)
-       ELSE NULL END AS Puntualidad,
+  0 AS Pedidos,
+  0 AS Pedidos_Entregados,
+  NULL AS Tasa_Entrega,
+  0 AS Visitas_Puntuales,
+  0 AS Visitas,
+  NULL AS Puntualidad,
   COALESCE(SUM(v.tiempo_manejo_min + v.tiempo_servicio_min + IFNULL(v.tiempo_espera_min,0)),0) AS Min_Totales,
-  CASE WHEN COALESCE(SUM(v.tiempo_manejo_min + v.tiempo_servicio_min + IFNULL(v.tiempo_espera_min,0)),0) > 0
-       THEN (SUM(vis.pedidos) / NULLIF(SUM(v.tiempo_manejo_min + v.tiempo_servicio_min + IFNULL(v.tiempo_espera_min,0)),0)) * 60
-       ELSE NULL END AS Pedidos_por_Hora
+  NULL AS Pedidos_por_Hora
 FROM VIAJE v
 JOIN REPARTIDOR r ON r.id_repartidor = v.id_repartidor
-LEFT JOIN VISITA vis ON vis.id_viaje = v.id_viaje
 GROUP BY v.fecha, r.id_repartidor, r.codigo, r.nombre
 ORDER BY v.fecha DESC, Repartidor;
 
