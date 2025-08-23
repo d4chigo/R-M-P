@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -33,11 +32,7 @@ import {
   ArrowLeft,
   Calendar,
   AlertTriangle,
-  Trash2,
   Clock,
-  MapPin,
-  User,
-  Truck,
   Search,
   BarChart3,
   ChevronDown,
@@ -45,13 +40,11 @@ import {
   Activity,
   CheckCircle,
 } from "lucide-react";
-import Link from "next/link";
 import { ViajesTable } from "@/components/tables/viajes-table";
 import { ViajeForm } from "@/components/forms/viaje-form";
 import { useViajes, type Viaje } from "@/hooks/use-viajes";
 import { useVehiculos } from "@/hooks/use-vehiculos";
 import { useRepartidores } from "@/hooks/use-repartidores";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
@@ -74,8 +67,37 @@ export default function ViajesPage() {
   // Estados de paginación
   const [pagina, setPagina] = useState(1);
   const [tamanoPagina, setTamanoPagina] = useState(10);
-  const totalPaginas = Math.ceil(viajes.length / tamanoPagina);
-  const viajesPaginados = viajes.slice(
+
+  // Normalizar fecha siempre en zona local
+  const normalizeDate = (dateString: string) => {
+    if (!dateString) return "";
+    const d = new Date(dateString);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Filtrar viajes según búsqueda y fecha
+  const filteredViajes = viajes.filter((viaje) => {
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch =
+      searchQuery === "" ||
+      viaje.nro_viaje?.toString().toLowerCase().includes(searchLower) ||
+      viaje.vehiculo_placa?.toLowerCase().includes(searchLower) ||
+      viaje.vehiculo_marca?.toLowerCase().includes(searchLower) ||
+      viaje.vehiculo_modelo?.toLowerCase().includes(searchLower) ||
+      viaje.repartidor_nombre?.toLowerCase().includes(searchLower);
+
+    const matchesDate =
+      dateFilter === "" || normalizeDate(viaje.fecha) === dateFilter;
+
+    return matchesSearch && matchesDate;
+  });
+
+  // Paginación
+  const totalPaginas = Math.ceil(filteredViajes.length / tamanoPagina);
+  const viajesPaginados = filteredViajes.slice(
     (pagina - 1) * tamanoPagina,
     pagina * tamanoPagina
   );
@@ -96,10 +118,10 @@ export default function ViajesPage() {
           description: editingViaje
             ? `Se actualizó el viaje del ${viajeData.fecha}`
             : `Se registró exitosamente el viaje #${viajeData.nro_viaje}`,
-          variant: "default",
         });
         setIsDialogOpen(false);
         setEditingViaje(null);
+        setPagina(1);
       } else {
         toast({
           title: "Error al guardar",
@@ -123,10 +145,9 @@ export default function ViajesPage() {
   const handleEdit = async (viaje: Viaje) => {
     try {
       setEditingViaje(viaje);
-      // Recargar datos antes de abrir el diálogo de edición
       await Promise.all([fetchVehiculos(), fetchRepartidores()]);
       setIsDialogOpen(true);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error al cargar datos",
         description:
@@ -144,7 +165,6 @@ export default function ViajesPage() {
 
   const handleDeleteConfirm = async () => {
     if (!viajeToDelete) return;
-
     const id = viajeToDelete.id || viajeToDelete.id_viaje;
     if (!id) return;
 
@@ -155,23 +175,15 @@ export default function ViajesPage() {
         toast({
           title: "Viaje eliminado",
           description: `Se eliminó exitosamente el viaje #${viajeToDelete.nro_viaje}`,
-          variant: "default",
         });
         setDeleteDialogOpen(false);
         setViajeToDelete(null);
         setDeleteError(null);
+        setPagina(1);
       } else {
-        if (result.hasReferences) {
-          setDeleteError(
-            "No se puede eliminar este viaje porque tiene visitas asociadas. " +
-              "Para eliminar el viaje, primero debe eliminar todas las visitas relacionadas " +
-              "o transferirlas a otro viaje."
-          );
-        } else {
-          setDeleteError(result.error || "Error al eliminar el viaje");
-        }
+        setDeleteError(result.error || "Error al eliminar el viaje");
       }
-    } catch (error) {
+    } catch {
       setDeleteError("Error de conexión al eliminar el viaje");
     }
   };
@@ -184,10 +196,9 @@ export default function ViajesPage() {
   const handleNewViaje = async () => {
     try {
       setEditingViaje(null);
-      // Recargar datos antes de abrir el diálogo
       await Promise.all([fetchVehiculos(), fetchRepartidores()]);
       setIsDialogOpen(true);
-    } catch (error) {
+    } catch {
       toast({
         title: "Error al cargar datos",
         description:
@@ -197,62 +208,20 @@ export default function ViajesPage() {
     }
   };
 
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return "No definido";
-
-    // Backend now consistently sends dates in YYYY-MM-DD format
-    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const [year, month, day] = dateString.split("-");
-      return `${day}/${month}/${year}`;
-    }
-
-    // Fallback for any other format (shouldn't happen with current backend)
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString("es-PE", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-    } catch {
-      return "Fecha inválida";
-    }
-  };
-
-  const formatTime = (minutes: number | undefined) => {
-    if (!minutes) return "-";
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
-  const getEstadoViaje = (fecha: string) => {
-    const hoy = new Date().toISOString().split("T")[0];
-    const fechaViaje = fecha;
-
-    if (fechaViaje > hoy) {
-      return { estado: "Programado", variant: "secondary" as const };
-    } else if (fechaViaje === hoy) {
-      return { estado: "En Curso", variant: "default" as const };
-    } else {
-      return { estado: "Completado", variant: "outline" as const };
-    }
-  };
-
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    // Aquí puedes implementar la lógica de búsqueda
+    setPagina(1);
   };
 
   const handleDateFilter = (date: string) => {
     setDateFilter(date);
-    // Aquí puedes implementar filtrado por fecha si es necesario
+    setPagina(1);
   };
 
   const clearFilters = () => {
     setSearchQuery("");
     setDateFilter("");
+    setPagina(1);
   };
 
   return (
@@ -270,7 +239,7 @@ export default function ViajesPage() {
             Regresar
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">Viajes</h1>
+            <h1 className="text-xl font-bold">Viajes</h1>
             <p className="text-muted-foreground">
               Gestión de viajes y rutas de transporte
             </p>
@@ -346,88 +315,13 @@ export default function ViajesPage() {
             >
               <BarChart3 className="h-4 w-4" />
               Estadísticas
-              {showStats ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
+              {showStats ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Stats - Collapsible */}
-      {showStats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-8 w-8 text-blue-600" />
-                <div>
-                  <p className="text-2xl font-bold">{viajes.length}</p>
-                  <p className="text-sm text-muted-foreground">Total Viajes</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-2">
-                <Activity className="h-8 w-8 text-green-600" />
-                <div>
-                  <p className="text-2xl font-bold">
-                    {
-                      viajes.filter((v) => {
-                        const hoy = new Date().toISOString().split("T")[0];
-                        return v.fecha === hoy;
-                      }).length
-                    }
-                  </p>
-                  <p className="text-sm text-muted-foreground">Hoy</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-2">
-                <CheckCircle className="h-8 w-8 text-purple-600" />
-                <div>
-                  <p className="text-2xl font-bold">
-                    {
-                      viajes.filter((v) => {
-                        const hoy = new Date().toISOString().split("T")[0];
-                        return v.fecha < hoy;
-                      }).length
-                    }
-                  </p>
-                  <p className="text-sm text-muted-foreground">Completados</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-2">
-                <Clock className="h-8 w-8 text-orange-600" />
-                <div>
-                  <p className="text-2xl font-bold">
-                    {
-                      viajes.filter((v) => {
-                        const hoy = new Date().toISOString().split("T")[0];
-                        return v.fecha > hoy;
-                      }).length
-                    }
-                  </p>
-                  <p className="text-sm text-muted-foreground">Programados</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Mostrar error general si existe */}
+      {/* Mostrar error */}
       {error && (
         <Alert className="border-red-200 bg-red-50">
           <AlertTriangle className="h-4 w-4 text-red-600" />
@@ -435,7 +329,7 @@ export default function ViajesPage() {
         </Alert>
       )}
 
-      {/* Table */}
+      {/* Tabla */}
       <Card>
         <CardHeader>
           <CardTitle>Lista de Viajes</CardTitle>
@@ -443,18 +337,22 @@ export default function ViajesPage() {
         <CardContent>
           {isLoading ? (
             <div className="text-center py-4">Cargando viajes...</div>
+          ) : filteredViajes.length === 0 ? (
+            <div className="text-center py-4">
+              No se encontraron viajes que coincidan con los filtros.
+            </div>
           ) : (
             <ViajesTable
-              viajes={viajes}
+              viajes={viajesPaginados}
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
-              initialPageSize={10}
+              initialPageSize={tamanoPagina}
             />
           )}
         </CardContent>
       </Card>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Confirmación Eliminar */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -465,7 +363,7 @@ export default function ViajesPage() {
                   <p>Está a punto de eliminar el siguiente viaje:</p>
                   <div className="bg-gray-50 p-3 rounded-lg space-y-1">
                     <div className="font-medium">
-                      Fecha: {formatDate(viajeToDelete.fecha)}
+                      Fecha: {normalizeDate(viajeToDelete.fecha)}
                     </div>
                     <div>
                       Vehículo: {viajeToDelete.vehiculo_placa || "Sin placa"}
@@ -473,8 +371,7 @@ export default function ViajesPage() {
                         ` - ${viajeToDelete.vehiculo_marca} ${viajeToDelete.vehiculo_modelo}`}
                     </div>
                     <div>
-                      Repartidor:{" "}
-                      {viajeToDelete.repartidor_nombre || "Sin asignar"}
+                      Repartidor: {viajeToDelete.repartidor_nombre || "Sin asignar"}
                     </div>
                     <div>Viaje N°: {viajeToDelete.nro_viaje}</div>
                   </div>

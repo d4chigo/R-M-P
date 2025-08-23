@@ -358,7 +358,7 @@ export default function VehiculosPage() {
                 onClick={clearFilters}
                 className="flex items-center gap-2"
               >
-                Limpiar Filtros
+                Limpiar
               </Button>
             )}
             <Button
