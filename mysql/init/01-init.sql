@@ -88,6 +88,29 @@ CREATE TABLE REPARTIDOR (
 );
 
 
+-- ==============================
+-- TABLAS FINANCIERAS
+-- ==============================
+
+-- Tabla tesoreria (nuevo esquema simplificado y alineado con backend)
+CREATE TABLE TESORERIA (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    fecha DATE NOT NULL,
+    placa VARCHAR(19) NULL,
+    nombre VARCHAR(149) NOT NULL,
+    cargo VARCHAR(99) NULL,
+    categoria VARCHAR(99) NOT NULL,
+    detalle TEXT NULL,
+    reembolso VARCHAR(49) NULL,
+    distrito VARCHAR(99) NULL,
+    turno TINYINT NULL,
+    encargado VARCHAR(99) NULL,
+    monto DECIMAL(11,2) NOT NULL,
+    deleted_at DATETIME NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 
 -- ==============================
 -- TABLAS TRANSACCIONALES
@@ -212,24 +235,6 @@ CREATE TABLE VEHICULO_CONFIG (
     FOREIGN KEY (id_vehiculo) REFERENCES VEHICULO(id_vehiculo)
 );
 
--- Tabla tesoreria (nuevo esquema simplificado y alineado con backend)
-CREATE TABLE tesoreria (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    fecha DATE NOT NULL,
-    placa VARCHAR(20) NULL,
-    nombre VARCHAR(150) NOT NULL,
-    cargo VARCHAR(100) NULL,
-    categoria VARCHAR(100) NOT NULL,
-    detalle TEXT NULL,
-    reembolso VARCHAR(50) NULL,
-    distrito VARCHAR(100) NULL,
-    turno TINYINT NULL,
-    encargado VARCHAR(100) NULL,
-    monto DECIMAL(12,2) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
 -- ==============================
 -- CREACIÓN DE ÍNDICES
 -- ==============================
@@ -245,11 +250,12 @@ CREATE INDEX idx_repartidor_codigo ON REPARTIDOR(codigo);
 
 CREATE INDEX idx_zona_codigo ON ZONA(codigo);
 CREATE INDEX idx_viaje_fecha_vehiculo_repartidor ON VIAJE(fecha, id_vehiculo, id_repartidor);
-CREATE INDEX idx_tesoreria_fecha ON tesoreria(fecha);
-CREATE INDEX idx_tesoreria_categoria ON tesoreria(categoria);
-CREATE INDEX idx_tesoreria_reembolso ON tesoreria(reembolso);
-CREATE INDEX idx_tesoreria_turno ON tesoreria(turno);
-CREATE INDEX idx_tesoreria_distrito ON tesoreria(distrito);
+CREATE INDEX idx_tesoreria_fecha ON TESORERIA(fecha);
+CREATE INDEX idx_tesoreria_categoria ON TESORERIA(categoria);
+CREATE INDEX idx_tesoreria_reembolso ON TESORERIA(reembolso);
+CREATE INDEX idx_tesoreria_turno ON TESORERIA(turno);
+CREATE INDEX idx_tesoreria_distrito ON TESORERIA(distrito);
+CREATE INDEX idx_tesoreria_deleted_at ON TESORERIA(deleted_at);
 
 
 -- ==============================
