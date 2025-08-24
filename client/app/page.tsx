@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -11,29 +11,76 @@ import {
 } from "@/components/ui/card";
 import {
   Truck,
-  Users,
   MapPin,
   Calendar,
-  FileText,
   UserCheck,
   BarChart3,
   TrendingUp,
   Users2,
   Clock,
   Settings,
-  HelpCircle,
-  ClipboardCheck,
   DollarSign,
+  BookOpen,
 } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+
+  const tutorialSteps = [
+    {
+      title: "Bienvenido al Sistema R-M-P",
+      description:
+        "Esta es la página principal del Sistema de Gestión de Rutas. Aquí encontrarás acceso a todos los módulos y reportes para gestionar tu operación logística. Vamos a explorar cada sección paso a paso.",
+    },
+    {
+      title: "Módulos Principales",
+      description:
+        "Esta sección contiene los módulos principales para gestionar vehículos, repartidores, zonas y viajes. Haz clic en cada tarjeta para acceder a funciones como agregar vehículos, programar rutas o asignar repartidores.",
+    },
+    {
+      title: "Módulo de Tesorería",
+      description:
+        "El módulo de Tesorería te permite gestionar los ingresos y egresos de tu operación. Accede a esta sección para controlar los aspectos financieros de la logística.",
+    },
+    {
+      title: "Reportes y Análisis",
+      description:
+        "Aquí encontrarás reportes detallados como Resumen de Rutas, Performance de Vehículos y Repartidores, y métricas de cumplimiento. Usa estas herramientas para analizar el rendimiento y tomar decisiones informadas.",
+    },
+    {
+      title: "Características Principales",
+      description:
+        "Esta sección destaca las funcionalidades clave del sistema, como reportes automáticos, índices optimizados, procedimientos almacenados y métricas en tiempo real para un control eficiente.",
+    },
+    {
+      title: "Diagnóstico del Sistema",
+      description:
+        "El botón flotante en la esquina inferior derecha te lleva a la herramienta de diagnóstico del sistema, donde puedes verificar el estado y solucionar problemas.",
+    },
+    {
+      title: "¡Listo para empezar!",
+      description:
+        "Ahora que conoces las secciones principales, explora cada módulo y utiliza los reportes para optimizar tu operación. ¡Cierra este tutorial y comienza a gestionar tus rutas!",
+    },
+  ];
+
+  const handleNextStep = () => {
+    if (currentStep < tutorialSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      setIsTutorialOpen(false);
+      setCurrentStep(0);
+    }
+  };
+
+  const handlePrevStep = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
+
   const modules = [
     {
       title: "Vehículos",
@@ -113,31 +160,74 @@ export default function HomePage() {
     },
   ];
 
-  const pasos = [
-    { step: 1, title: "Registrar Vehículos", desc: "Primero registra los vehículos de la flota.", icon: Truck },
-    { step: 2, title: "Registrar Repartidores", desc: "Luego agrega los repartidores.", icon: UserCheck },
-    { step: 3, title: "Definir Zonas", desc: "Define las zonas de operación.", icon: MapPin },
-    { step: 4, title: "Registrar Clientes", desc: "Ingresa los clientes y sus puntos de entrega.", icon: Users },
-    { step: 5, title: "Programar Viajes", desc: "Crea viajes con vehículos, repartidores y clientes asignados.", icon: Calendar },
-    { step: 6, title: "Registrar Visitas", desc: "Finalmente, registra las visitas realizadas.", icon: ClipboardCheck },
-  ];
-
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="container mx-auto px-4 py-4 sm:py-8">
+          {/* Header */}
           <div className="text-center mb-8 sm:mb-12 bg-gradient-to-r from-blue-50 to-white dark:from-gray-800 dark:to-gray-900 py-6 sm:py-8">
             <div className="flex justify-center items-center mb-4">
-              <span className="text-4xl sm:text-5xl font-bold text-blue-600 mr-2">📦</span>
+              <span className="text-4xl sm:text-5xl font-bold text-blue-600 mr-2">
+                📦
+              </span>
               <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100 inline">
                 Sistema R-M-P
               </h1>
             </div>
             <p className="text-lg sm:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto px-4">
-              Plataforma de Gestión de Rutas - Sistema integral para la gestión de rutas,
-              vehículos y logística
+              Plataforma de Gestión de Rutas - Sistema integral para la gestión
+              de rutas, vehículos y logística
             </p>
           </div>
+
+          {/* Tutorial Button */}
+          <div className="flex justify-end mb-6">
+            <button
+              onClick={() => setIsTutorialOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200"
+            >
+              <BookOpen className="w-5 h-5" />
+              Iniciar Tutorial
+            </button>
+          </div>
+
+          {/* Tutorial Modal */}
+          {isTutorialOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+                <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                  {tutorialSteps[currentStep].title}
+                </h2>
+                <p className="text-gray-600 dark:text-gray-300 mb-6">
+                  {tutorialSteps[currentStep].description}
+                </p>
+                <div className="flex justify-between items-center">
+                  <button
+                    onClick={handlePrevStep}
+                    disabled={currentStep === 0}
+                    className={`px-4 py-2 rounded-lg ${
+                      currentStep === 0
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                    }`}
+                  >
+                    Anterior
+                  </button>
+                  <span className="text-gray-600 dark:text-gray-300">
+                    {currentStep + 1} de {tutorialSteps.length}
+                  </span>
+                  <button
+                    onClick={handleNextStep}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                  >
+                    {currentStep === tutorialSteps.length - 1
+                      ? "Finalizar"
+                      : "Siguiente"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Módulos Principales */}
           <div className="mb-12">
@@ -172,10 +262,10 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Módulo de Finanzas */}
+          {/* Módulo de Tesorería */}
           <div className="mb-12">
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-              Módulo de Finanzas
+              Módulo de Tesorería
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
               {financeModules.map((module) => {
@@ -297,45 +387,6 @@ export default function HomePage() {
               </div>
             </div>
           </Link>
-
-          {/* Botón flotante del Manual */}
-          <div className="fixed bottom-24 right-6 z-50">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button className="rounded-full w-16 h-16 bg-emerald-600 hover:bg-emerald-700 shadow-lg">
-                  <HelpCircle className="w-7 h-7 text-white" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-96 p-6 rounded-xl shadow-xl">
-                <h3 className="font-bold text-xl mb-4 flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
-                  📘 Manual de Uso
-                </h3>
-                <div className="space-y-4 max-h-80 overflow-y-auto pr-2">
-                  {pasos.map((p) => {
-                    const Icon = p.icon;
-                    return (
-                      <div
-                        key={p.step}
-                        className="flex items-start gap-3 bg-gray-100 dark:bg-gray-800 p-4 rounded-lg shadow-sm hover:shadow-md transition"
-                      >
-                        <div className="bg-emerald-600 text-white p-2 rounded-full">
-                          <Icon className="w-6 h-6" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-lg text-gray-900 dark:text-gray-100">
-                            {p.step}. {p.title}
-                          </p>
-                          <p className="text-sm text-gray-600 dark:text-gray-300">
-                            {p.desc}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
-          </div>
         </div>
       </div>
     </ProtectedRoute>
