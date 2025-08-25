@@ -21,8 +21,6 @@ interface FormData {
   salida_cd?: string;
   llegada_cd?: string;
   distancia_km?: string | number;
-  recarga_min?: string | number;
-  refrigerio_min?: string | number;
   tipo_viaje?: string;
   nro_conductores?: string | number;
   nro_liquidadores?: string | number;
@@ -47,8 +45,7 @@ interface ViajeFormProps {
     salida_cd?: string;
     llegada_cd?: string;
     distancia_km?: number;
-    recarga_min?: number;
-    refrigerio_min?: number;
+    territorios_visitados?: number;
     tipo_viaje?: string;
     // Tripulación
     nro_conductores?: number;
@@ -86,8 +83,7 @@ export function ViajeForm({
     salida_cd: string;
     llegada_cd: string;
     distancia_km: string;
-    recarga_min: string;
-    refrigerio_min: string;
+    territorios_visitados: string;
     tipo_viaje: string | undefined;
     // Tripulación
     nro_conductores: string;
@@ -110,8 +106,7 @@ export function ViajeForm({
     salida_cd: "",
     llegada_cd: "",
     distancia_km: "",
-    recarga_min: "",
-    refrigerio_min: "",
+    territorios_visitados: "0",
     tipo_viaje: undefined,
     // Valores por defecto para tripulación
     nro_conductores: "1", // Valor por defecto: 1 conductor
@@ -146,8 +141,6 @@ export function ViajeForm({
         salida_cd: viaje.salida_cd ? formatDateTimeLocal(viaje.salida_cd) : "",
         llegada_cd: viaje.llegada_cd ? formatDateTimeLocal(viaje.llegada_cd) : "",
         distancia_km: viaje.distancia_km?.toString() || "",
-        recarga_min: viaje.recarga_min?.toString() || "",
-        refrigerio_min: viaje.refrigerio_min?.toString() || "",
         tipo_viaje: viaje.tipo_viaje || undefined,
         // Tripulación
         nro_conductores: viaje.nro_conductores?.toString() || "1",
@@ -241,8 +234,7 @@ export function ViajeForm({
       salida_cd: formData.salida_cd || undefined,
       llegada_cd: formData.llegada_cd || undefined,
       distancia_km: formData.distancia_km ? parseFloat(formData.distancia_km) : undefined,
-      recarga_min: formData.recarga_min ? parseInt(formData.recarga_min) : undefined,
-      refrigerio_min: formData.refrigerio_min ? parseInt(formData.refrigerio_min) : undefined,
+      territorios_visitados: formData.territorios_visitados ? parseInt(formData.territorios_visitados) : undefined,
       tipo_viaje: formData.tipo_viaje,
       // Tripulación
       nro_conductores: formData.nro_conductores ? parseInt(formData.nro_conductores) : 1,
@@ -503,44 +495,7 @@ export function ViajeForm({
         </div>
       </div>
 
-      {/* Fila 5: Tiempos y Tipo de Viaje */}
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <Label htmlFor="recarga_min">Tiempo de Recarga (min)</Label>
-          <Input
-            id="recarga_min"
-            type="number"
-            min="0"
-            value={formData.recarga_min}
-            onChange={(e) => handleInputChange("recarga_min", e.target.value)}
-          />
-        </div>
-        <div>
-          <Label htmlFor="refrigerio_min">Tiempo de Refrigerio (min)</Label>
-          <Input
-            id="refrigerio_min"
-            type="number"
-            min="0"
-            value={formData.refrigerio_min}
-            onChange={(e) => handleInputChange("refrigerio_min", e.target.value)}
-          />
-        </div>
-        <div>
-          <Label htmlFor="tipo_viaje">Tipo de Viaje</Label>
-          <select
-            id="tipo_viaje"
-            value={formData.tipo_viaje || ""}
-            onChange={(e) => handleInputChange("tipo_viaje", e.target.value || undefined)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <option value="">Seleccionar tipo...</option>
-            <option value="NACIONAL">Nacional</option>
-            <option value="INTERNACIONAL">Internacional</option>
-            <option value="URBANO">Urbano</option>
-            <option value="INTERURBANO">Interurbano</option>
-          </select>
-        </div>
-      </div>
+  {/* Se eliminaron selects duplicados de Tipo de Viaje; conservar el único select al final del formulario */}
 
       {/* Sección de Tripulación */}
       <div className="border-t border-gray-200 pt-4 mt-4">
@@ -678,41 +633,7 @@ export function ViajeForm({
         </select>
       </div>
 
-      {/* Fila 5: Tiempos (solo recarga y refrigerio) */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="recarga_min">Recarga (min)</Label>
-          <Input
-            id="recarga_min"
-            type="number"
-            min="0"
-            value={formData.recarga_min}
-            onChange={(e) => handleInputChange("recarga_min", e.target.value)}
-            placeholder="0"
-            className={errors.recarga_min ? "border-red-500" : ""}
-          />
-          {errors.recarga_min && (
-            <p className="text-sm text-red-500 mt-1">{errors.recarga_min}</p>
-          )}
-        </div>
-        <div>
-          <Label htmlFor="refrigerio_min">Refrigerio (min)</Label>
-          <Input
-            id="refrigerio_min"
-            type="number"
-            min="0"
-            value={formData.refrigerio_min}
-            onChange={(e) =>
-              handleInputChange("refrigerio_min", e.target.value)
-            }
-            placeholder="0"
-            className={errors.refrigerio_min ? "border-red-500" : ""}
-          />
-          {errors.refrigerio_min && (
-            <p className="text-sm text-red-500 mt-1">{errors.refrigerio_min}</p>
-          )}
-        </div>
-      </div>
+      {/* Tiempos de recarga/refrigerio eliminados del formulario según esquema actualizado */}
 
       {/* Botones */}
       <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">

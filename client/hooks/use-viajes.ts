@@ -13,8 +13,6 @@ export interface Viaje {
   salida_cd?: string;
   llegada_cd?: string;
   distancia_km?: number;
-  recarga_min?: number;
-  refrigerio_min?: number;
   tipo_viaje?: string;
   // Resumen de ruta
   nro_clientes?: number;
