@@ -36,8 +36,6 @@ interface ViajeDetalle {
   Salida_del_CD: string | null;
   Llegada_al_CD: string | null;
   Tiempo_de_Viaje: string | null;
-  Tiempo_Manejo_Min: number | null;
-  Tiempo_Servicio_Min: number | null;
   Recarga_Min: number | null;
   Refrigerio_Min: number | null;
   Tipo_Viaje: string | null;
@@ -109,8 +107,6 @@ export default function ResumenRutasPorViajePage() {
       "Salida_del_CD",
       "Llegada_al_CD",
       "Tiempo_de_Viaje",
-      "Tiempo_Manejo_Min",
-      "Tiempo_Servicio_Min",
       "Recarga_Min",
       "Refrigerio_Min",
       "Tipo_Viaje",
@@ -141,8 +137,6 @@ export default function ResumenRutasPorViajePage() {
           r.Salida_del_CD ?? "",
           r.Llegada_al_CD ?? "",
           r.Tiempo_de_Viaje ?? "",
-          r.Tiempo_Manejo_Min ?? "",
-          r.Tiempo_Servicio_Min ?? "",
           r.Recarga_Min ?? "",
           r.Refrigerio_Min ?? "",
           r.Tipo_Viaje ?? "",
@@ -336,8 +330,6 @@ export default function ResumenRutasPorViajePage() {
                     "Salida",
                     "Llegada",
                     "T. Viaje",
-                    "T. Man (min)",
-                    "T. Serv (min)",
                     "Recarga",
                     "Refrig",
                     "Tipo",
@@ -367,8 +359,6 @@ export default function ResumenRutasPorViajePage() {
                     <td className="py-2 pr-4">{formatTime(r.Salida_del_CD)}</td>
                     <td className="py-2 pr-4">{formatTime(r.Llegada_al_CD)}</td>
                     <td className="py-2 pr-4">{r.Tiempo_de_Viaje ?? "-"}</td>
-                    <td className="py-2 pr-4">{r.Tiempo_Manejo_Min ?? "-"}</td>
-                    <td className="py-2 pr-4">{r.Tiempo_Servicio_Min ?? "-"}</td>
                     <td className="py-2 pr-4">{r.Recarga_Min ?? "-"}</td>
                     <td className="py-2 pr-4">{r.Refrigerio_Min ?? "-"}</td>
                     <td className="py-2 pr-4">{r.Tipo_Viaje ?? "-"}</td>
@@ -376,7 +366,7 @@ export default function ResumenRutasPorViajePage() {
                 ))}
                 {data.length === 0 && (
                   <tr>
-                    <td colSpan={21} className="py-6 text-center text-muted-foreground">
+                    <td colSpan={19} className="py-6 text-center text-muted-foreground">
                       {loading ? "Cargando..." : "Sin resultados"}
                     </td>
                   </tr>
