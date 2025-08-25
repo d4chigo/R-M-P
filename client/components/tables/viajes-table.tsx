@@ -24,8 +24,7 @@ interface Viaje {
   salida_cd?: string;
   llegada_cd?: string;
   distancia_km?: number;
-  recarga_min?: number;
-  refrigerio_min?: number;
+  territorios_visitados?: number;
   tipo_viaje?: string;
   vehiculo_placa?: string;
   vehiculo_marca?: string;
@@ -204,6 +203,9 @@ export function ViajesTable({
                       )}
                       <div className="grid grid-cols-1 gap-1 mt-1">
                         {/* tiempos removidos */}
+                        <div className="text-xs">
+                          Territorios: {viaje.territorios_visitados ?? 0}
+                        </div>
                       </div>
                     </div>
                   </TableCell>

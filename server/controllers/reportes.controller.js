@@ -133,10 +133,10 @@ const getResumenRutasPorViaje = async (req, res) => {
         COALESCE(v.distancia_km, 0) AS Distancia_recorrida,
         v.salida_cd AS Salida_del_CD,
         v.llegada_cd AS Llegada_al_CD,
-        CASE WHEN v.salida_cd IS NOT NULL AND v.llegada_cd IS NOT NULL THEN TIMEDIFF(v.llegada_cd, v.salida_cd) ELSE NULL END AS Tiempo_de_Viaje,
-        v.recarga_min AS Recarga_Min,
-        v.refrigerio_min AS Refrigerio_Min,
-        v.tipo_viaje AS Tipo_Viaje
+  CASE WHEN v.salida_cd IS NOT NULL AND v.llegada_cd IS NOT NULL THEN TIMEDIFF(v.llegada_cd, v.salida_cd) ELSE NULL END AS Tiempo_de_Viaje,
+  0 AS Recarga_Min,
+  0 AS Refrigerio_Min,
+  v.tipo_viaje AS Tipo_Viaje
       FROM VIAJE v
       JOIN VEHICULO ve ON v.id_vehiculo = ve.id_vehiculo
       JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
@@ -180,12 +180,10 @@ const getResumenRutasPorViaje = async (req, res) => {
         r.codigo,
         r.nombre,
         v.nro_viaje,
-        v.salida_cd,
-        v.llegada_cd,
-        v.recarga_min,
-        v.refrigerio_min,
-        v.distancia_km,
-        v.tipo_viaje
+  v.salida_cd,
+  v.llegada_cd,
+  v.distancia_km,
+  v.tipo_viaje
       ORDER BY v.fecha DESC, ve.placa ASC, v.nro_viaje ASC
     `;
 
