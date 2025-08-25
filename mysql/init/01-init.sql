@@ -123,21 +123,26 @@ CREATE TABLE VIAJE (
     id_vehiculo INT NOT NULL,
     id_repartidor INT NOT NULL,
     nro_viaje INT NOT NULL,
+    territorios_visitados VARCHAR(255),
     salida_cd DATETIME,
     llegada_cd DATETIME,
     distancia_km DECIMAL(10,2),
-    tiempo_manejo_min INT,
-    tiempo_servicio_min INT,
     recarga_min INT,
     refrigerio_min INT,
     tipo_viaje VARCHAR(50),
-    odometro_ini INT NULL,
-    odometro_fin INT NULL,
-    combustible_litros DECIMAL(10,2) NULL,
-    combustible_costo DECIMAL(10,2) NULL,
-    tiempo_espera_min INT NULL,
-    paradas_no_plan INT DEFAULT 0,
-    observaciones VARCHAR(255) NULL,
+    -- Totales de resumen de ruta
+    nro_clientes INT DEFAULT 0,
+    nro_pedidos INT DEFAULT 0,
+    entrega_cf DECIMAL(12,2) DEFAULT 0,
+    recojo_cf DECIMAL(12,2) DEFAULT 0,
+    peso_kg DECIMAL(12,2) DEFAULT 0,
+
+    -- Tripulación variable
+    nro_conductores TINYINT DEFAULT 1,
+    nro_liquidadores TINYINT DEFAULT 0,
+    nro_auxiliares TINYINT DEFAULT 0,
+    nro_trip_adicional TINYINT DEFAULT 0,
+    tripulacion_especial VARCHAR(100) NULL,
     created_by INT, -- referencia a USUARIO
     updated_by INT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -256,21 +261,22 @@ CREATE INDEX idx_tesoreria_reembolso ON TESORERIA(reembolso);
 CREATE INDEX idx_tesoreria_turno ON TESORERIA(turno);
 CREATE INDEX idx_tesoreria_distrito ON TESORERIA(distrito);
 CREATE INDEX idx_tesoreria_deleted_at ON TESORERIA(deleted_at);
+-- Evitar duplicados por día/vehículo/nro_viaje
+ALTER TABLE VIAJE ADD UNIQUE KEY uq_viaje_por_dia_vehiculo (fecha, id_vehiculo, nro_viaje);
 
 
 -- ==============================
 -- VISTA PARA RESUMEN DE RUTAS
 -- ==============================
 
-CREATE VIEW v_resumen_rutas AS
+CREATE OR REPLACE VIEW v_resumen_rutas AS
 SELECT
     v.fecha AS Fecha,
     ve.placa AS Placa,
     CONCAT(ve.marca, ' ', ve.modelo) AS Vehiculo,
     CONCAT(r.codigo, ' - ', r.nombre) AS Repartidor,
-    r.estado_disponibilidad AS `Estado Repartidor`,
     COUNT(DISTINCT v.id_viaje) AS `Nro de viajes`,
-    0 AS Zona,
+    v.territorios_visitados AS `Territorio`,
     COALESCE(SUM(v.distancia_km), 0) AS Distancia,
     MIN(v.salida_cd) AS `Salida del CD`,
     MAX(v.llegada_cd) AS `Llegada al CD`,
@@ -279,11 +285,11 @@ SELECT
         THEN TIMEDIFF(MAX(v.llegada_cd), MIN(v.salida_cd))
         ELSE NULL
     END AS Tiempo,
-    0 AS `Nro de clientes`,
-    0 AS `Nro de pedidos`,
-    0 AS `Entrega (CF)`,
-    0 AS `Recojo (CF)`,
-    0 AS `Peso (Kg)`
+    COALESCE(SUM(v.nro_clientes), 0) AS `Nro de clientes`,
+    COALESCE(SUM(v.nro_pedidos), 0) AS `Nro de pedidos`,
+    COALESCE(SUM(v.entrega_cf), 0) AS `Entrega (CF)`,
+    COALESCE(SUM(v.recojo_cf), 0) AS `Recojo (CF)`,
+    COALESCE(SUM(v.peso_kg), 0) AS `Peso (Kg)`
 FROM VIAJE v
 JOIN VEHICULO ve ON v.id_vehiculo = ve.id_vehiculo
 JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
@@ -296,7 +302,7 @@ GROUP BY
     r.id_repartidor,
     r.codigo,
     r.nombre,
-    r.estado_disponibilidad
+    v.territorios_visitados
 ORDER BY v.fecha DESC, ve.placa;
 
 -- ==============================
@@ -312,16 +318,16 @@ SELECT
   CONCAT(ve.marca,' ',ve.modelo) AS Vehiculo,
   COUNT(DISTINCT v.id_viaje) AS Nro_viajes,
   COALESCE(SUM(v.distancia_km),0) AS Km,
-  COALESCE(SUM(v.combustible_litros),0) AS Litros,
-  CASE WHEN COALESCE(SUM(v.combustible_litros),0) > 0 THEN COALESCE(SUM(v.distancia_km),0) / NULLIF(SUM(v.combustible_litros),0) ELSE NULL END AS Km_por_Litro,
-  CASE WHEN COALESCE(SUM(v.distancia_km),0) > 0 THEN COALESCE(SUM(v.combustible_costo),0) / NULLIF(SUM(v.distancia_km),0) ELSE NULL END AS Costo_por_Km,
+  0 AS Litros, -- Campo obsoleto: combustible_litros
+  NULL AS Km_por_Litro, -- No se puede calcular sin combustible_litros
+  NULL AS Costo_por_Km, -- No se puede calcular sin combustible_costo
   0 AS Pedidos,
   0 AS PesoKg,
   NULL AS Utilizacion_Prom,
-  COALESCE(SUM(v.tiempo_manejo_min),0) AS Min_Manejo,
-  COALESCE(SUM(v.tiempo_servicio_min),0) AS Min_Servicio,
-  COALESCE(SUM(v.tiempo_espera_min),0) AS Min_Espera,
-  COALESCE(SUM(v.paradas_no_plan),0) AS Paradas_No_Plan,
+  0 AS Min_Manejo, -- Campo obsoleto: tiempo_manejo_min
+  0 AS Min_Servicio, -- Campo obsoleto: tiempo_servicio_min
+  0 AS Min_Espera, -- Campo obsoleto: tiempo_espera_min
+  0 AS Paradas_No_Plan, -- Campo obsoleto: paradas_no_plan
   COUNT(DISTINCT inc.id_incidencia) AS Incidencias,
   COALESCE(SUM(inc.costo_estimado),0) AS Costo_Incidencias
 FROM VIAJE v
@@ -345,7 +351,7 @@ SELECT
   0 AS Visitas_Puntuales,
   0 AS Visitas,
   NULL AS Puntualidad,
-  COALESCE(SUM(v.tiempo_manejo_min + v.tiempo_servicio_min + IFNULL(v.tiempo_espera_min,0)),0) AS Min_Totales,
+  0 AS Min_Totales, -- Campos obsoletos: tiempo_manejo_min, tiempo_servicio_min, tiempo_espera_min
   NULL AS Pedidos_por_Hora
 FROM VIAJE v
 JOIN REPARTIDOR r ON r.id_repartidor = v.id_repartidor

@@ -1,6 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import {
+  ArrowLeft,
+  Plus,
+  ChartBar,
+  ChartBarOff,
+  Truck,
+  Clock,
+  CalendarClock,
+  CheckSquare,
+  AlertTriangle,
+  Search,
+  Calendar,
+  Filter,
+  X,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
+  Activity,
+  CheckCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,19 +47,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  Plus,
-  ArrowLeft,
-  Calendar,
-  AlertTriangle,
-  Clock,
-  Search,
-  BarChart3,
-  ChevronDown,
-  ChevronUp,
-  Activity,
-  CheckCircle,
-} from "lucide-react";
 import { ViajesTable } from "@/components/tables/viajes-table";
 import { ViajeForm } from "@/components/forms/viaje-form";
 import { useViajes, type Viaje } from "@/hooks/use-viajes";

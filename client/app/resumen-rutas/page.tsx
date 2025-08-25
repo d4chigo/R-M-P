@@ -684,7 +684,7 @@ export default function ResumenRutasPage() {
       </Card>
 
       {/* Métricas de Cumplimiento */}
-      {cumplimiento && (
+      {cumplimiento?.cumplimiento_temporal && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-6">
