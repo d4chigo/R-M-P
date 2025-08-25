@@ -21,6 +21,8 @@ import {
   Settings,
   DollarSign,
   BookOpen,
+  FileText,
+  CheckCircle2,
 } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -28,41 +30,49 @@ export default function HomePage() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
+  // Tutorial
   const tutorialSteps = [
     {
-      title: "Bienvenido al Sistema R-M-P",
+      title: "Bienvenido al Sistema R-M-P ",
       description:
         "Esta es la página principal del Sistema de Gestión de Rutas. Aquí encontrarás acceso a todos los módulos y reportes para gestionar tu operación logística. Vamos a explorar cada sección paso a paso.",
+      icon: <BookOpen className="w-14 h-14 text-blue-500" />,
     },
     {
       title: "Módulos Principales",
       description:
         "Esta sección contiene los módulos principales para gestionar vehículos, repartidores, zonas y viajes. Haz clic en cada tarjeta para acceder a funciones como agregar vehículos, programar rutas o asignar repartidores.",
+      icon: <Truck className="w-14 h-14 text-green-500" />,
     },
     {
       title: "Módulo de Tesorería",
       description:
         "El módulo de Tesorería te permite gestionar los ingresos y egresos de tu operación. Accede a esta sección para controlar los aspectos financieros de la logística.",
+      icon: <DollarSign className="w-14 h-14 text-emerald-500" />,
     },
     {
       title: "Reportes y Análisis",
       description:
         "Aquí encontrarás reportes detallados como Resumen de Rutas, Performance de Vehículos y Repartidores, y métricas de cumplimiento. Usa estas herramientas para analizar el rendimiento y tomar decisiones informadas.",
+      icon: <BarChart3 className="w-14 h-14 text-indigo-500" />,
     },
     {
       title: "Características Principales",
       description:
         "Esta sección destaca las funcionalidades clave del sistema, como reportes automáticos, índices optimizados, procedimientos almacenados y métricas en tiempo real para un control eficiente.",
+      icon: <FileText className="w-14 h-14 text-purple-500" />,
     },
     {
       title: "Diagnóstico del Sistema",
       description:
         "El botón flotante en la esquina inferior derecha te lleva a la herramienta de diagnóstico del sistema, donde puedes verificar el estado y solucionar problemas.",
+      icon: <Settings className="w-14 h-14 text-orange-500" />,
     },
     {
       title: "¡Listo para empezar!",
       description:
         "Ahora que conoces las secciones principales, explora cada módulo y utiliza los reportes para optimizar tu operación. ¡Cierra este tutorial y comienza a gestionar tus rutas!",
+      icon: <CheckCircle2 className="w-14 h-14 text-green-600" />,
     },
   ];
 
@@ -76,11 +86,12 @@ export default function HomePage() {
   };
 
   const handlePrevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
+    if (currentStep > 0) setCurrentStep(currentStep - 1);
   };
 
+  const progress = ((currentStep + 1) / tutorialSteps.length) * 100;
+
+  // Tus módulos
   const modules = [
     {
       title: "Vehículos",
@@ -184,45 +195,102 @@ export default function HomePage() {
           <div className="flex justify-end mb-6">
             <button
               onClick={() => setIsTutorialOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors duration-200"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-300 transform hover:scale-105 hover:shadow-md"
             >
-              <BookOpen className="w-5 h-5" />
+              <BookOpen className="w-5 h-5 animate-pulse" />
               Iniciar Tutorial
             </button>
           </div>
 
-          {/* Tutorial Modal */}
+          {/* Tutorial Modal Pro */}
           {isTutorialOpen && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-                <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
+              <div className="relative bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-3xl shadow-2xl w-full max-w-xl mx-4 p-8 animate-scaleUp">
+                
+                {/* Icono principal */}
+                <div className="flex justify-center mb-6">
+                  <div className="p-4 rounded-full bg-white dark:bg-gray-800 shadow-lg">
+                    {tutorialSteps[currentStep].icon}
+                  </div>
+                </div>
+
+                {/* Título */}
+                <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-white mb-3">
                   {tutorialSteps[currentStep].title}
                 </h2>
-                <p className="text-gray-600 dark:text-gray-300 mb-6">
+
+                {/* Descripción */}
+                <p className="text-gray-600 dark:text-gray-300 text-center mb-8 leading-relaxed">
                   {tutorialSteps[currentStep].description}
                 </p>
-                <div className="flex justify-between items-center">
+
+                {/* Progreso circular */}
+                <div className="flex justify-center mb-8">
+                  <div className="relative w-20 h-20">
+                    <svg className="w-20 h-20 transform -rotate-90">
+                      <circle
+                        cx="40"
+                        cy="40"
+                        r="36"
+                        stroke="currentColor"
+                        strokeWidth="6"
+                        className="text-gray-300 dark:text-gray-700"
+                        fill="transparent"
+                      />
+                      <circle
+                        cx="40"
+                        cy="40"
+                        r="36"
+                        stroke="url(#gradient)"
+                        strokeWidth="6"
+                        strokeDasharray={2 * Math.PI * 36}
+                        strokeDashoffset={
+                          2 * Math.PI * 36 -
+                          (progress / 100) * (2 * Math.PI * 36)
+                        }
+                        className="transition-all duration-500"
+                        fill="transparent"
+                      />
+                      <defs>
+                        <linearGradient
+                          id="gradient"
+                          x1="0%"
+                          y1="0%"
+                          x2="100%"
+                          y2="0%"
+                        >
+                          <stop offset="0%" stopColor="#3b82f6" />
+                          <stop offset="100%" stopColor="#6366f1" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center font-semibold text-gray-800 dark:text-white">
+                      {currentStep + 1}/{tutorialSteps.length}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Botones */}
+                <div className="flex justify-between">
                   <button
                     onClick={handlePrevStep}
                     disabled={currentStep === 0}
-                    className={`px-4 py-2 rounded-lg ${
+                    className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
                       currentStep === 0
-                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 shadow"
                     }`}
                   >
-                    Anterior
+                    ← Anterior
                   </button>
-                  <span className="text-gray-600 dark:text-gray-300">
-                    {currentStep + 1} de {tutorialSteps.length}
-                  </span>
+
                   <button
                     onClick={handleNextStep}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                    className="px-6 py-2.5 rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:opacity-90 shadow-lg transition-all"
                   >
                     {currentStep === tutorialSteps.length - 1
                       ? "Finalizar"
-                      : "Siguiente"}
+                      : "Siguiente →"}
                   </button>
                 </div>
               </div>
