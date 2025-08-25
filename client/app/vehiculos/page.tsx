@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -72,9 +72,7 @@ export default function VehiculosPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingVehiculo, setEditingVehiculo] = useState<Vehiculo | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [vehiculoToDelete, setVehiculoToDelete] = useState<Vehiculo | null>(
-    null,
-  );
+  const [vehiculoToDelete, setVehiculoToDelete] = useState<Vehiculo | null>(null);
   const [lastDeleteResult, setLastDeleteResult] = useState<{
     type: "deleted" | "deactivated";
     message: string;
@@ -88,8 +86,71 @@ export default function VehiculosPage() {
   // Estados de paginación
   const [pagina, setPagina] = useState(1);
   const [tamanoPagina, setTamanoPagina] = useState(10);
-  const totalPaginas = Math.ceil(vehiculos.length / tamanoPagina);
-  const vehiculosPaginados = vehiculos.slice(
+  const [filteredVehiculos, setFilteredVehiculos] = useState<Vehiculo[]>([]);
+
+  useEffect(() => {
+    // Filtrar vehículos por fecha y búsqueda
+    const filterVehiculos = () => {
+      let filtered = [...vehiculos];
+
+      // Primero aplicar filtro de búsqueda
+      if (searchQuery.trim()) {
+        filtered = filtered.filter((vehiculo) =>
+          vehiculo.placa?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          vehiculo.marca?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          vehiculo.modelo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (vehiculo.anio && vehiculo.anio.toString().includes(searchQuery))
+        );
+      }
+
+      // Luego aplicar filtro por fecha si existe
+      if (dateFilter) {
+        console.log('Filtrando por fecha:', dateFilter);
+        
+        // Crear fecha en UTC para evitar problemas de zona horaria
+        const selectedDateUTC = new Date(dateFilter + 'T00:00:00Z');
+        console.log('Fecha seleccionada (UTC):', selectedDateUTC.toISOString());
+        
+        filtered = filtered.filter((vehiculo) => {
+          // Verificar diferentes propiedades de fecha que podrían existir
+          const vehiculoDateStr = vehiculo.fecha_creacion || vehiculo.created_at || vehiculo.fecha_registro || vehiculo.fecha;
+          
+          if (!vehiculoDateStr) {
+            console.log('Vehículo sin fecha:', vehiculo.placa);
+            return false;
+          }
+          
+          try {
+            // Convertir la fecha del vehículo a UTC
+            const vehiculoDate = new Date(vehiculoDateStr);
+            const vehiculoDateUTC = new Date(Date.UTC(
+              vehiculoDate.getUTCFullYear(),
+              vehiculoDate.getUTCMonth(),
+              vehiculoDate.getUTCDate()
+            ));
+            
+            console.log('Fecha vehículo:', vehiculoDateStr, '-> UTC:', vehiculoDateUTC.toISOString());
+            console.log('Comparación:', selectedDateUTC.toISOString(), 'vs', vehiculoDateUTC.toISOString());
+            
+            // Comparar solo año, mes y día en UTC
+            return selectedDateUTC.getTime() === vehiculoDateUTC.getTime();
+          } catch (error) {
+            console.error('Error parsing date:', vehiculoDateStr, error);
+            return false;
+          }
+        });
+
+        console.log('Vehículos después de filtrar por fecha:', filtered.length);
+      }
+
+      setFilteredVehiculos(filtered);
+    };
+
+    filterVehiculos();
+  }, [searchQuery, dateFilter, vehiculos]);
+
+  const totalPaginas = Math.ceil(filteredVehiculos.length / tamanoPagina);
+  const vehiculosPaginados = filteredVehiculos.slice(
     (pagina - 1) * tamanoPagina,
     pagina * tamanoPagina
   );
@@ -117,23 +178,17 @@ export default function VehiculosPage() {
 
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
-    if (query.trim()) {
-      await searchVehiculos(query);
-    } else {
-      // Si no hay query, recargar todos los vehículos
-      await fetchVehiculos();
-    }
   };
 
   const handleDateFilter = (date: string) => {
     setDateFilter(date);
-    // Aquí podrías implementar filtrado por fecha si es necesario
+    setPagina(1); // Resetear a la primera página al aplicar filtro
   };
 
   const clearFilters = () => {
     setSearchQuery("");
     setDateFilter("");
-    fetchVehiculos();
+    setPagina(1);
   };
 
   const handleDelete = (vehiculo: Vehiculo) => {
@@ -184,6 +239,27 @@ export default function VehiculosPage() {
     setIsDialogOpen(true);
   };
 
+  // Función para debugging - mostrar propiedades de fecha disponibles
+  const mostrarPropiedadesFecha = () => {
+    if (vehiculos.length > 0) {
+      console.log('=== DEBUG: PROPIEDADES DE FECHA ===');
+      console.log('Propiedades disponibles en el primer vehículo:', Object.keys(vehiculos[0]));
+      
+      vehiculos.slice(0, 3).forEach((vehiculo, index) => {
+        console.log(`\nVehículo ${index + 1} (${vehiculo.placa}):`);
+        console.log('fecha:', vehiculo.fecha);
+        console.log('fecha_creacion:', vehiculo.fecha_creacion);
+        console.log('created_at:', vehiculo.created_at);
+        console.log('fecha_registro:', vehiculo.fecha_registro);
+        
+        if (vehiculo.fecha_creacion) {
+          const date = new Date(vehiculo.fecha_creacion);
+          console.log('fecha_creacion parsed:', date.toISOString(), 'Local:', date.toLocaleDateString());
+        }
+      });
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
@@ -205,34 +281,44 @@ export default function VehiculosPage() {
             </p>
           </div>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={handleNewVehiculo}>
-              <Plus className="h-4 w-4 mr-2" />
-              Nuevo Vehículo
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingVehiculo
-                  ? "Editar Vehículo"
-                  : "Registrar Nuevo Vehículo"}
-              </DialogTitle>
-              <DialogDescription>
-                {editingVehiculo
-                  ? "Modifique los campos necesarios para actualizar el vehículo."
-                  : "Complete los campos requeridos para registrar un nuevo vehículo en el sistema."}
-              </DialogDescription>
-            </DialogHeader>
-            <VehiculoFormSimple
-              vehiculo={editingVehiculo}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-              isEditing={!!editingVehiculo}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={mostrarPropiedadesFecha}
+            title="Debug: Mostrar propiedades de fecha"
+          >
+            <Info className="h-4 w-4" />
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={handleNewVehiculo}>
+                <Plus className="h-4 w-4 mr-2" />
+                Nuevo Vehículo
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingVehiculo
+                    ? "Editar Vehículo"
+                    : "Registrar Nuevo Vehículo"}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingVehiculo
+                    ? "Modifique los campos necesarios para actualizar el vehículo."
+                    : "Complete los campos requeridos para registrar un nuevo vehículo en el sistema."}
+                </DialogDescription>
+              </DialogHeader>
+              <VehiculoFormSimple
+                vehiculo={editingVehiculo}
+                onSubmit={handleSubmit}
+                onCancel={handleCancel}
+                isEditing={!!editingVehiculo}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Search */}
@@ -242,14 +328,19 @@ export default function VehiculosPage() {
             <Search className="h-5 w-5" />
             Buscar Vehículos
           </CardTitle>
+          <CardDescription>
+            {dateFilter && `Filtrado por fecha: ${formatDateForDisplay(dateFilter)}`}
+            {searchQuery && dateFilter && ' • '}
+            {searchQuery && `Búsqueda: "${searchQuery}"`}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4 items-center">
+          <div className="flex gap-4 items-center flex-wrap">
             <Input
               placeholder="Buscar por placa, marca, modelo o año..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              className="flex-1"
+              className="flex-1 min-w-[200px]"
             />
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -257,7 +348,7 @@ export default function VehiculosPage() {
                 type="date"
                 value={dateFilter}
                 onChange={(e) => handleDateFilter(e.target.value)}
-                className="pl-10 w-auto"
+                className="pl-10 min-w-[150px]"
                 placeholder="Filtrar por fecha"
               />
             </div>
@@ -284,6 +375,18 @@ export default function VehiculosPage() {
               )}
             </Button>
           </div>
+          
+          {/* Información del filtrado */}
+          {(searchQuery || dateFilter) && (
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>Mostrando {filteredVehiculos.length} de {vehiculos.length} vehículos</p>
+              {dateFilter && (
+                <p className="text-xs">
+                  Fecha seleccionada: {dateFilter} (se muestra en UTC para evitar problemas de zona horaria)
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -295,9 +398,9 @@ export default function VehiculosPage() {
               <div className="flex items-center space-x-2">
                 <Truck className="h-8 w-8 text-blue-600" />
                 <div>
-                  <p className="text-2xl font-bold">{vehiculos.length}</p>
+                  <p className="text-2xl font-bold">{filteredVehiculos.length}</p>
                   <p className="text-sm text-muted-foreground">
-                    Total Vehículos
+                    Vehículos Filtrados
                   </p>
                 </div>
               </div>
@@ -309,7 +412,7 @@ export default function VehiculosPage() {
                 <Activity className="h-8 w-8 text-green-600" />
                 <div>
                   <p className="text-2xl font-bold">
-                    {vehiculos.filter((v) => v.activo).length}
+                    {filteredVehiculos.filter((v) => v.activo).length}
                   </p>
                   <p className="text-sm text-muted-foreground">Activos</p>
                 </div>
@@ -323,7 +426,7 @@ export default function VehiculosPage() {
                 <div>
                   <p className="text-2xl font-bold">
                     {
-                      vehiculos.filter(
+                      filteredVehiculos.filter(
                         (v) => v.capacidad_cajas && v.capacidad_cajas > 0,
                       ).length
                     }
@@ -338,17 +441,13 @@ export default function VehiculosPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center space-x-2">
-                <Calendar className="h-8 w-8 text-orange-600" />
+                <AlertTriangle className="h-8 w-8 text-orange-600" />
                 <div>
                   <p className="text-2xl font-bold">
-                    {
-                      vehiculos.filter(
-                        (v) => v.anio && v.anio >= new Date().getFullYear() - 5,
-                      ).length
-                    }
+                    {filteredVehiculos.length - filteredVehiculos.filter((v) => v.activo).length}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    Últimos 5 años
+                    Inactivos
                   </p>
                 </div>
               </div>
@@ -359,18 +458,57 @@ export default function VehiculosPage() {
 
       {/* Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>Lista de Vehículos</CardTitle>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Lista de Vehículos</CardTitle>
+            <CardDescription>
+              {pagina} de {totalPaginas} páginas • {filteredVehiculos.length} registros
+            </CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagina <= 1}
+              onClick={() => setPagina(pagina - 1)}
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagina >= totalPaginas}
+              onClick={() => setPagina(pagina + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="text-center py-4">Cargando vehículos...</div>
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p>Cargando vehículos...</p>
+            </div>
+          ) : filteredVehiculos.length === 0 ? (
+            <div className="text-center py-8">
+              <Truck className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">
+                {searchQuery || dateFilter ? 'No se encontraron vehículos' : 'No hay vehículos registrados'}
+              </h3>
+              <p className="text-muted-foreground">
+                {searchQuery || dateFilter 
+                  ? 'Intenta con otros criterios de búsqueda o limpia los filtros'
+                  : 'Comienza registrando tu primer vehículo'
+                }
+              </p>
+            </div>
           ) : (
             <VehiculosTable
-              vehiculos={vehiculos}
+              vehiculos={vehiculosPaginados}
               onEdit={handleEdit}
               onDelete={handleDelete}
-              initialPageSize={10}
+              initialPageSize={tamanoPagina}
             />
           )}
         </CardContent>

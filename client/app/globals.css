@@ -153,3 +153,25 @@
     @apply space-y-4 sm:space-y-6;
   }
 }
+@keyframes fadeInUp {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeInUp {
+  animation: fadeInUp 0.3s ease-out;
+}
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes scaleUp {
+  0% { transform: scale(0.9) translateY(10px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.animate-scaleUp {
+  animation: scaleUp 0.4s ease-out;
+}
