@@ -17,11 +17,17 @@ const {
 
   // detalle por viaje
   getResumenRutasPorViaje,
+  triggerFullResumLoad,
 } = require("../controllers/reportes.controller");
+
+const { requireOperator } = require('../middleware/auth.middleware');
 
 // GET /api/reportes/resumen-rutas - Obtener resumen de rutas
 // Query params: ?fecha=2025-01-21 (opcional)
 router.get("/resumen-rutas", getResumenRutas);
+
+// POST /api/reportes/resumen-rutas/trigger-full - Ejecuta un full load (operador/admin)
+router.post('/resumen-rutas/trigger-full', requireOperator, triggerFullResumLoad);
 
 // GET /api/reportes/resumen-rutas/viajes - Resumen por viaje (detalle)
 // Query params: ?fecha=YYYY-MM-DD | ?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD [&placa=XXX] [&repartidor=texto]

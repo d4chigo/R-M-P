@@ -89,6 +89,7 @@ export default function ResumenRutasPage() {
       if (filtros.tipoReporte === "dia" && filtros.fecha) {
         // Cargar resumen de rutas del día seleccionado
         const resumen = await getResumenRutas(filtros.fecha);
+  console.log('[ResumenRutasPage] resumen raw', resumen);
         setResumenData(resumen);
 
         // Cargar métricas diarias
@@ -114,11 +115,9 @@ export default function ResumenRutasPage() {
           filtros.fechaFin,
         );
         setResumenData(resumen);
-        // Para rango, crear un objeto con ambas fechas para el título
-        setMetricas({
-          FechaInicio: filtros.fechaInicio,
-          FechaFin: filtros.fechaFin,
-        });
+  // Para rango, calcular métricas agregadas a partir del arreglo de resumen
+  const metricasRange = computeMetricasFromResumen(resumen, filtros.fechaInicio, filtros.fechaFin);
+  setMetricas(metricasRange);
         setCumplimiento(null);
       }
 
@@ -138,6 +137,26 @@ export default function ResumenRutasPage() {
     } finally {
       setIsLoadingData(false);
     }
+  };
+
+  // Helper: agrega métricas totales a partir del array de resumen
+  const computeMetricasFromResumen = (resumen: any[], fechaInicio?: string, fechaFin?: string) => {
+    const totalViajes = resumen.reduce((s, r) => s + Number(r["Nro de viajes"] ?? 0), 0);
+    const placas = new Set(resumen.map((r) => r.Placa).filter(Boolean));
+    const totalVehiculos = placas.size;
+    const totalClientes = resumen.reduce((s, r) => s + Number(r["Nro de clientes"] ?? 0), 0);
+    const totalEntrega = resumen.reduce((s, r) => s + Number(r["Entrega (CF)"] ?? 0), 0);
+    const totalPeso = resumen.reduce((s, r) => s + Number(r["Peso (Kg)"] ?? 0), 0);
+
+    return {
+      FechaInicio: fechaInicio,
+      FechaFin: fechaFin,
+      Total_Vehiculos: totalVehiculos,
+      Total_Viajes: totalViajes,
+      Total_Clientes: totalClientes,
+      Total_Entrega_CF: totalEntrega,
+      Total_Peso_Kg: totalPeso,
+    };
   };
 
   const handleFiltrarPorDia = async () => {
@@ -204,12 +223,9 @@ export default function ResumenRutasPage() {
         filtros.fechaFin,
       );
       setResumenData(resumen);
-
-      // Para rango, crear un objeto para mostrar las fechas en el título
-      setMetricas({
-        FechaInicio: filtros.fechaInicio,
-        FechaFin: filtros.fechaFin,
-      });
+  // Para rango, calcular métricas agregadas a partir del arreglo de resumen
+  const metricasRange = computeMetricasFromResumen(resumen, filtros.fechaInicio, filtros.fechaFin);
+  setMetricas(metricasRange);
       setCumplimiento(null);
 
       toast({
@@ -684,7 +700,7 @@ export default function ResumenRutasPage() {
       </Card>
 
       {/* Métricas de Cumplimiento */}
-      {cumplimiento && (
+      {cumplimiento?.cumplimiento_temporal && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="pt-6">

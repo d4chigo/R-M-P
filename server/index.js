@@ -353,3 +353,48 @@ process.on("uncaughtException", (error) => {
 
 // Iniciar la aplicación
 startServer();
+
+// -----------------------------
+// Scheduler: resumen_rutas delta loader
+// Controlled via env vars:
+// WORKER_ENABLE_SCHEDULER=true
+// WORKER_SCHEDULE_CRON="*/10 * * * *" (every 10 minutes)
+// -----------------------------
+try {
+  const enableScheduler = String(process.env.WORKER_ENABLE_SCHEDULER || 'false').toLowerCase() === 'true';
+  if (enableScheduler) {
+    const cron = require('node-cron');
+    const resumenWorker = require('./scripts/resumen-worker');
+    const scheduleCron = process.env.WORKER_SCHEDULE_CRON || '*/10 * * * *';
+
+    console.log('\n\u23f3 Scheduler for resumen_rutas is ENABLED');
+    console.log(`\u23f0 Cron schedule: ${scheduleCron}`);
+
+    const task = cron.schedule(scheduleCron, async () => {
+      try {
+        console.log('\n\u23f3 [scheduler] Running resumen_rutas delta load...');
+        await resumenWorker.deltaLoad();
+        console.log('\u2705 [scheduler] Delta load finished');
+      } catch (err) {
+        console.error('\u274c [scheduler] Delta load error:', err);
+      }
+    }, {
+      scheduled: true,
+      timezone: process.env.WORKER_SCHEDULE_TZ || 'UTC'
+    });
+
+    // Expose for graceful shutdown
+    process.on('SIGINT', async () => {
+      try {
+        if (task) task.stop();
+        console.log('\u2705 Scheduler stopped');
+      } catch (e) {
+        console.error('Error stopping scheduler:', e);
+      }
+    });
+  } else {
+    console.log('\n\u23f3 Scheduler for resumen_rutas is DISABLED (set WORKER_ENABLE_SCHEDULER=true to enable)');
+  }
+} catch (err) {
+  console.error('Error initializing resumen_rutas scheduler:', err);
+}
