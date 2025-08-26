@@ -9,80 +9,98 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "24h";
 
 // Crear primer admin
 exports.createFirstAdmin = async (req, res) => {
+  try {
+    // Aceptar los mismos campos que envia el cliente
+    const { username, nombre_completo, email, password, telefono } = req.body;
+
+    // Validaciones básicas
+    if (!username || !nombre_completo || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'username, nombre_completo, email y password son requeridos'
+      });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    // Crear nuevo usuario admin con una transacción
+    const connection = await db.getConnection();
     try {
-        const { nombre, apellidos, email, password } = req.body;
+      await connection.beginTransaction();
 
-        // Encriptar password
-        const passwordHash = await bcrypt.hash(password, 10);
+      // Insertar usuario (incluyendo telefono cuando exista)
+      const [result] = await connection.query(
+        `INSERT INTO USUARIO (username, password_hash, nombre_completo, email, telefono, activo)
+         VALUES (?, ?, ?, ?, ?, TRUE)`,
+        [username, passwordHash, nombre_completo, email, telefono || null]
+      );
 
-        // Crear nuevo usuario admin con una transacción
-        const connection = await db.getConnection();
-        try {
-            await connection.beginTransaction();
+      // Obtener o crear rol admin
+      let [roles] = await connection.query(
+        "SELECT id_rol FROM ROL WHERE nombre = 'ADMINISTRADOR'"
+      );
 
-            // Insertar usuario
-            const [result] = await connection.query(
-                "INSERT INTO USUARIO (username, password_hash, nombre_completo, email) VALUES (?, ?, ?, ?)",
-                [email, passwordHash, `${nombre} ${apellidos}`, email]
-            );
+      let adminRoleId;
+      if (!roles.length) {
+        const [newRole] = await connection.query(
+          "INSERT INTO ROL (nombre, descripcion) VALUES ('ADMINISTRADOR', 'Administrador del sistema')"
+        );
+        adminRoleId = newRole.insertId;
+      } else {
+        adminRoleId = roles[0].id_rol;
+      }
 
-            // Obtener el id del rol admin
-            const [roles] = await connection.query(
-                "SELECT id_rol FROM ROL WHERE nombre = 'ADMINISTRADOR'"
-            );
+      // Asignar rol admin
+      await connection.query(
+        "INSERT INTO USUARIO_ROL (id_usuario, id_rol) VALUES (?, ?)",
+        [result.insertId, adminRoleId]
+      );
 
-            if (!roles.length) {
-                throw new Error("Rol de administrador no encontrado");
-            }
+      await connection.commit();
 
-            // Asignar rol de admin al usuario
-            await connection.query(
-                "INSERT INTO USUARIO_ROL (id_usuario, id_rol) VALUES (?, ?)",
-                [result.insertId, roles[0].id_rol]
-            );
+      // Generar token
+      const token = jwt.sign(
+        { id_usuario: result.insertId, roles: ['ADMINISTRADOR'] },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
 
-            await connection.commit();
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 24 * 60 * 60 * 1000 // 1 día
+      });
 
-            // Generar token
-            const token = jwt.sign(
-                { id: result.insertId, rol: 'admin' },
-                JWT_SECRET,
-                { expiresIn: JWT_EXPIRES_IN }
-            );
-
-            res.cookie("token", token, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'strict',
-                maxAge: 24 * 60 * 60 * 1000 // 1 día
-            });
-
-            res.json({
-                success: true,
-                message: "Administrador creado exitosamente",
-                data: {
-                    id: result.insertId,
-                    nombre,
-                    apellidos,
-                    email,
-                    rol: 'admin'
-                }
-            });
-
-        } catch (error) {
-            await connection.rollback();
-            throw error;
-        } finally {
-            connection.release();
-        }
+      res.json({
+        success: true,
+        message: 'Administrador creado exitosamente',
+        data: {
+          id: result.insertId,
+          username,
+          nombre_completo,
+          email,
+          telefono: telefono || null,
+          roles: ['ADMINISTRADOR']
+        },
+        token
+      });
 
     } catch (error) {
-        res.status(500).json({ 
-            success: false,
-            message: "Error al crear el administrador",
-            error: error.message 
-        });
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
+
+  } catch (error) {
+    console.error('❌ Error al crear primer admin:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al crear el administrador',
+      error: error.message
+    });
+  }
 };
 
 // Login de usuario
