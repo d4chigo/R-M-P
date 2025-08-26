@@ -10,7 +10,6 @@ interface ResumenRuta {
   Repartidor: string;
   "Nro de viajes": number;
   Zona: number;
-  "Zonas Visitadas": string;
   Distancia: number;
   "Salida del CD": string;
   "Llegada al CD": string;
@@ -204,11 +203,18 @@ export function useReportes(): UseReportesReturn {
     setLoading(true);
     setError(null);
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...getAuthHeader(),
+      };
+
+      // Debug: log request URL and headers (token omitted)
+      try {
+        console.log('[useReportes] GET', url);
+      } catch {}
+
       const response = await fetch(url, {
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeader(),
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -216,6 +222,10 @@ export function useReportes(): UseReportesReturn {
       }
 
       const result = await response.json();
+      // Debug: log server result summary
+      try {
+        console.log('[useReportes] response', { url, ok: response.ok, status: response.status, success: result?.success, count: result?.count });
+      } catch {}
       if (result.success) {
         if (successMessage) {
           toast({

@@ -167,26 +167,31 @@ CREATE INDEX idx_tesoreria_deleted_at ON TESORERIA(deleted_at);
 -- Evitar duplicados por día/vehículo/nro_viaje
 ALTER TABLE VIAJE ADD UNIQUE KEY uq_viaje_por_dia_vehiculo (fecha, id_vehiculo, nro_viaje);
 
+
 -- ==============================
 -- VISTA PARA RESUMEN DE RUTAS
 -- ==============================
 
+-- Asegurarse de que no exista la tabla materializada `resumen_rutas`.
+-- La fuente canónica en runtime será la vista `v_resumen_rutas`.
+DROP TABLE IF EXISTS `resumen_rutas`;
+
 CREATE OR REPLACE VIEW v_resumen_rutas AS
 SELECT
-    v.fecha AS Fecha,
-    ve.placa AS Placa,
-    CONCAT(ve.marca, ' ', ve.modelo) AS Vehiculo,
-    CONCAT(r.codigo, ' - ', r.nombre) AS Repartidor,
+    v.fecha AS `Fecha`,
+    ve.placa AS `Placa`,
+    CONCAT(ve.marca, ' ', ve.modelo) AS `Vehiculo`,
+    CONCAT(r.codigo, ' - ', r.nombre) AS `Repartidor`,
     COUNT(DISTINCT v.id_viaje) AS `Nro de viajes`,
-    v.territorios_visitados AS `Territorio`,
-    COALESCE(SUM(v.distancia_km), 0) AS Distancia,
+    COALESCE(SUM(v.territorios_visitados), 0) AS `Territorios`,
+    COALESCE(SUM(v.distancia_km), 0) AS `Distancia`,
     MIN(v.salida_cd) AS `Salida del CD`,
     MAX(v.llegada_cd) AS `Llegada al CD`,
     CASE
         WHEN MIN(v.salida_cd) IS NOT NULL AND MAX(v.llegada_cd) IS NOT NULL
         THEN TIMEDIFF(MAX(v.llegada_cd), MIN(v.salida_cd))
         ELSE NULL
-    END AS Tiempo,
+    END AS `Tiempo`,
     COALESCE(SUM(v.nro_clientes), 0) AS `Nro de clientes`,
     COALESCE(SUM(v.nro_pedidos), 0) AS `Nro de pedidos`,
     COALESCE(SUM(v.entrega_cf), 0) AS `Entrega (CF)`,
@@ -203,6 +208,4 @@ GROUP BY
     ve.modelo,
     r.id_repartidor,
     r.codigo,
-    r.nombre,
-    v.territorios_visitados
-ORDER BY v.fecha DESC, ve.placa;
+    r.nombre;

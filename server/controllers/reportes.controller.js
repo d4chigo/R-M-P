@@ -134,8 +134,6 @@ const getResumenRutasPorViaje = async (req, res) => {
         v.salida_cd AS Salida_del_CD,
         v.llegada_cd AS Llegada_al_CD,
   CASE WHEN v.salida_cd IS NOT NULL AND v.llegada_cd IS NOT NULL THEN TIMEDIFF(v.llegada_cd, v.salida_cd) ELSE NULL END AS Tiempo_de_Viaje,
-  0 AS Recarga_Min,
-  0 AS Refrigerio_Min,
   v.tipo_viaje AS Tipo_Viaje
       FROM VIAJE v
       JOIN VEHICULO ve ON v.id_vehiculo = ve.id_vehiculo
@@ -363,14 +361,16 @@ const getResumenRutas = async (req, res) => {
     const { fecha } = req.query;
     console.log(`📊 Obteniendo resumen de rutas para fecha: ${fecha || "hoy"}`);
 
-    let query = `
+    // Usar siempre la vista `v_resumen_rutas` como fuente canónica
+    const params = [];
+    let q = `
       SELECT
         DATE_FORMAT(Fecha, '%Y-%m-%d') as Fecha,
         Placa,
         Vehiculo,
         Repartidor,
         \`Nro de viajes\`,
-        Zona,
+        \`Territorios\` AS Zona,
         Distancia,
         \`Salida del CD\`,
         \`Llegada al CD\`,
@@ -383,16 +383,14 @@ const getResumenRutas = async (req, res) => {
       FROM v_resumen_rutas
     `;
 
-    const params = [];
-
     if (fecha) {
-      query += " WHERE Fecha = ?";
+      q += " WHERE Fecha = ?";
       params.push(fecha);
     }
 
-    query += " ORDER BY Fecha DESC, Placa ASC";
-
-    const [resumen] = await db.query(query, params);
+    q += " ORDER BY Fecha DESC, Placa ASC";
+    const [rows] = await db.query(q, params);
+    const resumen = rows;
 
     console.log(`✅ Resumen obtenido: ${resumen.length} registros`);
 
@@ -453,7 +451,8 @@ const getResumenRutasRango = async (req, res) => {
       });
     }
 
-    const [resumen] = await db.query(
+    // Consultar la vista `v_resumen_rutas` para el rango solicitado
+    const [rows] = await db.query(
       `
       SELECT
         DATE_FORMAT(Fecha, '%Y-%m-%d') as Fecha,
@@ -461,7 +460,7 @@ const getResumenRutasRango = async (req, res) => {
         Vehiculo,
         Repartidor,
         \`Nro de viajes\`,
-        Zona,
+        \`Territorios\` AS Zona,
         Distancia,
         \`Salida del CD\`,
         \`Llegada al CD\`,
@@ -478,10 +477,12 @@ const getResumenRutasRango = async (req, res) => {
       [fechaInicio, fechaFin],
     );
 
-    console.log(`✅ Resumen por rango obtenido: ${resumen.length} registros`);
+    const resumenRange = rows || [];
+
+    console.log(`✅ Resumen por rango obtenido: ${resumenRange.length} registros`);
 
     // Process dates to ensure consistent formatting
-    const processedResumen = processResponseData(resumen);
+    const processedResumen = processResponseData(resumenRange);
 
     res.json({
       success: true,
@@ -517,7 +518,7 @@ const getMetricasDiarias = async (req, res) => {
     const { fecha } = req.query;
     console.log(`📈 Obteniendo métricas diarias para fecha: ${fecha || "hoy"}`);
 
-    const [metricas] = await db.query(
+    const [rows] = await db.query(
       `
       SELECT
         DATE_FORMAT(Fecha, '%Y-%m-%d') as Fecha,
@@ -542,6 +543,7 @@ const getMetricasDiarias = async (req, res) => {
     `,
       [fecha || new Date().toISOString().split("T")[0]],
     );
+    const metricas = rows;
 
     if (metricas.length === 0) {
       return res.json({
@@ -600,7 +602,7 @@ const getPerformanceVehiculos = async (req, res) => {
     const { dias = 30 } = req.query;
     console.log(`🏆 Obteniendo performance de vehículos últimos ${dias} días`);
 
-    const [performance] = await db.query(
+    const [rows] = await db.query(
       `
       SELECT
         Placa,
@@ -627,6 +629,7 @@ const getPerformanceVehiculos = async (req, res) => {
     `,
       [dias],
     );
+    const performance = rows;
 
     res.json({
       success: true,
@@ -700,29 +703,28 @@ const getMetricasCumplimiento = async (req, res) => {
     const fechaConsulta = fecha || new Date().toISOString().split("T")[0];
     console.log(`✅ Obteniendo métricas de cumplimiento para fecha: ${fechaConsulta}`);
 
-    // Obtener datos base del resumen de rutas
-    const [datosBase] = await db.query(
+    const [rows] = await db.query(
       `
-      SELECT
-        COUNT(DISTINCT Placa) as total_vehiculos,
-        SUM(\`Nro de viajes\`) as total_viajes,
-        SUM(Distancia) as total_distancia,
-        SUM(\`Nro de pedidos\`) as total_pedidos,
-        SUM(\`Entrega (CF)\`) as total_entrega_cf,
-        SUM(\`Recojo (CF)\`) as total_recojo_cf,
-        SUM(\`Peso (Kg)\`) as total_peso_kg,
-        0 as total_clientes,
-        ROUND(AVG(Distancia), 1) as distancia_promedio,
-        ROUND(AVG(\`Nro de viajes\`), 1) as viajes_promedio,
-        ROUND(AVG(\`Nro de pedidos\`), 1) as pedidos_promedio,
-        0 as clientes_promedio
-      FROM v_resumen_rutas
-      WHERE Fecha = ?
-    `,
+        SELECT
+          COUNT(DISTINCT Placa) as total_vehiculos,
+          SUM(\`Nro de viajes\`) as total_viajes,
+          SUM(Distancia) as total_distancia,
+          SUM(\`Nro de pedidos\`) as total_pedidos,
+          SUM(\`Entrega (CF)\`) as total_entrega_cf,
+          SUM(\`Recojo (CF)\`) as total_recojo_cf,
+          SUM(\`Peso (Kg)\`) as total_peso_kg,
+          0 as total_clientes,
+          ROUND(AVG(\`Nro de viajes\`), 1) as viajes_promedio,
+          ROUND(AVG(Distancia), 1) as distancia_promedio,
+          ROUND(AVG(\`Nro de pedidos\`), 1) as pedidos_promedio
+        FROM v_resumen_rutas
+        WHERE Fecha = ?
+      `,
       [fechaConsulta],
     );
+    const datosBase = rows;
 
-    if (datosBase.length === 0) {
+    if (!datosBase || datosBase.length === 0) {
       return res.json({
         success: true,
         data: [],
@@ -731,27 +733,21 @@ const getMetricasCumplimiento = async (req, res) => {
       });
     }
 
-    // Calcular eficiencia de rutas (km por cliente)
-    const eficienciaRutas = 
-      datosBase[0].total_clientes > 0
-        ? datosBase[0].distancia_promedio / datosBase[0].total_clientes
-        : 0;
+    const base = datosBase[0];
 
-    // Calcular productividad de vehículos
-    const vehiculosUtilizados = datosBase[0].total_vehiculos || 1;
-    const productividadClientes =
-      vehiculosUtilizados > 0
-        ? datosBase[0].total_clientes / vehiculosUtilizados
-        : 0;
+    // Calcular eficiencia de rutas (km por cliente) y productividad
+    const eficienciaRutas = base.total_clientes > 0 ? (base.distancia_promedio / base.total_clientes) : 0;
+    const vehiculosUtilizados = base.total_vehiculos || 1;
+    const productividadClientes = vehiculosUtilizados > 0 ? (base.total_clientes / vehiculosUtilizados) : 0;
 
     const resultado = {
       fecha: fechaConsulta,
-      ...datosBase[0],
+      ...base,
       eficiencia_rutas: Math.round(eficienciaRutas * 100) / 100,
       productividad_vehiculos: {
-        viajes_por_vehiculo: Math.round((datosBase[0].total_viajes / vehiculosUtilizados) * 100) / 100,
-        km_por_vehiculo: Math.round((datosBase[0].total_distancia / vehiculosUtilizados) * 100) / 100,
-        pedidos_por_vehiculo: Math.round((datosBase[0].total_pedidos / vehiculosUtilizados) * 100) / 100,
+        viajes_por_vehiculo: Math.round((base.total_viajes / vehiculosUtilizados) * 100) / 100,
+        km_por_vehiculo: Math.round((base.total_distancia / vehiculosUtilizados) * 100) / 100,
+        pedidos_por_vehiculo: Math.round((base.total_pedidos / vehiculosUtilizados) * 100) / 100,
         clientes_por_vehiculo: Math.round(productividadClientes * 100) / 100,
       },
     };
@@ -820,6 +816,19 @@ const getMetricasDiaProcedimiento = async (req, res) => {
   }
 };
 
+// Endpoint admin/operator - dispara un full load inmediato del resumen (seguro)
+const triggerFullResumLoad = async (req, res) => {
+  try {
+    console.log('🔔 API: triggerFullResumLoad invoked by user:', req.usuario && req.usuario.username);
+    const worker = require('../scripts/resumen-worker');
+    await worker.fullLoad();
+    res.json({ success: true, message: 'Full load iniciado y completado' });
+  } catch (error) {
+    console.error('❌ Error al ejecutar full load desde API:', error);
+    res.status(500).json({ success: false, message: 'Error al ejecutar full load', error: error.message });
+  }
+};
+
 module.exports = {
   getResumenRutas,
   getResumenRutasRango,
@@ -836,4 +845,5 @@ module.exports = {
   getCumplimientoVehiculoDetalle,
   // detalle por viaje
   getResumenRutasPorViaje,
+  triggerFullResumLoad,
 };
