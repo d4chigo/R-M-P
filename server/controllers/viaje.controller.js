@@ -53,14 +53,20 @@ const getViajes = async (req, res) => {
         v.id_vehiculo,
         v.id_repartidor,
         v.nro_viaje,
-        v.salida_cd,
-        v.llegada_cd,
-        v.distancia_km,
-        v.tiempo_manejo_min,
-        v.tiempo_servicio_min,
-        v.recarga_min,
-        v.refrigerio_min,
-        v.tipo_viaje,
+  v.salida_cd,
+  v.llegada_cd,
+  v.distancia_km,
+  v.tipo_viaje,
+        v.nro_clientes,
+        v.nro_pedidos,
+        v.entrega_cf,
+        v.recojo_cf,
+        v.peso_kg,
+        v.nro_conductores,
+        v.nro_liquidadores,
+        v.nro_auxiliares,
+        v.nro_trip_adicional,
+        v.tripulacion_especial,
         v.created_by,
         v.updated_by,
         vh.placa as vehiculo_placa,
@@ -115,14 +121,10 @@ const getViajeById = async (req, res) => {
         v.id_vehiculo,
         v.id_repartidor,
         v.nro_viaje,
-        v.salida_cd,
-        v.llegada_cd,
-        v.distancia_km,
-        v.tiempo_manejo_min,
-        v.tiempo_servicio_min,
-        v.recarga_min,
-        v.refrigerio_min,
-        v.tipo_viaje,
+  v.salida_cd,
+  v.llegada_cd,
+  v.distancia_km,
+  v.tipo_viaje,
         v.created_by,
         v.updated_by,
         vh.placa as vehiculo_placa,
@@ -182,24 +184,24 @@ const createViaje = async (req, res) => {
       id_vehiculo,
       id_repartidor,
       nro_viaje,
+      territorios_visitados,
       salida_cd,
       llegada_cd,
       distancia_km,
-      tiempo_manejo_min,
-      tiempo_servicio_min,
-      recarga_min,
-      refrigerio_min,
       tipo_viaje,
+      nro_clientes,
+      nro_pedidos,
+      entrega_cf,
+      recojo_cf,
+      peso_kg,
+      nro_conductores,
+      nro_liquidadores,
+      nro_auxiliares,
+      nro_trip_adicional,
+      tripulacion_especial,
     } = req.body;
 
     const created_by = req.usuario?.id_usuario || null;
-
-    console.log("➕ Creando nuevo viaje:", {
-      fecha,
-      id_vehiculo,
-      id_repartidor,
-      nro_viaje,
-    });
 
     // Validaciones básicas
     if (!fecha || !id_vehiculo || !id_repartidor || !nro_viaje) {
@@ -214,12 +216,8 @@ const createViaje = async (req, res) => {
       "SELECT id_vehiculo FROM VEHICULO WHERE id_vehiculo = ?",
       [id_vehiculo],
     );
-
     if (vehiculo.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "El vehículo especificado no existe",
-      });
+      return res.status(400).json({ success: false, message: "El vehículo especificado no existe" });
     }
 
     // Verificar que el repartidor existe
@@ -227,73 +225,73 @@ const createViaje = async (req, res) => {
       "SELECT id_repartidor FROM REPARTIDOR WHERE id_repartidor = ?",
       [id_repartidor],
     );
-
     if (repartidor.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "El repartidor especificado no existe",
-      });
+      return res.status(400).json({ success: false, message: "El repartidor especificado no existe" });
     }
 
-    // Verificar que no exista ya un viaje con el mismo número para el mismo vehículo y fecha
+    // Unicidad de nro_viaje por fecha y vehículo
     const [existingViaje] = await db.query(
       "SELECT id_viaje FROM VIAJE WHERE fecha = ? AND id_vehiculo = ? AND nro_viaje = ?",
       [fecha, id_vehiculo, nro_viaje],
     );
-
     if (existingViaje.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Ya existe un viaje con ese número para el mismo vehículo y fecha",
-      });
+      return res.status(400).json({ success: false, message: "Ya existe un viaje con ese número para el mismo vehículo y fecha" });
     }
 
     const [result] = await db.query(
-      `
-      INSERT INTO VIAJE (
-        fecha, id_vehiculo, id_repartidor, nro_viaje, salida_cd, llegada_cd,
-        distancia_km, tiempo_manejo_min, tiempo_servicio_min, recarga_min,
-        refrigerio_min, tipo_viaje, created_by
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `,
+      `INSERT INTO VIAJE (
+        fecha, id_vehiculo, id_repartidor, nro_viaje, territorios_visitados,
+        salida_cd, llegada_cd, distancia_km, tipo_viaje,
+        nro_clientes, nro_pedidos, entrega_cf, recojo_cf, peso_kg,
+        nro_conductores, nro_liquidadores, nro_auxiliares, nro_trip_adicional, tripulacion_especial,
+        created_by
+      ) VALUES (${new Array(20).fill('?').join(', ')})`,
       [
         fecha,
         id_vehiculo,
         id_repartidor,
         nro_viaje,
+        territorios_visitados || 0,
         salida_cd || null,
         llegada_cd || null,
         distancia_km || null,
-        tiempo_manejo_min || null,
-        tiempo_servicio_min || null,
-        recarga_min || null,
-        refrigerio_min || null,
         tipo_viaje || null,
+        nro_clientes || 0,
+        nro_pedidos || 0,
+        entrega_cf || 0,
+        recojo_cf || 0,
+        peso_kg || 0,
+        nro_conductores || 1,
+        nro_liquidadores || 0,
+        nro_auxiliares || 0,
+        nro_trip_adicional || 0,
+        tripulacion_especial || null,
         created_by,
       ],
     );
 
-    console.log(`✅ Viaje creado con ID: ${result.insertId}`);
-
-    // Obtener el viaje creado con información relacionada
     const [newViaje] = await db.query(
-      `
-      SELECT
+      `SELECT
         v.id_viaje,
         DATE_FORMAT(v.fecha, '%Y-%m-%d') as fecha,
         v.id_vehiculo,
         v.id_repartidor,
         v.nro_viaje,
+        v.territorios_visitados,
         v.salida_cd,
         v.llegada_cd,
         v.distancia_km,
-        v.tiempo_manejo_min,
-        v.tiempo_servicio_min,
-        v.recarga_min,
-        v.refrigerio_min,
         v.tipo_viaje,
+        v.nro_clientes,
+        v.nro_pedidos,
+        v.entrega_cf,
+        v.recojo_cf,
+        v.peso_kg,
+        v.nro_conductores,
+        v.nro_liquidadores,
+        v.nro_auxiliares,
+        v.nro_trip_adicional,
+        v.tripulacion_especial,
         v.created_by,
         v.updated_by,
         vh.placa as vehiculo_placa,
@@ -310,26 +308,14 @@ const createViaje = async (req, res) => {
       LEFT JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
       LEFT JOIN USUARIO uc ON v.created_by = uc.id_usuario
       LEFT JOIN USUARIO uu ON v.updated_by = uu.id_usuario
-      WHERE v.id_viaje = ?
-    `,
+      WHERE v.id_viaje = ?`,
       [result.insertId],
     );
 
-    // Process dates to ensure consistent formatting
-    const processedViaje = processResponseData(newViaje[0]);
-
-    res.status(201).json({
-      success: true,
-      data: processedViaje,
-      message: "Viaje creado exitosamente",
-    });
+    res.status(201).json({ success: true, data: processResponseData(newViaje[0]), message: 'Viaje creado exitosamente' });
   } catch (error) {
-    console.error("❌ Error al crear viaje:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error al crear viaje",
-      error: error.message,
-    });
+    console.error('❌ Error al crear viaje:', error);
+    res.status(500).json({ success: false, message: 'Error al crear viaje', error: error.message });
   }
 };
 
@@ -342,135 +328,105 @@ const updateViaje = async (req, res) => {
       id_vehiculo,
       id_repartidor,
       nro_viaje,
+      territorios_visitados,
       salida_cd,
       llegada_cd,
       distancia_km,
-      tiempo_manejo_min,
-      tiempo_servicio_min,
-      recarga_min,
-      refrigerio_min,
       tipo_viaje,
+      nro_clientes,
+      nro_pedidos,
+      entrega_cf,
+      recojo_cf,
+      peso_kg,
+      nro_conductores,
+      nro_liquidadores,
+      nro_auxiliares,
+      nro_trip_adicional,
+      tripulacion_especial,
     } = req.body;
 
     const updated_by = req.usuario?.id_usuario || null;
 
-    console.log(`✏️ Actualizando viaje ID: ${id}`);
+    // Verificar existencia
+    const [exists] = await db.query('SELECT id_viaje FROM VIAJE WHERE id_viaje = ?', [id]);
+    if (exists.length === 0) return res.status(404).json({ success: false, message: 'Viaje no encontrado' });
 
-    // Verificar que el viaje existe
-    const [existing] = await db.query(
-      "SELECT id_viaje FROM VIAJE WHERE id_viaje = ?",
-      [id],
-    );
-
-    if (existing.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Viaje no encontrado",
-      });
-    }
-
-    // Verificar que el vehículo existe (si se proporciona)
+    // Validar FK si se envían
     if (id_vehiculo) {
-      const [vehiculo] = await db.query(
-        "SELECT id_vehiculo FROM VEHICULO WHERE id_vehiculo = ?",
-        [id_vehiculo],
-      );
-
-      if (vehiculo.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "El vehículo especificado no existe",
-        });
-      }
+      const [veh] = await db.query('SELECT id_vehiculo FROM VEHICULO WHERE id_vehiculo = ?', [id_vehiculo]);
+      if (veh.length === 0) return res.status(400).json({ success: false, message: 'El vehículo especificado no existe' });
     }
-
-    // Verificar que el repartidor existe (si se proporciona)
     if (id_repartidor) {
-      const [repartidor] = await db.query(
-        "SELECT id_repartidor FROM REPARTIDOR WHERE id_repartidor = ?",
-        [id_repartidor],
-      );
-
-      if (repartidor.length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: "El repartidor especificado no existe",
-        });
-      }
+      const [rep] = await db.query('SELECT id_repartidor FROM REPARTIDOR WHERE id_repartidor = ?', [id_repartidor]);
+      if (rep.length === 0) return res.status(400).json({ success: false, message: 'El repartidor especificado no existe' });
     }
 
-    // Verificar unicidad de número de viaje (si se está cambiando)
+    // Unicidad
     if (fecha && id_vehiculo && nro_viaje) {
-      const [existingViaje] = await db.query(
-        "SELECT id_viaje FROM VIAJE WHERE fecha = ? AND id_vehiculo = ? AND nro_viaje = ? AND id_viaje != ?",
-        [fecha, id_vehiculo, nro_viaje, id],
-      );
-
-      if (existingViaje.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Ya existe otro viaje con ese número para el mismo vehículo y fecha",
-        });
-      }
+      const [dup] = await db.query('SELECT id_viaje FROM VIAJE WHERE fecha = ? AND id_vehiculo = ? AND nro_viaje = ? AND id_viaje != ?', [fecha, id_vehiculo, nro_viaje, id]);
+      if (dup.length > 0) return res.status(400).json({ success: false, message: 'Ya existe otro viaje con ese número para el mismo vehículo y fecha' });
     }
 
     await db.query(
-      `
-      UPDATE VIAJE
-      SET
+      `UPDATE VIAJE SET
         fecha = COALESCE(?, fecha),
         id_vehiculo = COALESCE(?, id_vehiculo),
         id_repartidor = COALESCE(?, id_repartidor),
         nro_viaje = COALESCE(?, nro_viaje),
+        territorios_visitados = COALESCE(?, territorios_visitados),
         salida_cd = ?,
         llegada_cd = ?,
         distancia_km = ?,
-        tiempo_manejo_min = ?,
-        tiempo_servicio_min = ?,
-        recarga_min = ?,
-        refrigerio_min = ?,
         tipo_viaje = ?,
+        nro_clientes = COALESCE(?, nro_clientes),
+        nro_pedidos = COALESCE(?, nro_pedidos),
+        entrega_cf = COALESCE(?, entrega_cf),
+        recojo_cf = COALESCE(?, recojo_cf),
+        peso_kg = COALESCE(?, peso_kg),
+        nro_conductores = COALESCE(?, nro_conductores),
+        nro_liquidadores = COALESCE(?, nro_liquidadores),
+        nro_auxiliares = COALESCE(?, nro_auxiliares),
+        nro_trip_adicional = COALESCE(?, nro_trip_adicional),
+        tripulacion_especial = COALESCE(?, tripulacion_especial),
         updated_by = ?,
         updated_at = CURRENT_TIMESTAMP
-      WHERE id_viaje = ?
-    `,
+      WHERE id_viaje = ?`,
       [
         fecha,
         id_vehiculo,
         id_repartidor,
         nro_viaje,
-        salida_cd,
-        llegada_cd,
-        distancia_km,
-        tiempo_manejo_min,
-        tiempo_servicio_min,
-        recarga_min,
-        refrigerio_min,
-        tipo_viaje,
+        territorios_visitados,
+        salida_cd || null,
+        llegada_cd || null,
+        distancia_km || null,
+        tipo_viaje || null,
+        nro_clientes,
+        nro_pedidos,
+        entrega_cf,
+        recojo_cf,
+        peso_kg,
+        nro_conductores,
+        nro_liquidadores,
+        nro_auxiliares,
+        nro_trip_adicional,
+        tripulacion_especial,
         updated_by,
         id,
       ],
     );
 
-    console.log(`✅ Viaje ${id} actualizado exitosamente`);
-
-    // Obtener el viaje actualizado
     const [updatedViaje] = await db.query(
-      `
-      SELECT
+      `SELECT
         v.id_viaje,
         DATE_FORMAT(v.fecha, '%Y-%m-%d') as fecha,
         v.id_vehiculo,
         v.id_repartidor,
         v.nro_viaje,
+        v.territorios_visitados,
         v.salida_cd,
         v.llegada_cd,
         v.distancia_km,
-        v.tiempo_manejo_min,
-        v.tiempo_servicio_min,
-        v.recarga_min,
-        v.refrigerio_min,
         v.tipo_viaje,
         v.created_by,
         v.updated_by,
@@ -488,26 +444,14 @@ const updateViaje = async (req, res) => {
       LEFT JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
       LEFT JOIN USUARIO uc ON v.created_by = uc.id_usuario
       LEFT JOIN USUARIO uu ON v.updated_by = uu.id_usuario
-      WHERE v.id_viaje = ?
-    `,
+      WHERE v.id_viaje = ?`,
       [id],
     );
 
-    // Process dates to ensure consistent formatting
-    const processedViaje = processResponseData(updatedViaje[0]);
-
-    res.json({
-      success: true,
-      data: processedViaje,
-      message: "Viaje actualizado exitosamente",
-    });
+    res.json({ success: true, data: processResponseData(updatedViaje[0]), message: 'Viaje actualizado exitosamente' });
   } catch (error) {
-    console.error("❌ Error al actualizar viaje:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error al actualizar viaje",
-      error: error.message,
-    });
+    console.error('❌ Error al actualizar viaje:', error);
+    res.status(500).json({ success: false, message: 'Error al actualizar viaje', error: error.message });
   }
 };
 
@@ -644,12 +588,8 @@ const searchViajes = async (req, res) => {
         v.nro_viaje,
         v.salida_cd,
         v.llegada_cd,
-        v.distancia_km,
-        v.tiempo_manejo_min,
-        v.tiempo_servicio_min,
-        v.recarga_min,
-        v.refrigerio_min,
-        v.tipo_viaje,
+  v.distancia_km,
+  v.tipo_viaje,
         vh.placa as vehiculo_placa,
         vh.marca as vehiculo_marca,
         vh.modelo as vehiculo_modelo,
@@ -700,12 +640,8 @@ const getViajesByFecha = async (req, res) => {
         v.nro_viaje,
         v.salida_cd,
         v.llegada_cd,
-        v.distancia_km,
-        v.tiempo_manejo_min,
-        v.tiempo_servicio_min,
-        v.recarga_min,
-        v.refrigerio_min,
-        v.tipo_viaje,
+  v.distancia_km,
+  v.tipo_viaje,
         vh.placa as vehiculo_placa,
         vh.marca as vehiculo_marca,
         vh.modelo as vehiculo_modelo,
@@ -757,10 +693,8 @@ const getViajesConEstadisticas = async (req, res) => {
         v.salida_cd,
         v.llegada_cd,
         v.distancia_km,
-        v.tiempo_manejo_min,
-        v.tiempo_servicio_min,
-        v.recarga_min,
-        v.refrigerio_min,
+  0 AS recarga_min,
+  0 AS refrigerio_min,
         v.tipo_viaje,
         vh.placa as vehiculo_placa,
         vh.marca as vehiculo_marca,

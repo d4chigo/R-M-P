@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "test": "echo \"Error: no test specified\" && exit 1",
+  "resumen:full": "node scripts/resumen-worker.js --full",
+  "resumen:delta": "node scripts/resumen-worker.js"
   },
   "keywords": [],
   "author": "",
@@ -14,7 +16,9 @@
   "packageManager": "pnpm@10.14.0",
   "dependencies": {
     "bcryptjs": "^2.4.3",
+  "yargs": "^17.7.2",
     "cors": "^2.8.5",
+  "node-cron": "^4.0.0",
     "crypto": "^1.0.1",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",

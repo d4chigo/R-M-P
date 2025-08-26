@@ -13,19 +13,19 @@ export interface Viaje {
   salida_cd?: string;
   llegada_cd?: string;
   distancia_km?: number;
-  tiempo_manejo_min?: number;
-  tiempo_servicio_min?: number;
-  recarga_min?: number;
-  refrigerio_min?: number;
   tipo_viaje?: string;
-  // Nuevos campos alineados con BD
-  odometro_ini?: number | null;
-  odometro_fin?: number | null;
-  combustible_litros?: number | null;
-  combustible_costo?: number | null;
-  tiempo_espera_min?: number | null;
-  paradas_no_plan?: number | null;
-  observaciones?: string | null;
+  // Resumen de ruta
+  nro_clientes?: number;
+  nro_pedidos?: number;
+  entrega_cf?: number;
+  recojo_cf?: number;
+  peso_kg?: number;
+  // Tripulación
+  nro_conductores?: number;
+  nro_liquidadores?: number;
+  nro_auxiliares?: number;
+  nro_trip_adicional?: number;
+  tripulacion_especial?: string | null;
   created_by?: number;
   updated_by?: number;
   created_at?: string;
@@ -305,14 +305,6 @@ export const useViajes = () => {
       (sum, v) => sum + (v.distancia_km || 0),
       0,
     );
-    const totalTiempoManejo = viajes.reduce(
-      (sum, v) => sum + (v.tiempo_manejo_min || 0),
-      0,
-    );
-    const totalTiempoServicio = viajes.reduce(
-      (sum, v) => sum + (v.tiempo_servicio_min || 0),
-      0,
-    );
 
     return {
       total,
@@ -322,8 +314,6 @@ export const useViajes = () => {
       porcentajeCompletados:
         total > 0 ? Math.round((completados / total) * 100) : 0,
       totalDistancia: Math.round(totalDistancia * 100) / 100,
-      totalTiempoManejo,
-      totalTiempoServicio,
       promedioDistanciaPorViaje:
         total > 0 ? Math.round((totalDistancia / total) * 100) / 100 : 0,
     };

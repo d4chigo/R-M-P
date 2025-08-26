@@ -24,10 +24,7 @@ interface Viaje {
   salida_cd?: string;
   llegada_cd?: string;
   distancia_km?: number;
-  tiempo_manejo_min?: number;
-  tiempo_servicio_min?: number;
-  recarga_min?: number;
-  refrigerio_min?: number;
+  territorios_visitados?: number;
   tipo_viaje?: string;
   vehiculo_placa?: string;
   vehiculo_marca?: string;
@@ -205,16 +202,10 @@ export function ViajesTable({
                         </Badge>
                       )}
                       <div className="grid grid-cols-1 gap-1 mt-1">
-                        {viaje.tiempo_manejo_min && (
-                          <div className="text-gray-500">
-                            Manejo: {formatTime(viaje.tiempo_manejo_min)}
-                          </div>
-                        )}
-                        {viaje.tiempo_servicio_min && (
-                          <div className="text-gray-500">
-                            Servicio: {formatTime(viaje.tiempo_servicio_min)}
-                          </div>
-                        )}
+                        {/* tiempos removidos */}
+                        <div className="text-xs">
+                          Territorios: {viaje.territorios_visitados ?? 0}
+                        </div>
                       </div>
                     </div>
                   </TableCell>

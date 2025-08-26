@@ -1,15 +1,38 @@
 "use client";
 
-import type React from "react";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, FormEvent, ChangeEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { InfoIcon, AlertTriangle } from "lucide-react";
+import { Info as InfoIcon, AlertTriangle } from "lucide-react";
 import type { Viaje } from "@/hooks/use-viajes";
 import { useVehiculos } from "@/hooks/use-vehiculos";
 import { useRepartidores } from "@/hooks/use-repartidores";
+
+// Type for form data
+interface FormData {
+  [key: string]: string | number | undefined;
+  fecha: string;
+  id_vehiculo: number | string;
+  id_repartidor: number | string;
+  nro_viaje: number | string;
+  territorios_visitados?: string;
+  salida_cd?: string;
+  llegada_cd?: string;
+  distancia_km?: string | number;
+  tipo_viaje?: string;
+  nro_conductores?: string | number;
+  nro_liquidadores?: string | number;
+  nro_auxiliares?: string | number;
+  nro_trip_adicional?: string | number;
+  tripulacion_especial?: string;
+  nro_clientes?: string | number;
+  nro_pedidos?: string | number;
+  entrega_cf?: string | number;
+  recojo_cf?: string | number;
+  peso_kg?: string | number;
+}
 
 interface ViajeFormProps {
   viaje?: Viaje | null;
@@ -18,21 +41,25 @@ interface ViajeFormProps {
     id_vehiculo: number;
     id_repartidor: number;
     nro_viaje: number;
+    territorios_visitados?: string;
     salida_cd?: string;
     llegada_cd?: string;
     distancia_km?: number;
-    tiempo_manejo_min?: number;
-    tiempo_servicio_min?: number;
-    recarga_min?: number;
-    refrigerio_min?: number;
+    territorios_visitados?: number;
     tipo_viaje?: string;
-    odometro_ini?: number | null;
-    odometro_fin?: number | null;
-    combustible_litros?: number | null;
-    combustible_costo?: number | null;
-    tiempo_espera_min?: number | null;
-    paradas_no_plan?: number | null;
-    observaciones?: string | null;
+    // Tripulación
+    nro_conductores?: number;
+    nro_liquidadores?: number;
+    nro_auxiliares?: number;
+    nro_trip_adicional?: number;
+    tripulacion_especial?: string;
+    // Resumen de ruta
+    nro_clientes?: number;
+    nro_pedidos?: number;
+    entrega_cf?: number;
+    recojo_cf?: number;
+    peso_kg?: number;
+    [key: string]: any;
   }) => void;
   onCancel: () => void;
   isEditing?: boolean;
@@ -52,41 +79,47 @@ export function ViajeForm({
     id_vehiculo: string;
     id_repartidor: string;
     nro_viaje: string;
+    territorios_visitados: string;
     salida_cd: string;
     llegada_cd: string;
     distancia_km: string;
-    tiempo_manejo_min: string;
-    tiempo_servicio_min: string;
-    recarga_min: string;
-    refrigerio_min: string;
+    territorios_visitados: string;
     tipo_viaje: string | undefined;
-    odometro_ini: string;
-    odometro_fin: string;
-    combustible_litros: string;
-    combustible_costo: string;
-    tiempo_espera_min: string;
-    paradas_no_plan: string;
-    observaciones: string;
+    // Tripulación
+    nro_conductores: string;
+    nro_liquidadores: string;
+    nro_auxiliares: string;
+    nro_trip_adicional: string;
+    tripulacion_especial: string;
+    // Resumen de ruta
+    nro_clientes: string;
+    nro_pedidos: string;
+    entrega_cf: string;
+    recojo_cf: string;
+    peso_kg: string;
   }>({
     fecha: "",
     id_vehiculo: "",
     id_repartidor: "",
     nro_viaje: "1",
+    territorios_visitados: "",
     salida_cd: "",
     llegada_cd: "",
     distancia_km: "",
-    tiempo_manejo_min: "",
-    tiempo_servicio_min: "",
-    recarga_min: "",
-    refrigerio_min: "",
+    territorios_visitados: "0",
     tipo_viaje: undefined,
-    odometro_ini: "",
-    odometro_fin: "",
-    combustible_litros: "",
-    combustible_costo: "",
-    tiempo_espera_min: "",
-    paradas_no_plan: "",
-    observaciones: "",
+    // Valores por defecto para tripulación
+    nro_conductores: "1", // Valor por defecto: 1 conductor
+    nro_liquidadores: "0",
+    nro_auxiliares: "0",
+    nro_trip_adicional: "0",
+    tripulacion_especial: "",
+    // Valores por defecto para resumen de ruta
+    nro_clientes: "0",
+    nro_pedidos: "0",
+    entrega_cf: "0",
+    recojo_cf: "0",
+    peso_kg: "0",
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -104,33 +137,33 @@ export function ViajeForm({
         id_vehiculo: viaje.id_vehiculo?.toString() || "",
         id_repartidor: viaje.id_repartidor?.toString() || "",
         nro_viaje: viaje.nro_viaje?.toString() || "1",
+        territorios_visitados: viaje.territorios_visitados || "",
         salida_cd: viaje.salida_cd ? formatDateTimeLocal(viaje.salida_cd) : "",
-        llegada_cd: viaje.llegada_cd
-          ? formatDateTimeLocal(viaje.llegada_cd)
-          : "",
+        llegada_cd: viaje.llegada_cd ? formatDateTimeLocal(viaje.llegada_cd) : "",
         distancia_km: viaje.distancia_km?.toString() || "",
-        tiempo_manejo_min: viaje.tiempo_manejo_min?.toString() || "",
-        tiempo_servicio_min: viaje.tiempo_servicio_min?.toString() || "",
-        recarga_min: viaje.recarga_min?.toString() || "",
-        refrigerio_min: viaje.refrigerio_min?.toString() || "",
         tipo_viaje: viaje.tipo_viaje || undefined,
-        odometro_ini: viaje.odometro_ini?.toString() || "",
-        odometro_fin: viaje.odometro_fin?.toString() || "",
-        combustible_litros: viaje.combustible_litros?.toString() || "",
-        combustible_costo: viaje.combustible_costo?.toString() || "",
-        tiempo_espera_min: viaje.tiempo_espera_min?.toString() || "",
-        paradas_no_plan: viaje.paradas_no_plan?.toString() || "",
-        observaciones: viaje.observaciones || "",
+        // Tripulación
+        nro_conductores: viaje.nro_conductores?.toString() || "1",
+        nro_liquidadores: viaje.nro_liquidadores?.toString() || "0",
+        nro_auxiliares: viaje.nro_auxiliares?.toString() || "0",
+        nro_trip_adicional: viaje.nro_trip_adicional?.toString() || "0",
+        tripulacion_especial: viaje.tripulacion_especial || "",
+        // Resumen de ruta
+        nro_clientes: viaje.nro_clientes?.toString() || "0",
+        nro_pedidos: viaje.nro_pedidos?.toString() || "0",
+        entrega_cf: viaje.entrega_cf?.toString() || "0",
+        recojo_cf: viaje.recojo_cf?.toString() || "0",
+        peso_kg: viaje.peso_kg?.toString() || "0",
       };
 
       // Establecer los valores de búsqueda basados en los IDs seleccionados
       const vehiculoSeleccionado = vehiculos.find(v => v.id_vehiculo?.toString() === newFormData.id_vehiculo);
       const repartidorSeleccionado = repartidores.find(r => r.id_repartidor?.toString() === newFormData.id_repartidor);
-      
+
       if (vehiculoSeleccionado) {
         setSearchVehiculo(`${vehiculoSeleccionado.placa} - ${vehiculoSeleccionado.marca} ${vehiculoSeleccionado.modelo}`);
       }
-      
+
       if (repartidorSeleccionado) {
         setSearchRepartidor(`${repartidorSeleccionado.codigo} - ${repartidorSeleccionado.nombre}`);
       }
@@ -183,14 +216,6 @@ export function ViajeForm({
       newErrors.nro_viaje =
         "El número de viaje es obligatorio y debe ser mayor a 0";
     }
-    // Validaciones lógicas
-    if (formData.odometro_ini && formData.odometro_fin) {
-      const ini = parseFloat(formData.odometro_ini);
-      const fin = parseFloat(formData.odometro_fin);
-      if (!isNaN(ini) && !isNaN(fin) && fin < ini) {
-        newErrors.odometro_fin = "El odómetro final no puede ser menor al inicial";
-      }
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -205,31 +230,24 @@ export function ViajeForm({
       id_vehiculo: parseInt(formData.id_vehiculo),
       id_repartidor: parseInt(formData.id_repartidor),
       nro_viaje: parseInt(formData.nro_viaje),
+      territorios_visitados: formData.territorios_visitados || undefined,
       salida_cd: formData.salida_cd || undefined,
       llegada_cd: formData.llegada_cd || undefined,
-      distancia_km: formData.distancia_km
-        ? parseFloat(formData.distancia_km)
-        : undefined,
-      tiempo_manejo_min: formData.tiempo_manejo_min
-        ? parseInt(formData.tiempo_manejo_min)
-        : undefined,
-      tiempo_servicio_min: formData.tiempo_servicio_min
-        ? parseInt(formData.tiempo_servicio_min)
-        : undefined,
-      recarga_min: formData.recarga_min
-        ? parseInt(formData.recarga_min)
-        : undefined,
-      refrigerio_min: formData.refrigerio_min
-        ? parseInt(formData.refrigerio_min)
-        : undefined,
+      distancia_km: formData.distancia_km ? parseFloat(formData.distancia_km) : undefined,
+      territorios_visitados: formData.territorios_visitados ? parseInt(formData.territorios_visitados) : undefined,
       tipo_viaje: formData.tipo_viaje,
-      odometro_ini: formData.odometro_ini ? parseFloat(formData.odometro_ini) : null,
-      odometro_fin: formData.odometro_fin ? parseFloat(formData.odometro_fin) : null,
-      combustible_litros: formData.combustible_litros ? parseFloat(formData.combustible_litros) : null,
-      combustible_costo: formData.combustible_costo ? parseFloat(formData.combustible_costo) : null,
-      tiempo_espera_min: formData.tiempo_espera_min ? parseInt(formData.tiempo_espera_min) : null,
-      paradas_no_plan: formData.paradas_no_plan ? parseInt(formData.paradas_no_plan) : null,
-      observaciones: formData.observaciones ? formData.observaciones : null,
+      // Tripulación
+      nro_conductores: formData.nro_conductores ? parseInt(formData.nro_conductores) : 1,
+      nro_liquidadores: formData.nro_liquidadores ? parseInt(formData.nro_liquidadores) : 0,
+      nro_auxiliares: formData.nro_auxiliares ? parseInt(formData.nro_auxiliares) : 0,
+      nro_trip_adicional: formData.nro_trip_adicional ? parseInt(formData.nro_trip_adicional) : 0,
+      tripulacion_especial: formData.tripulacion_especial || undefined,
+      // Resumen de ruta
+      nro_clientes: formData.nro_clientes ? parseInt(formData.nro_clientes) : 0,
+      nro_pedidos: formData.nro_pedidos ? parseInt(formData.nro_pedidos) : 0,
+      entrega_cf: formData.entrega_cf ? parseFloat(formData.entrega_cf) : 0,
+      recojo_cf: formData.recojo_cf ? parseFloat(formData.recojo_cf) : 0,
+      peso_kg: formData.peso_kg ? parseFloat(formData.peso_kg) : 0,
     });
   };
 
@@ -264,10 +282,12 @@ export function ViajeForm({
       {warnings.length > 0 && (
         <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
           <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-          <AlertDescription className="text-yellow-800 dark:text-yellow-200">
-            <ul className="list-disc list-inside space-y-1">
+          <AlertDescription>
+            <ul className="list-disc pl-4">
               {warnings.map((warning, index) => (
-                <li key={index}>{warning}</li>
+                <li key={index} className="text-yellow-800 dark:text-yellow-200">
+                  {warning}
+                </li>
               ))}
             </ul>
           </AlertDescription>
@@ -448,7 +468,7 @@ export function ViajeForm({
         </div>
       </div>
 
-      {/* Fila 4: Distancia and Tipo de Viaje */}
+      {/* Fila 4: Distancia y Territorios Visitados */}
       <div className="grid grid-cols-2 gap-4">
         <div>
           <Label htmlFor="distancia_km">Distancia (km)</Label>
@@ -459,206 +479,161 @@ export function ViajeForm({
             min="0"
             value={formData.distancia_km}
             onChange={(e) => handleInputChange("distancia_km", e.target.value)}
-            placeholder="0.00"
             className={errors.distancia_km ? "border-red-500" : ""}
           />
-          {errors.distancia_km && (
-            <p className="text-sm text-red-500 mt-1">{errors.distancia_km}</p>
-          )}
         </div>
         <div>
-          <Label htmlFor="tipo_viaje">Tipo de Viaje</Label>
+          <Label htmlFor="territorios_visitados">Territorios Visitados</Label>
           <Input
-            id="tipo_viaje"
+            id="territorios_visitados"
             type="text"
-            value={formData.tipo_viaje || ""}
-            onChange={(e) => handleInputChange("tipo_viaje", e.target.value)}
-            placeholder="Ej: Entrega, Recojo, Mixto"
-            list="tipo_viaje_options"
-          />
-          <datalist id="tipo_viaje_options">
-            <option value="ENTREGA">Entrega</option>
-            <option value="RECOJO">Recojo</option>
-            <option value="MIXTO">Mixto</option>
-            <option value="ESPECIAL">Especial</option>
-            <option value="MANTENIMIENTO">Mantenimiento</option>
-            <option value="EMERGENCIA">Emergencia</option>
-          </datalist>
-        </div>
-      </div>
-
-      {/* Fila 4.1: Odómetro */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="odometro_ini">Odómetro Inicial</Label>
-          <Input
-            id="odometro_ini"
-            type="number"
-            min="0"
-            step="0.1"
-            value={formData.odometro_ini}
-            onChange={(e) => handleInputChange("odometro_ini", e.target.value)}
-            placeholder="0"
-            className={errors.odometro_ini ? "border-red-500" : ""}
-          />
-        </div>
-        <div>
-          <Label htmlFor="odometro_fin">Odómetro Final</Label>
-          <Input
-            id="odometro_fin"
-            type="number"
-            min="0"
-            step="0.1"
-            value={formData.odometro_fin}
-            onChange={(e) => handleInputChange("odometro_fin", e.target.value)}
-            placeholder="0"
-            className={errors.odometro_fin ? "border-red-500" : ""}
-          />
-          {errors.odometro_fin && (
-            <p className="text-sm text-red-500 mt-1">{errors.odometro_fin}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Fila 4.2: Combustible */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="combustible_litros">Combustible (litros)</Label>
-          <Input
-            id="combustible_litros"
-            type="number"
-            min="0"
-            step="0.01"
-            value={formData.combustible_litros}
-            onChange={(e) => handleInputChange("combustible_litros", e.target.value)}
-            placeholder="0.00"
-          />
-        </div>
-        <div>
-          <Label htmlFor="combustible_costo">Costo Combustible</Label>
-          <Input
-            id="combustible_costo"
-            type="number"
-            min="0"
-            step="0.01"
-            value={formData.combustible_costo}
-            onChange={(e) => handleInputChange("combustible_costo", e.target.value)}
-            placeholder="0.00"
+            value={formData.territorios_visitados}
+            onChange={(e) => handleInputChange("territorios_visitados", e.target.value)}
+            placeholder="Ej: Lima Norte, Los Olivos, Comas"
+            className={errors.territorios_visitados ? "border-red-500" : ""}
           />
         </div>
       </div>
 
-      {/* Fila 4.3: Espera y Paradas */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="tiempo_espera_min">Tiempo de Espera (min)</Label>
-          <Input
-            id="tiempo_espera_min"
-            type="number"
-            min="0"
-            value={formData.tiempo_espera_min}
-            onChange={(e) => handleInputChange("tiempo_espera_min", e.target.value)}
-            placeholder="0"
-          />
-        </div>
-        <div>
-          <Label htmlFor="paradas_no_plan">Paradas no planificadas</Label>
-          <Input
-            id="paradas_no_plan"
-            type="number"
-            min="0"
-            value={formData.paradas_no_plan}
-            onChange={(e) => handleInputChange("paradas_no_plan", e.target.value)}
-            placeholder="0"
-          />
+  {/* Se eliminaron selects duplicados de Tipo de Viaje; conservar el único select al final del formulario */}
+
+      {/* Sección de Tripulación */}
+      <div className="border-t border-gray-200 pt-4 mt-4">
+        <h3 className="text-lg font-medium mb-4">Tripulación</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <Label htmlFor="nro_conductores">Conductores</Label>
+            <Input
+              id="nro_conductores"
+              type="number"
+              min="1"
+              value={formData.nro_conductores}
+              onChange={(e) => handleInputChange("nro_conductores", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="nro_liquidadores">Liquidadores</Label>
+            <Input
+              id="nro_liquidadores"
+              type="number"
+              min="0"
+              value={formData.nro_liquidadores}
+              onChange={(e) => handleInputChange("nro_liquidadores", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="nro_auxiliares">Auxiliares</Label>
+            <Input
+              id="nro_auxiliares"
+              type="number"
+              min="0"
+              value={formData.nro_auxiliares}
+              onChange={(e) => handleInputChange("nro_auxiliares", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="nro_trip_adicional">Personal Adicional</Label>
+            <Input
+              id="nro_trip_adicional"
+              type="number"
+              min="0"
+              value={formData.nro_trip_adicional}
+              onChange={(e) => handleInputChange("nro_trip_adicional", e.target.value)}
+            />
+          </div>
+          <div className="md:col-span-2 lg:col-span-1">
+            <Label htmlFor="tripulacion_especial">Especificaciones</Label>
+            <Input
+              id="tripulacion_especial"
+              type="text"
+              value={formData.tripulacion_especial}
+              onChange={(e) => handleInputChange("tripulacion_especial", e.target.value)}
+              placeholder="Ej: Supervisor, Practicante"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Fila 4.4: Observaciones */}
+      {/* Sección de Resumen de Ruta */}
+      <div className="border-t border-gray-200 pt-4 mt-4">
+        <h3 className="text-lg font-medium mb-4">Resumen de Ruta</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <Label htmlFor="nro_clientes">N° de Clientes</Label>
+            <Input
+              id="nro_clientes"
+              type="number"
+              min="0"
+              value={formData.nro_clientes}
+              onChange={(e) => handleInputChange("nro_clientes", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="nro_pedidos">N° de Pedidos</Label>
+            <Input
+              id="nro_pedidos"
+              type="number"
+              min="0"
+              value={formData.nro_pedidos}
+              onChange={(e) => handleInputChange("nro_pedidos", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="entrega_cf">Entrega (CF)</Label>
+            <Input
+              id="entrega_cf"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.entrega_cf}
+              onChange={(e) => handleInputChange("entrega_cf", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="recojo_cf">Recojo (CF)</Label>
+            <Input
+              id="recojo_cf"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.recojo_cf}
+              onChange={(e) => handleInputChange("recojo_cf", e.target.value)}
+            />
+          </div>
+          <div>
+            <Label htmlFor="peso_kg">Peso Total (kg)</Label>
+            <Input
+              id="peso_kg"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.peso_kg}
+              onChange={(e) => handleInputChange("peso_kg", e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Tipo de Viaje */}
       <div>
-        <Label htmlFor="observaciones">Observaciones</Label>
-        <Input
-          id="observaciones"
-          type="text"
-          value={formData.observaciones}
-          onChange={(e) => handleInputChange("observaciones", e.target.value)}
-          placeholder="Notas del viaje, incidencias, etc."
-        />
+        <Label htmlFor="tipo_viaje">Tipo de Viaje</Label>
+        <select
+          id="tipo_viaje"
+          value={formData.tipo_viaje || ""}
+          onChange={(e) => handleInputChange("tipo_viaje", e.target.value || undefined)}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="">Seleccione un tipo de viaje</option>
+          <option value="ENTREGA">Entrega</option>
+          <option value="RECOJO">Recojo</option>
+          <option value="MIXTO">Mixto</option>
+          <option value="ESPECIAL">Especial</option>
+          <option value="MANTENIMIENTO">Mantenimiento</option>
+          <option value="EMERGENCIA">Emergencia</option>
+        </select>
       </div>
 
-      {/* Fila 5: Tiempos */}
-      <div className="grid grid-cols-4 gap-4">
-        <div>
-          <Label htmlFor="tiempo_manejo_min">Manejo (min)</Label>
-          <Input
-            id="tiempo_manejo_min"
-            type="number"
-            min="0"
-            value={formData.tiempo_manejo_min}
-            onChange={(e) =>
-              handleInputChange("tiempo_manejo_min", e.target.value)
-            }
-            placeholder="0"
-            className={errors.tiempo_manejo_min ? "border-red-500" : ""}
-          />
-          {errors.tiempo_manejo_min && (
-            <p className="text-sm text-red-500 mt-1">
-              {errors.tiempo_manejo_min}
-            </p>
-          )}
-        </div>
-        <div>
-          <Label htmlFor="tiempo_servicio_min">Servicio (min)</Label>
-          <Input
-            id="tiempo_servicio_min"
-            type="number"
-            min="0"
-            value={formData.tiempo_servicio_min}
-            onChange={(e) =>
-              handleInputChange("tiempo_servicio_min", e.target.value)
-            }
-            placeholder="0"
-            className={errors.tiempo_servicio_min ? "border-red-500" : ""}
-          />
-          {errors.tiempo_servicio_min && (
-            <p className="text-sm text-red-500 mt-1">
-              {errors.tiempo_servicio_min}
-            </p>
-          )}
-        </div>
-        <div>
-          <Label htmlFor="recarga_min">Recarga (min)</Label>
-          <Input
-            id="recarga_min"
-            type="number"
-            min="0"
-            value={formData.recarga_min}
-            onChange={(e) => handleInputChange("recarga_min", e.target.value)}
-            placeholder="0"
-            className={errors.recarga_min ? "border-red-500" : ""}
-          />
-          {errors.recarga_min && (
-            <p className="text-sm text-red-500 mt-1">{errors.recarga_min}</p>
-          )}
-        </div>
-        <div>
-          <Label htmlFor="refrigerio_min">Refrigerio (min)</Label>
-          <Input
-            id="refrigerio_min"
-            type="number"
-            min="0"
-            value={formData.refrigerio_min}
-            onChange={(e) =>
-              handleInputChange("refrigerio_min", e.target.value)
-            }
-            placeholder="0"
-            className={errors.refrigerio_min ? "border-red-500" : ""}
-          />
-          {errors.refrigerio_min && (
-            <p className="text-sm text-red-500 mt-1">{errors.refrigerio_min}</p>
-          )}
-        </div>
-      </div>
+      {/* Tiempos de recarga/refrigerio eliminados del formulario según esquema actualizado */}
 
       {/* Botones */}
       <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">

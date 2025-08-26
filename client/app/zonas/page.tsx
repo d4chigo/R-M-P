@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -23,19 +23,15 @@ import {
   Plus,
   ArrowLeft,
   MapPin,
-  Edit,
-  Trash2,
   BarChart3,
   Search,
   Calendar,
-  X,
   ChevronDown,
   ChevronUp,
   Activity,
   Users,
   Info,
 } from "lucide-react";
-import Link from "next/link";
 import { ZonasTable } from "@/components/tables/zonas-table";
 import { ZonaForm } from "@/components/forms/zona-form";
 import { useZonas, type Zona } from "@/hooks/use-zonas";
@@ -55,12 +51,27 @@ export default function ZonasPage() {
   const [dateFilter, setDateFilter] = useState("");
   const [showStats, setShowStats] = useState(false);
 
-  // PAGINACIÓN
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const startIndex = (currentPage - 1) * rowsPerPage;
-  const endIndex = startIndex + rowsPerPage;
-  const zonasPaginated = zonas.slice(startIndex, endIndex);
+  // 🔧 Normalizar fecha a YYYY-MM-DD
+  const toLocalYMD = (dateString: string | Date | null | undefined): string => {
+    if (!dateString) return "";
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return "";
+    return d.toISOString().split("T")[0];
+  };
+
+  // 🔍 Filtrado (búsqueda y fecha)
+  const filteredZonas = zonas.filter((z) => {
+    const matchesSearch =
+      z.codigo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      z.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      z.ubicacion?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesDate = dateFilter
+      ? toLocalYMD(z.fecha_creacion) === dateFilter
+      : true;
+
+    return matchesSearch && matchesDate;
+  });
 
   const handleSubmit = async (zonaData: Omit<Zona, "id_zona">) => {
     try {
@@ -77,12 +88,10 @@ export default function ZonasPage() {
           description: editingZona
             ? `Se actualizó la zona ${zonaData.codigo}`
             : `Se registró exitosamente la zona ${zonaData.codigo}`,
-          variant: "default",
         });
         setIsDialogOpen(false);
         setEditingZona(null);
       } else {
-        // Manejar error específico de código duplicado
         if (
           result.error?.includes("código") ||
           result.error?.includes("duplicado") ||
@@ -90,25 +99,21 @@ export default function ZonasPage() {
         ) {
           toast({
             title: "Código duplicado",
-            description: `El código "${zonaData.codigo}" ya está en uso. Por favor, utilice un código diferente.`,
+            description: `El código "${zonaData.codigo}" ya está en uso.`,
             variant: "destructive",
           });
         } else {
           toast({
             title: "Error al guardar",
-            description:
-              result.error ||
-              "No se pudo guardar la zona. Inténtelo nuevamente.",
+            description: result.error || "No se pudo guardar la zona.",
             variant: "destructive",
           });
         }
       }
     } catch (error) {
-      console.error("Error al guardar zona:", error);
       toast({
         title: "Error de conexión",
-        description:
-          "No se pudo conectar con el servidor. Verifique su conexión a internet.",
+        description: "No se pudo conectar con el servidor.",
         variant: "destructive",
       });
     }
@@ -120,36 +125,20 @@ export default function ZonasPage() {
   };
 
   const handleDelete = async (zona: Zona) => {
-    const descripcionCorta =
-      zona.descripcion.length > 50
-        ? zona.descripcion.substring(0, 50) + "..."
-        : zona.descripcion;
     if (
-      confirm(
-        `¿Está seguro de eliminar la zona ${zona.codigo}?\n\n${descripcionCorta}`,
-      )
+      confirm(`¿Está seguro de eliminar la zona ${zona.codigo}?`)
     ) {
       if (zona.id_zona) {
-        try {
-          const result = await deleteZona(zona.id_zona);
-          if (result.success) {
-            toast({
-              title: "Zona eliminada",
-              description: `Se eliminó exitosamente la zona ${zona.codigo}`,
-              variant: "default",
-            });
-          } else {
-            toast({
-              title: "Error al eliminar",
-              description: result.error || "No se pudo eliminar la zona",
-              variant: "destructive",
-            });
-          }
-        } catch (error) {
+        const result = await deleteZona(zona.id_zona);
+        if (result.success) {
           toast({
-            title: "Error de conexión",
-            description:
-              "No se pudo conectar con el servidor. Inténtelo nuevamente.",
+            title: "Zona eliminada",
+            description: `Se eliminó exitosamente la zona ${zona.codigo}`,
+          });
+        } else {
+          toast({
+            title: "Error al eliminar",
+            description: result.error || "No se pudo eliminar la zona",
             variant: "destructive",
           });
         }
@@ -157,28 +146,9 @@ export default function ZonasPage() {
     }
   };
 
-  const handleCancel = () => {
-    setEditingZona(null);
-    setIsDialogOpen(false);
-  };
-
   const handleNewZona = () => {
     setEditingZona(null);
     setIsDialogOpen(true);
-  };
-
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("es-ES", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const handleViewMap = (zona: Zona) => {
-    setSelectedZona(zona);
-    // You can implement map view logic here
   };
 
   const handleClearFilters = () => {
@@ -190,13 +160,13 @@ export default function ZonasPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md mx-4">
           <CardHeader>
             <CardTitle className="text-red-600">Error</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">{error}</p>
+            <p className="mb-4">{error}</p>
             <Button onClick={() => window.location.reload()} className="w-full">
               Reintentar
             </Button>
@@ -222,9 +192,7 @@ export default function ZonasPage() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold">Zonas</h1>
-            <p className="text-muted-foreground">
-              Gestión de zonas geográficas
-            </p>
+            <p className="text-muted-foreground">Gestión de zonas geográficas</p>
           </div>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -242,19 +210,20 @@ export default function ZonasPage() {
               <DialogDescription>
                 {editingZona
                   ? "Modifique los campos necesarios para actualizar la zona."
-                  : "Complete los campos para crear una nueva zona geográfica."}
+                  : "Complete los campos para crear una nueva zona."}
               </DialogDescription>
             </DialogHeader>
             <ZonaForm
               zona={editingZona}
               onSubmit={handleSubmit}
-              onCancel={handleCancel}
+              onCancel={() => setIsDialogOpen(false)}
               isEditing={!!editingZona}
             />
           </DialogContent>
         </Dialog>
       </div>
 
+      {/* Tabs */}
       <Tabs defaultValue="lista" className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-6">
           <TabsTrigger value="lista" className="flex items-center gap-2">
@@ -271,8 +240,9 @@ export default function ZonasPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="lista" className="mt-0">
-          {/* Search */}
+        {/* TAB LISTA */}
+        <TabsContent value="lista">
+          {/* Filtros */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -281,7 +251,7 @@ export default function ZonasPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-4 items-center">
+              <div className="flex flex-wrap gap-4 items-center">
                 <Input
                   placeholder="Buscar por código, descripción o ubicación..."
                   value={searchTerm}
@@ -294,16 +264,11 @@ export default function ZonasPage() {
                     type="date"
                     value={dateFilter}
                     onChange={(e) => setDateFilter(e.target.value)}
-                    className="pl-10 w-auto"
-                    placeholder="Filtrar por fecha"
+                    className="pl-10"
                   />
                 </div>
                 {hasActiveFilters && (
-                  <Button
-                    variant="outline"
-                    onClick={handleClearFilters}
-                    className="flex items-center gap-2"
-                  >
+                  <Button variant="outline" onClick={handleClearFilters}>
                     Limpiar
                   </Button>
                 )}
@@ -324,87 +289,70 @@ export default function ZonasPage() {
             </CardContent>
           </Card>
 
-          {/* Stats - Collapsible */}
+          {/* Estadísticas */}
           {showStats && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-4">
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <MapPin className="h-8 w-8 text-blue-600" />
-                    <div>
-                      <p className="text-2xl font-bold">{zonas.length}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Total Zonas
-                      </p>
-                    </div>
+                <CardContent className="pt-6 flex items-center space-x-2">
+                  <MapPin className="h-8 w-8 text-blue-600" />
+                  <div>
+                    <p className="text-2xl font-bold">{zonas.length}</p>
+                    <p className="text-sm text-muted-foreground">Total Zonas</p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <Activity className="h-8 w-8 text-green-600" />
-                    <div>
-                      <p className="text-2xl font-bold">
-                        {zonas.filter((z) => z.latitud && z.longitud).length}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Con Coordenadas
-                      </p>
-                    </div>
+                <CardContent className="pt-6 flex items-center space-x-2">
+                  <Activity className="h-8 w-8 text-green-600" />
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {zonas.filter((z) => z.latitud && z.longitud).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Con Coordenadas
+                    </p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <Users className="h-8 w-8 text-purple-600" />
-                    <div>
-                      <p className="text-2xl font-bold">
-                        {
-                          zonas.filter((z) => z.codigo && z.codigo.length > 0)
-                            .length
-                        }
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Con Código
-                      </p>
-                    </div>
+                <CardContent className="pt-6 flex items-center space-x-2">
+                  <Users className="h-8 w-8 text-purple-600" />
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {zonas.filter((z) => z.codigo).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Con Código</p>
                   </div>
                 </CardContent>
               </Card>
               <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center space-x-2">
-                    <Info className="h-8 w-8 text-orange-600" />
-                    <div>
-                      <p className="text-2xl font-bold">
-                        {zonas.filter((z) => z.descripcion?.length > 0).length}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        Con Descripción
-                      </p>
-                    </div>
+                <CardContent className="pt-6 flex items-center space-x-2">
+                  <Info className="h-8 w-8 text-orange-600" />
+                  <div>
+                    <p className="text-2xl font-bold">
+                      {zonas.filter((z) => z.descripcion).length}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Con Descripción
+                    </p>
                   </div>
                 </CardContent>
               </Card>
             </div>
           )}
 
-          {/* Table */}
-          <Card>
+          {/* Tabla */}
+          <Card className="mt-6">
             <CardHeader>
               <CardTitle>Lista de Zonas</CardTitle>
             </CardHeader>
             <CardContent>
               {isLoading ? (
                 <div className="text-center py-4">Cargando zonas...</div>
-              ) : zonas.length === 0 ? (
+              ) : filteredZonas.length === 0 ? (
                 <div className="text-center py-8">
                   <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    No hay zonas registradas
-                  </h3>
+                  <h3 className="text-lg font-medium">No hay zonas registradas</h3>
                   <p className="text-gray-600 mb-4">
                     Comienza creando tu primera zona geográfica
                   </p>
@@ -415,10 +363,10 @@ export default function ZonasPage() {
                 </div>
               ) : (
                 <ZonasTable
-                  zonas={zonas}
+                  zonas={filteredZonas}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
-                  onViewMap={handleViewMap}
+                  onViewMap={setSelectedZona}
                   initialPageSize={10}
                 />
               )}
@@ -426,10 +374,12 @@ export default function ZonasPage() {
           </Card>
         </TabsContent>
 
+        {/* TAB ESTADÍSTICAS */}
         <TabsContent value="estadisticas" className="mt-6">
           <ZonaEstadisticas />
         </TabsContent>
 
+        {/* TAB MAPA */}
         <TabsContent value="mapa" className="mt-6">
           <ZonaMapa
             zonas={zonas}

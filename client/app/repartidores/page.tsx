@@ -5,13 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   Plus,
   Search,
-  Edit,
-  Trash2,
   User,
   Phone,
   CreditCard,
-  FileText,
-  Power,
   UserCheck,
   ArrowLeft,
   BarChart3,
@@ -21,7 +17,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -61,7 +56,6 @@ export default function RepartidoresPage() {
     createRepartidor,
     updateRepartidor,
     deleteRepartidor,
-    searchRepartidores,
   } = useRepartidores();
 
   const { toast } = useToast();
@@ -82,22 +76,12 @@ export default function RepartidoresPage() {
     activo: true,
   });
 
-  // Estados para paginación
-  const [pagina, setPagina] = useState(1);
-  const [tamanoPagina, setTamanoPagina] = useState(10);
-
+  // Filtrado de repartidores
   const repartidoresFiltrados = repartidores.filter((r) =>
-    r.codigo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (r.codigo || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (r.nombre || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
     (r.dni || "").includes(searchQuery) ||
     (r.licencia_conducir || "").includes(searchQuery)
-  );
-
-  const totalPaginas = Math.ceil(repartidoresFiltrados.length / tamanoPagina);
-
-  const repartidoresPaginados = repartidoresFiltrados.slice(
-    (pagina - 1) * tamanoPagina,
-    pagina * tamanoPagina
   );
 
   const resetForm = () => {
@@ -113,7 +97,6 @@ export default function RepartidoresPage() {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    setPagina(1); // Reiniciar a página 1 al buscar
   };
 
   const handleCreate = async () => {
@@ -141,7 +124,7 @@ export default function RepartidoresPage() {
     }
   };
 
-  const handleEdit = (repartidor: Repartidor) => {
+  const handleEdit = (repartidor: any) => {
     setSelectedRepartidor(repartidor);
     setFormData({
       codigo: repartidor.codigo,
@@ -149,10 +132,7 @@ export default function RepartidoresPage() {
       dni: repartidor.dni || "",
       licencia_conducir: repartidor.licencia_conducir || "",
       telefono: repartidor.telefono || "",
-      activo:
-        typeof repartidor.activo === "boolean"
-          ? repartidor.activo
-          : Boolean(repartidor.activo),
+      activo: typeof repartidor.activo === "boolean" ? repartidor.activo : Boolean(repartidor.activo),
     });
     setIsEditDialogOpen(true);
   };
@@ -175,10 +155,7 @@ export default function RepartidoresPage() {
       telefono: formData.telefono,
       activo: Boolean(formData.activo),
     };
-    const success = await updateRepartidor(
-      selectedRepartidor.id_repartidor,
-      normalizedData,
-    );
+    const success = await updateRepartidor(selectedRepartidor.id_repartidor, normalizedData);
     if (success) {
       setIsEditDialogOpen(false);
       resetForm();
@@ -196,7 +173,7 @@ export default function RepartidoresPage() {
     }
   };
 
-  const openDeleteDialog = (repartidor: Repartidor) => {
+  const openDeleteDialog = (repartidor: any) => {
     setSelectedRepartidor(repartidor);
     setDeleteDialogOpen(true);
   };
@@ -362,7 +339,7 @@ export default function RepartidoresPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center space-x-2">
-                <User className="h-8 w-8 text-blue-600" />
+                <User  className="h-8 w-8 text-blue-600" />
                 <div>
                   <p className="text-2xl font-bold">{repartidores.length}</p>
                   <p className="text-sm text-muted-foreground">
@@ -388,7 +365,7 @@ export default function RepartidoresPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center space-x-2">
-                <UserCheck className="h-8 w-8 text-green-600" />
+                <User Check className="h-8 w-8 text-green-600" />
                 <div>
                   <p className="text-2xl font-bold">
                     {repartidores.filter((r) => r.activo).length}
@@ -424,7 +401,7 @@ export default function RepartidoresPage() {
             <div className="text-center py-4">Cargando repartidores...</div>
           ) : (
             <RepartidoresTable
-              repartidores={repartidores}
+              repartidores={repartidoresFiltrados} // Cambiado a repartidoresFiltrados
               onEdit={(rep: any) => handleEdit(rep)}
               onDelete={(rep: any) => openDeleteDialog(rep)}
               initialPageSize={10}

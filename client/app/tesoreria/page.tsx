@@ -6,6 +6,7 @@ import { TesoreriaForm } from "@/components/forms/tesoreria-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -22,15 +23,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Wallet,
   ArrowLeft,
   Search as SearchIcon,
-  BarChart3,
-  ChevronDown,
-  ChevronUp,
   Filter,
   RefreshCcw,
   Plus,
@@ -44,36 +38,13 @@ export default function TesoreriaPage() {
 
   // UI state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [showStats, setShowStats] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategoria, setFilterCategoria] = useState<string>("");
-  const [fechaInicio, setFechaInicio] = useState<string>("");
-  const [fechaFin, setFechaFin] = useState<string>("");
+  const [fecha, setFecha] = useState<string>("");
+  const [activeTab, setActiveTab] = useState<"active" | "history" | "trash">("active");
 
-  const [stats, setStats] = useState({
-    totalIngresos: 0,
-    totalEgresos: 0,
-    balance: 0,
-    totalRegistros: 0,
-  });
-
-  useEffect(() => {
-    // Métricas simples con el esquema actual
-    const totalMonto = tesoreria.reduce((sum, item) => sum + (item.monto || 0), 0);
-    setStats({
-      totalIngresos: 0,
-      totalEgresos: 0,
-      balance: totalMonto,
-      totalRegistros: tesoreria.length,
-    });
-  }, [tesoreria]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("es-PE", {
-      style: "currency",
-      currency: "PEN",
-    }).format(amount);
-  };
+  // Conteo simple para tarjeta fija
+  const totalRegistros = tesoreria.length;
 
   const categorias = [
     "Combustible",
@@ -94,11 +65,14 @@ export default function TesoreriaPage() {
       const params: any = {};
       if (searchTerm) params.q = searchTerm;
       if (filterCategoria) params.categoria = filterCategoria;
-      if (fechaInicio) params.fecha_inicio = fechaInicio;
-      if (fechaFin) params.fecha_fin = fechaFin;
+      if (fecha) {
+        params.fecha_inicio = fecha;
+        params.fecha_fin = fecha;
+      }
+      params.scope = activeTab;
       return params;
     };
-  }, [searchTerm, filterCategoria, fechaInicio, fechaFin]);
+  }, [searchTerm, filterCategoria, fecha, activeTab]);
 
   // Debounced auto-search when fields change (avoid loops by not depending on function identity)
   const prevParamsRef = useRef("");
@@ -116,11 +90,19 @@ export default function TesoreriaPage() {
     return () => clearTimeout(handler);
   }, [buildParams]);
 
+  // Sincronizar cambio de pestaña con tablas hijas
+  useEffect(() => {
+    const params = buildParams();
+    window.dispatchEvent(new CustomEvent("tesoreria:search", { detail: params }));
+    // También podemos forzar un refresh para modo trash/historial
+    window.dispatchEvent(new Event("tesoreria:refresh"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
   const clearFilters = async () => {
     setSearchTerm("");
     setFilterCategoria("");
-    setFechaInicio("");
-    setFechaFin("");
+    setFecha("");
     await searchTesoreria({});
     window.dispatchEvent(new CustomEvent("tesoreria:search", { detail: {} }));
   };
@@ -174,135 +156,110 @@ export default function TesoreriaPage() {
         </Dialog>
       </div>
 
-      {/* Search */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <SearchIcon className="h-5 w-5" />
-            Buscar Registros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="relative flex-1 min-w-[220px]">
-              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+        <TabsList>
+          <TabsTrigger value="active">Hoy</TabsTrigger>
+          <TabsTrigger value="history">Historial</TabsTrigger>
+          <TabsTrigger value="trash">Papelera</TabsTrigger>
+        </TabsList>
 
-            <div className="w-[200px]">
-              <Select
-                value={filterCategoria || "all"}
-                onValueChange={(val) => setFilterCategoria(val === "all" ? "" : val)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Categoría" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {categorias.map((categoria) => (
-                    <SelectItem key={categoria} value={categoria}>
-                      {categoria}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+        {/* Search (común) */}
+        <Card className="mt-4">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <SearchIcon className="h-5 w-5" />
+              Buscar Registros
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative flex-1 min-w-[220px]">
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
 
-            <div className="relative">
-              <Input
-                type="date"
-                value={fechaInicio}
-                onChange={(e) => setFechaInicio(e.target.value)}
-                className="w-[180px]"
-                placeholder="Desde"
-              />
-            </div>
-            <div className="relative">
-              <Input
-                type="date"
-                value={fechaFin}
-                onChange={(e) => setFechaFin(e.target.value)}
-                className="w-[180px]"
-                placeholder="Hasta"
-              />
-            </div>
+              <div className="w-[200px]">
+                <Select
+                  value={filterCategoria || "all"}
+                  onValueChange={(val) => setFilterCategoria(val === "all" ? "" : val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {categorias.map((categoria) => (
+                      <SelectItem key={categoria} value={categoria}>
+                        {categoria}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-            <Button variant="outline" onClick={clearFilters} className="flex items-center gap-2">
-              <RefreshCcw className="h-4 w-4" />
-              Limpiar
-            </Button>
+              {/* Filtro por fecha específica */}
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={fecha}
+                  onChange={(e) => setFecha(e.target.value)}
+                  className="w-[180px]"
+                  placeholder="Fecha"
+                />
+              </div>
 
-            <div className="ml-auto">
-              <Button
-                variant="outline"
-                onClick={() => setShowStats(!showStats)}
-                className="flex items-center gap-2"
-              >
-                <BarChart3 className="h-4 w-4" />
-                Estadísticas
-                {showStats ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-2">
+                <RefreshCcw className="h-4 w-4" />
+                Limpiar
               </Button>
+
+              {/* Se elimina botón de estadísticas */}
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Stats - Collapsible */}
-      {showStats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+        {/* Tab: Hoy */}
+        <TabsContent value="active" className="mt-4">
           <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Total Registros</CardTitle>
-                <Wallet className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="mt-2 text-2xl font-bold">{stats.totalRegistros}</div>
+            <CardHeader>
+              <CardTitle>Lista de Registros (Hoy)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TesoreriaTable variant="simple" mode="active" />
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Total Ingresos</CardTitle>
-                <TrendingUp className="h-4 w-4 text-green-600" />
-              </div>
-              <div className="mt-2 text-2xl font-bold text-green-600">{formatCurrency(stats.totalIngresos)}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Total Egresos</CardTitle>
-                <TrendingDown className="h-4 w-4 text-red-600" />
-              </div>
-              <div className="mt-2 text-2xl font-bold text-red-600">{formatCurrency(stats.totalEgresos)}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-medium">Balance</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className={`mt-2 text-2xl font-bold ${stats.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(stats.balance)}</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+        </TabsContent>
 
-      {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Registros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TesoreriaTable variant="simple" />
-        </CardContent>
-      </Card>
+        {/* Tab: Historial */}
+        <TabsContent value="history" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Historial de Registros</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TesoreriaTable variant="simple" mode="history" />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Papelera */}
+        <TabsContent value="trash" className="mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Papelera</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TesoreriaTable variant="simple" mode="trash" />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
