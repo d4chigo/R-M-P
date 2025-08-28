@@ -107,6 +107,36 @@ export function CentroDistribucionMapa({
     }
   }, [centros, isMapLoaded]);
 
+  // Efecto para centrar el mapa cuando cambia el centro seleccionado
+  useEffect(() => {
+    if (!isMapLoaded || !mapInstanceRef.current || !selectedCentro) return;
+
+    const lat = selectedCentro.latitud != null ? Number(selectedCentro.latitud) : NaN;
+    const lng = selectedCentro.longitud != null ? Number(selectedCentro.longitud) : NaN;
+
+    if (!isNaN(lat) && !isNaN(lng)) {
+      try {
+        mapInstanceRef.current.setView([lat, lng], 15);
+
+        // intentar abrir popup del marcador correspondiente
+        const marker = markersRef.current.find((m: any) => {
+          try {
+            const ll = m.getLatLng && m.getLatLng();
+            return ll && ll.lat === lat && ll.lng === lng;
+          } catch (e) {
+            return false;
+          }
+        });
+
+        if (marker && marker.openPopup) {
+          marker.openPopup();
+        }
+      } catch (err) {
+        console.error("Error centrando en centro seleccionado:", err);
+      }
+    }
+  }, [selectedCentro, isMapLoaded]);
+
   const initializeMap = () => {
     if (!mapRef.current || !window.L) return;
 
@@ -149,13 +179,17 @@ export function CentroDistribucionMapa({
 
     // Agregar nuevos marcadores
     centros.forEach((centro) => {
-      if (centro.latitud && centro.longitud) {
-        const marker = window.L.marker([centro.latitud, centro.longitud])
+      if (centro.latitud != null && centro.longitud != null) {
+        const lat = Number(centro.latitud);
+        const lng = Number(centro.longitud);
+        if (isNaN(lat) || isNaN(lng)) return;
+
+        const marker = window.L.marker([lat, lng])
           .addTo(mapInstanceRef.current)
           .bindPopup(createPopupContent(centro));
 
         // Resaltar marcador seleccionado
-        if (selectedCentro && selectedCentro.id_centro === centro.id_centro) {
+  if (selectedCentro && selectedCentro.id_centro === centro.id_centro) {
           marker.setIcon(window.L.divIcon({
             className: 'custom-marker selected',
             html: `<div style="background-color: #3b82f6; color: white; padding: 8px; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold;">📍</div>`,
@@ -238,7 +272,7 @@ export function CentroDistribucionMapa({
       },
     });
 
-    locationButton().addTo(map);
+  new locationButton().addTo(map);
   };
 
   const centerMapOnCentros = () => {
@@ -246,13 +280,38 @@ export function CentroDistribucionMapa({
 
     const bounds = window.L.latLngBounds([]);
     centros.forEach((centro) => {
-      if (centro.latitud && centro.longitud) {
-        bounds.extend([centro.latitud, centro.longitud]);
+      if (centro.latitud != null && centro.longitud != null) {
+        const lat = Number(centro.latitud);
+        const lng = Number(centro.longitud);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          bounds.extend([lat, lng]);
+        }
       }
     });
+    // Validar que los bounds contengan coordenadas numéricas válidas.
+    let hasBounds = false;
+    if (typeof bounds.isValid === 'function') {
+      try {
+        hasBounds = bounds.isValid();
+      } catch (e) {
+        hasBounds = false;
+      }
+    } else {
+      try {
+        const ne = bounds.getNorthEast();
+        const sw = bounds.getSouthWest();
+        hasBounds = Number.isFinite(ne.lat) && Number.isFinite(ne.lng) && Number.isFinite(sw.lat) && Number.isFinite(sw.lng);
+      } catch (e) {
+        hasBounds = false;
+      }
+    }
 
-    if (!bounds.isEmpty()) {
-      mapInstanceRef.current.fitBounds(bounds, { padding: [20, 20] });
+    if (hasBounds) {
+      try {
+        mapInstanceRef.current.fitBounds(bounds, { padding: [20, 20] });
+      } catch (err) {
+        console.error("fitBounds falló con bounds:", bounds, err);
+      }
     }
   };
 
@@ -335,30 +394,30 @@ export function CentroDistribucionMapa({
       </CardHeader>
       <CardContent className="p-0">
         <div className="relative w-full h-[600px]">
-          {/* Estilos CSS inline para Leaflet */}
+          {/* Estilos CSS inline para Leaflet (globales porque Leaflet inyecta DOM fuera del scope) */}
           <style jsx>{`
-            .leaflet-container {
+            :global(.leaflet-container) {
               height: 100%;
               width: 100%;
               z-index: 1;
             }
-            .custom-marker.selected {
+            :global(.custom-marker.selected) {
               z-index: 1000;
             }
-            .leaflet-popup-content {
+            :global(.leaflet-popup-content) {
               margin: 8px 12px;
               font-size: 14px;
             }
-            .leaflet-popup-content h3 {
+            :global(.leaflet-popup-content h3) {
               margin: 0 0 8px 0;
               color: #1f2937;
               font-weight: 600;
             }
-            .leaflet-popup-content p {
+            :global(.leaflet-popup-content p) {
               margin: 4px 0;
               color: #6b7280;
             }
-            .leaflet-popup-content .badge {
+            :global(.leaflet-popup-content .badge) {
               display: inline-block;
               padding: 2px 8px;
               border-radius: 12px;
@@ -366,34 +425,37 @@ export function CentroDistribucionMapa({
               font-weight: 500;
               text-transform: uppercase;
             }
-            .leaflet-popup-content .badge.activo {
+            :global(.leaflet-popup-content .badge.activo) {
               background-color: #10b981;
               color: white;
             }
-            .leaflet-popup-content .badge.inactivo {
+            :global(.leaflet-popup-content .badge.inactivo) {
               background-color: #ef4444;
               color: white;
             }
-            .leaflet-popup-content .badge.mantenimiento {
+            :global(.leaflet-popup-content .badge.mantenimiento) {
               background-color: #f59e0b;
               color: white;
             }
           `}</style>
-          
-          {!isMapLoaded ? (
-            <div className="flex items-center justify-center h-full bg-gray-50">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-500">Cargando mapa...</p>
+
+          {/* Renderizamos siempre el contenedor del mapa para que mapRef.current exista
+              (evita que Leaflet se inicialice antes de que exista el div cuando el script
+              carga rápidamente). Mostramos un overlay de carga mientras se inicializa. */}
+          <div
+            ref={mapRef}
+            className="w-full h-full relative"
+            style={{ minHeight: '600px' }}
+          >
+            {!isMapLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-50 z-50">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <p className="text-gray-500">Cargando mapa...</p>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div 
-              ref={mapRef} 
-              className="w-full h-full"
-              style={{ minHeight: '600px' }}
-            />
-          )}
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
