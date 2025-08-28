@@ -23,6 +23,7 @@ import {
   BookOpen,
   FileText,
   CheckCircle2,
+  Warehouse,
 } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
@@ -41,7 +42,7 @@ export default function HomePage() {
     {
       title: "Módulos Principales",
       description:
-        "Esta sección contiene los módulos principales para gestionar vehículos, repartidores, zonas y viajes. Haz clic en cada tarjeta para acceder a funciones como agregar vehículos, programar rutas o asignar repartidores.",
+        "Esta sección contiene los módulos principales para gestionar vehículos, repartidores, centros de distribución y viajes. Haz clic en cada tarjeta para acceder a funciones como agregar vehículos, gestionar centros o asignar repartidores.",
       icon: <Truck className="w-14 h-14 text-green-500" />,
     },
     {
@@ -107,12 +108,13 @@ export default function HomePage() {
       href: "/repartidores",
       color: "bg-green-500",
     },
+
     {
-      title: "Zonas",
-      description: "Gestión de zonas geográficas",
-      icon: MapPin,
-      href: "/zonas",
-      color: "bg-red-500",
+      title: "Centro de Distribución",
+      description: "Gestión de centros de distribución y almacenes",
+      icon: Warehouse,
+      href: "/centro-distribucion",
+      color: "bg-orange-500",
     },
     {
       title: "Viajes",
