@@ -86,6 +86,25 @@ CREATE TABLE REPARTIDOR (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- Tabla CENTRO_DISTRIBUCION: centros de distribución y almacenes
+CREATE TABLE CENTRO_DISTRIBUCION (
+    id_centro INT PRIMARY KEY AUTO_INCREMENT,
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    direccion VARCHAR(200) NOT NULL,
+    ciudad VARCHAR(100) NOT NULL,
+    estado ENUM('activo', 'inactivo', 'mantenimiento') DEFAULT 'activo',
+    capacidad_almacen DECIMAL(12,2) COMMENT 'Capacidad en metros cúbicos',
+    personal_asignado INT DEFAULT 0,
+    telefono VARCHAR(20),
+    email VARCHAR(100),
+    latitud DECIMAL(10, 8),
+    longitud DECIMAL(11, 8),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- ==============================
 -- TABLAS FINANCIERAS
 -- ==============================
@@ -157,6 +176,10 @@ CREATE INDEX idx_viaje_repartidor ON VIAJE(id_repartidor);
 CREATE INDEX idx_vehiculo_placa ON VEHICULO(placa);
 CREATE INDEX idx_repartidor_codigo ON REPARTIDOR(codigo);
 CREATE INDEX idx_viaje_fecha_vehiculo_repartidor ON VIAJE(fecha, id_vehiculo, id_repartidor);
+CREATE INDEX idx_centro_distribucion_codigo ON CENTRO_DISTRIBUCION(codigo);
+CREATE INDEX idx_centro_distribucion_estado ON CENTRO_DISTRIBUCION(estado);
+CREATE INDEX idx_centro_distribucion_ciudad ON CENTRO_DISTRIBUCION(ciudad);
+CREATE INDEX idx_centro_distribucion_coordenadas ON CENTRO_DISTRIBUCION(latitud, longitud);
 CREATE INDEX idx_tesoreria_fecha ON TESORERIA(fecha);
 CREATE INDEX idx_tesoreria_categoria ON TESORERIA(categoria);
 CREATE INDEX idx_tesoreria_reembolso ON TESORERIA(reembolso);
@@ -209,3 +232,37 @@ GROUP BY
     r.id_repartidor,
     r.codigo,
     r.nombre;
+
+-- ==============================
+-- ÍNDICES PARA CENTRO_DISTRIBUCION
+-- ==============================
+CREATE INDEX idx_centro_distribucion_codigo ON CENTRO_DISTRIBUCION(codigo);
+CREATE INDEX idx_centro_distribucion_estado ON CENTRO_DISTRIBUCION(estado);
+CREATE INDEX idx_centro_distribucion_ciudad ON CENTRO_DISTRIBUCION(ciudad);
+CREATE INDEX idx_centro_distribucion_coordenadas ON CENTRO_DISTRIBUCION(latitud, longitud);
+
+-- ==============================
+-- DATOS DE PRUEBA PARA CENTROS DE DISTRIBUCIÓN
+-- ==============================
+INSERT INTO CENTRO_DISTRIBUCION (
+    codigo, 
+    nombre, 
+    descripcion, 
+    direccion, 
+    ciudad, 
+    estado, 
+    capacidad_almacen, 
+    personal_asignado, 
+    telefono, 
+    email, 
+    latitud, 
+    longitud
+) VALUES 
+('CD001', 'Centro Norte CDMX', 'Centro de distribución principal en el norte de la Ciudad de México', 'Av. Insurgentes Norte 1234', 'Ciudad de México', 'activo', 50000, 45, '55-1234-5678', 'norte@empresa.com', 19.4326, -99.1332),
+('CD002', 'Centro Sur CDMX', 'Centro de distribución en el sur de la Ciudad de México', 'Calzada Tlalpan 5678', 'Ciudad de México', 'activo', 35000, 32, '55-8765-4321', 'sur@empresa.com', 19.3019, -99.1398),
+('CD003', 'Centro Guadalajara', 'Centro de distribución en Guadalajara, Jalisco', 'Av. Vallarta 9012', 'Guadalajara', 'activo', 40000, 38, '33-9876-5432', 'gdl@empresa.com', 20.6597, -103.3496),
+('CD004', 'Centro Monterrey', 'Centro de distribución en Monterrey, Nuevo León', 'Av. Constitución 3456', 'Monterrey', 'activo', 45000, 42, '81-2345-6789', 'mty@empresa.com', 25.6866, -100.3161),
+('CD005', 'Centro Puebla', 'Centro de distribución en Puebla', 'Blvd. 5 de Mayo 7890', 'Puebla', 'mantenimiento', 30000, 28, '222-3456-7890', 'pue@empresa.com', 19.0413, -98.2062),
+('CD006', 'Centro Querétaro', 'Centro de distribución en Querétaro', 'Av. Tecnológico 2345', 'Querétaro', 'activo', 25000, 25, '442-4567-8901', 'qro@empresa.com', 20.5888, -100.3899),
+('CD007', 'Centro Mérida', 'Centro de distribución en Mérida, Yucatán', 'Calle 60 Norte 1234', 'Mérida', 'inactivo', 20000, 0, '999-5678-9012', 'mrd@empresa.com', 20.9674, -89.5926),
+('CD008', 'Centro Tijuana', 'Centro de distribución en Tijuana, Baja California', 'Blvd. Agua Caliente 5678', 'Tijuana', 'activo', 35000, 35, '664-6789-0123', 'tij@empresa.com', 32.5149, -117.0382);

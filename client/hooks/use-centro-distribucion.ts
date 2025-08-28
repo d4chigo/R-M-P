@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "./use-toast";
 import Cookies from "js-cookie";
@@ -28,18 +28,20 @@ export const useCentroDistribucion = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const isLoadingRef = useRef(false);
 
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
   // Función simplificada para obtener centros
   const fetchCentros = useCallback(async () => {
-    if (isLoading) {
+    if (isLoadingRef.current) {
       console.log("🔄 useCentroDistribucion: Ya hay una carga en progreso, saltando...");
       return;
     }
 
     console.log("🔍 useCentroDistribucion: Iniciando carga de centros...");
+    isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
 
@@ -85,9 +87,10 @@ export const useCentroDistribucion = () => {
       console.error("❌ useCentroDistribucion: Error de conexión:", err);
       setError("Error de conexión al cargar centros");
     } finally {
+      isLoadingRef.current = false;
       setIsLoading(false);
     }
-  }, [API_BASE_URL, isLoading]);
+  }, [API_BASE_URL]);
 
   // Crear centro
   const createCentro = useCallback(
@@ -294,7 +297,7 @@ export const useCentroDistribucion = () => {
   // Cargar centros al montar el componente
   useEffect(() => {
     fetchCentros();
-  }, [fetchCentros]);
+  }, []); // Solo se ejecuta una vez al montar
 
   return {
     centros,
