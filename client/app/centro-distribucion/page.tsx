@@ -54,6 +54,7 @@ export default function CentroDistribucionPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [showStats, setShowStats] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   // 🔧 Normalizar fecha a YYYY-MM-DD
   const toLocalYMD = (dateString: string | Date | null | undefined): string => {
@@ -159,6 +160,7 @@ export default function CentroDistribucionPage() {
 
   const handleViewDetails = (centro: CentroDistribucion) => {
     setSelectedCentro(centro);
+    setIsDetailsOpen(true);
   };
 
   // Cambia a la pestaña de mapa y selecciona el centro
@@ -298,7 +300,7 @@ export default function CentroDistribucionPage() {
         <div className="space-y-6">
           {/* Pestañas */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="lista" className="flex items-center gap-2">
                 <Warehouse className="w-4 h-4" />
                 Lista de Centros
@@ -306,10 +308,6 @@ export default function CentroDistribucionPage() {
               <TabsTrigger value="mapa" className="flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
                 Mapa
-              </TabsTrigger>
-              <TabsTrigger value="detalles" className="flex items-center gap-2">
-                <Info className="w-4 h-4" />
-                Detalles
               </TabsTrigger>
             </TabsList>
 
@@ -377,69 +375,65 @@ export default function CentroDistribucionPage() {
               />
             </TabsContent>
 
-            {/* Pestaña: Detalles */}
-            <TabsContent value="detalles" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Info className="w-5 h-5" />
-                    Detalles del Centro
-                  </CardTitle>
-                  <CardDescription>
-                    Información detallada del centro seleccionado
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {selectedCentro ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline">{selectedCentro.codigo}</Badge>
-                        <Badge variant={selectedCentro.estado === 'activo' ? 'default' : 'secondary'}>
-                          {selectedCentro.estado}
-                        </Badge>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-lg">{selectedCentro.nombre}</h4>
-                        <p className="text-sm text-muted-foreground">{selectedCentro.descripcion}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-muted-foreground" />
-                          <span className="text-sm">{selectedCentro.direccion}</span>
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-medium">Ciudad:</span> {selectedCentro.ciudad}
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-medium">Capacidad:</span> {selectedCentro.capacidad_almacen?.toLocaleString()} m³
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-medium">Personal:</span> {selectedCentro.personal_asignado} empleados
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-medium">Teléfono:</span> {selectedCentro.telefono || 'No especificado'}
-                        </div>
-                        <div className="text-sm">
-                          <span className="font-medium">Email:</span> {selectedCentro.email || 'No especificado'}
-                        </div>
-                        {selectedCentro.latitud != null && selectedCentro.longitud != null && (
-                          <div className="text-sm">
-                            <span className="font-medium">Coordenadas:</span> {Number(selectedCentro.latitud).toFixed(6)}, {Number(selectedCentro.longitud).toFixed(6)}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <MapPin className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                      <p className="text-lg font-medium">No hay centro seleccionado</p>
-                      <p className="text-sm">Selecciona un centro desde la lista o el mapa para ver sus detalles</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
+            {/* Details now shown in a modal via the Eye button */}
           </Tabs>
+          {/* Modal de detalles */}
+          <Dialog open={isDetailsOpen} onOpenChange={(open) => { setIsDetailsOpen(open); if (!open) setSelectedCentro(null); }}>
+            <DialogContent className="max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Detalles del Centro</DialogTitle>
+                <DialogDescription>Información detallada del centro seleccionado</DialogDescription>
+              </DialogHeader>
+              <div>
+                {selectedCentro ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{selectedCentro.codigo}</Badge>
+                      <Badge variant={selectedCentro.estado === 'activo' ? 'default' : 'secondary'}>
+                        {selectedCentro.estado}
+                      </Badge>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-lg">{selectedCentro.nombre}</h4>
+                      <p className="text-sm text-muted-foreground">{selectedCentro.descripcion}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm">{selectedCentro.direccion}</span>
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">Ciudad:</span> {selectedCentro.ciudad}
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">Capacidad:</span> {selectedCentro.capacidad_almacen?.toLocaleString()} m³
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">Personal:</span> {selectedCentro.personal_asignado} empleados
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">Teléfono:</span> {selectedCentro.telefono || 'No especificado'}
+                      </div>
+                      <div className="text-sm">
+                        <span className="font-medium">Email:</span> {selectedCentro.email || 'No especificado'}
+                      </div>
+                      {selectedCentro.latitud != null && selectedCentro.longitud != null && (
+                        <div className="text-sm">
+                          <span className="font-medium">Coordenadas:</span> {Number(selectedCentro.latitud).toFixed(6)}, {Number(selectedCentro.longitud).toFixed(6)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <MapPin className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                    <p className="text-lg font-medium">No hay centro seleccionado</p>
+                    <p className="text-sm">Selecciona un centro desde la lista o el mapa para ver sus detalles</p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>
