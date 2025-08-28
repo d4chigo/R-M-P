@@ -41,6 +41,7 @@ interface CentroDistribucionTableProps {
   onEdit?: (centro: CentroDistribucion) => void;
   onDelete?: (centro: CentroDistribucion) => void;
   onViewDetails?: (centro: CentroDistribucion) => void;
+  onGoToMap?: (centro: CentroDistribucion) => void;
   isLoading?: boolean;
   initialPageSize?: number;
 }
@@ -50,6 +51,7 @@ export function CentroDistribucionTable({
   onEdit,
   onDelete,
   onViewDetails,
+  onGoToMap,
   isLoading = false,
   initialPageSize = 10,
 }: CentroDistribucionTableProps) {
@@ -218,6 +220,17 @@ export function CentroDistribucionTable({
                             className="h-8 w-8 p-0"
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onGoToMap && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onGoToMap(centro)}
+                            className="h-8 w-8 p-0"
+                            title="Ir al mapa"
+                          >
+                            <MapPin className="h-4 w-4" />
                           </Button>
                         )}
                         {onEdit && (

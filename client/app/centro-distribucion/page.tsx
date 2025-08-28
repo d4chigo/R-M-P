@@ -50,6 +50,7 @@ export default function CentroDistribucionPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCentro, setEditingCentro] = useState<CentroDistribucion | null>(null);
   const [selectedCentro, setSelectedCentro] = useState<CentroDistribucion | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("lista");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("");
   const [showStats, setShowStats] = useState(false);
@@ -158,6 +159,12 @@ export default function CentroDistribucionPage() {
 
   const handleViewDetails = (centro: CentroDistribucion) => {
     setSelectedCentro(centro);
+  };
+
+  // Cambia a la pestaña de mapa y selecciona el centro
+  const goToMap = (centro: CentroDistribucion) => {
+    setSelectedCentro(centro);
+    setActiveTab("mapa");
   };
 
   const closeDialog = () => {
@@ -290,7 +297,7 @@ export default function CentroDistribucionPage() {
         {/* Contenido principal con pestañas */}
         <div className="space-y-6">
           {/* Pestañas */}
-          <Tabs defaultValue="lista" className="w-full">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v)} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="lista" className="flex items-center gap-2">
                 <Warehouse className="w-4 h-4" />
@@ -349,6 +356,7 @@ export default function CentroDistribucionPage() {
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onViewDetails={handleViewDetails}
+                    onGoToMap={goToMap}
                     isLoading={isLoading}
                   />
                   {error && (
@@ -414,9 +422,9 @@ export default function CentroDistribucionPage() {
                         <div className="text-sm">
                           <span className="font-medium">Email:</span> {selectedCentro.email || 'No especificado'}
                         </div>
-                        {selectedCentro.latitud && selectedCentro.longitud && (
+                        {selectedCentro.latitud != null && selectedCentro.longitud != null && (
                           <div className="text-sm">
-                            <span className="font-medium">Coordenadas:</span> {selectedCentro.latitud.toFixed(6)}, {selectedCentro.longitud.toFixed(6)}
+                            <span className="font-medium">Coordenadas:</span> {Number(selectedCentro.latitud).toFixed(6)}, {Number(selectedCentro.longitud).toFixed(6)}
                           </div>
                         )}
                       </div>
