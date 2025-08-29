@@ -17,6 +17,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import {
@@ -55,6 +65,8 @@ export default function CentroDistribucionPage() {
   const [dateFilter, setDateFilter] = useState("");
   const [showStats, setShowStats] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [centroToDelete, setCentroToDelete] = useState<CentroDistribucion | null>(null);
 
   // 🔧 Normalizar fecha a YYYY-MM-DD
   const toLocalYMD = (dateString: string | Date | null | undefined): string => {
@@ -132,35 +144,37 @@ export default function CentroDistribucionPage() {
   };
 
   const handleDelete = async (centro: CentroDistribucion) => {
-    if (confirm(`¿Estás seguro de que quieres eliminar el centro ${centro.codigo}?`)) {
-      try {
-        const result = await deleteCentro(centro.id_centro!);
-        if (result.success) {
-          toast({
-            title: "Centro eliminado",
-            description: `Se eliminó exitosamente el centro ${centro.codigo}`,
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: result.error || "Error al eliminar el centro",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error("Error al eliminar centro:", error);
-        toast({
-          title: "Error",
-          description: "Error inesperado al eliminar el centro",
-          variant: "destructive",
-        });
-      }
-    }
+  // Abrir diálogo de confirmación en lugar de confirm() nativo
+  setCentroToDelete(centro);
+  setDeleteDialogOpen(true);
   };
 
   const handleViewDetails = (centro: CentroDistribucion) => {
     setSelectedCentro(centro);
     setIsDetailsOpen(true);
+  };
+
+  const cancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setCentroToDelete(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!centroToDelete) return;
+    try {
+      const result = await deleteCentro(centroToDelete.id_centro!);
+      if (result.success) {
+        toast({ title: "Centro eliminado", description: `Se eliminó exitosamente el centro ${centroToDelete.codigo}` });
+      } else {
+        toast({ title: "Error", description: result.error || "Error al eliminar el centro", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error al eliminar centro:", error);
+      toast({ title: "Error", description: "Error inesperado al eliminar el centro", variant: "destructive" });
+    } finally {
+      setDeleteDialogOpen(false);
+      setCentroToDelete(null);
+    }
   };
 
   // Cambia a la pestaña de mapa y selecciona el centro
@@ -202,6 +216,29 @@ export default function CentroDistribucionPage() {
             </div>
           </div>
         </div>
+        {/* Delete Confirmation Dialog for Centros */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar centro?</AlertDialogTitle>
+              <AlertDialogDescription>
+                <div className="space-y-2">
+                  <p>Está a punto de eliminar el centro <strong>{centroToDelete?.codigo}</strong>.</p>
+                  <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
+                    <p className="text-sm text-amber-800">
+                      <strong>Importante:</strong> Si este centro tiene registros utilizados por otros módulos, será desactivado en lugar de eliminado para preservar la integridad de los datos históricos.
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Solo se eliminará completamente si no tiene registros asociados.</p>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={cancelDelete}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDelete} className="bg-red-600 hover:bg-red-700">Eliminar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Filtros y búsqueda */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
