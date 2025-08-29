@@ -64,6 +64,7 @@ import { Tesoreria } from "@/hooks/use-tesoreria";
 import { TesoreriaForm } from "@/components/forms/tesoreria-form";
 import { useTesoreria } from "@/hooks/use-tesoreria";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { TablePagination, usePagination } from "@/components/ui/table-pagination";
@@ -76,6 +77,7 @@ interface TesoreriaTableProps {
 }
 
 export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }: TesoreriaTableProps) {
+  const { isAdmin } = useAuth();
   const {
     tesoreria,
     loading,
@@ -178,17 +180,19 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
       });
       setIsCreateDialogOpen(false);
       onRefresh?.();
+      return true;
     } else {
       toast({
         title: "Error",
         description: "Error al crear el registro de tesorería",
         variant: "destructive",
       });
+      return false;
     }
   };
 
   const handleUpdate = async (data: any) => {
-    if (!selectedTesoreria) return;
+  if (!selectedTesoreria) return false;
     const success = await updateTesoreria(selectedTesoreria.id, data);
     if (success) {
       toast({
@@ -198,12 +202,14 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
       setIsEditDialogOpen(false);
       setSelectedTesoreria(null);
       onRefresh?.();
+      return true;
     } else {
       toast({
         title: "Error",
         description: "Error al actualizar el registro de tesorería",
         variant: "destructive",
       });
+      return false;
     }
   };
 
@@ -359,54 +365,64 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                       <div className="flex justify-end gap-2">
                         {mode !== "trash" ? (
                           <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => handleEdit(item)}
-                              aria-label="Editar"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
+                            {isAdmin ? (
+                              <>
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  aria-label="Eliminar"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleEdit(item)}
+                                  aria-label="Editar"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Edit className="h-4 w-4" />
                                 </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>¿Mover a papelera?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta acción moverá el registro a la papelera. Podrás restaurarlo durante 7 días.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(item.id)}
-                                    className="bg-red-600 hover:bg-red-700"
-                                  >
-                                    Mover a papelera
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      aria-label="Eliminar"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>¿Mover a papelera?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta acción moverá el registro a la papelera. Podrás restaurarlo durante 7 días.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDelete(item.id)}
+                                        className="bg-red-600 hover:bg-red-700"
+                                      >
+                                        Mover a papelera
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </>
+                            ) : (
+                              <span className="text-sm text-gray-500">—</span>
+                            )}
                           </>
                         ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={() => handleRestore(item.id)}
-                          >
-                            Restaurar
-                          </Button>
+                          isAdmin ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-2"
+                              onClick={() => handleRestore(item.id)}
+                            >
+                              Restaurar
+                            </Button>
+                          ) : (
+                            <span className="text-sm text-gray-500">—</span>
+                          )
                         )}
                       </div>
                     </TableCell>
