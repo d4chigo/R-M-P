@@ -120,6 +120,7 @@ CREATE TABLE TESORERIA (
     detalle TEXT NULL,
     reembolso VARCHAR(49) NULL,
     distrito VARCHAR(99) NULL,
+    id_centro INT NULL,
     turno TINYINT NULL,
     encargado VARCHAR(99) NULL,
     monto DECIMAL(11,2) NOT NULL,
@@ -138,6 +139,7 @@ CREATE TABLE VIAJE (
     fecha DATE NOT NULL,
     id_vehiculo INT NOT NULL,
     id_repartidor INT NOT NULL,
+    id_centro INT NULL,
     nro_viaje INT NOT NULL,
     territorios_visitados INT DEFAULT 0 COMMENT 'Total de territorios visitados en el viaje',
     salida_cd DATETIME,
@@ -162,9 +164,14 @@ CREATE TABLE VIAJE (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (id_vehiculo) REFERENCES VEHICULO(id_vehiculo),
     FOREIGN KEY (id_repartidor) REFERENCES REPARTIDOR(id_repartidor),
+    FOREIGN KEY (id_centro) REFERENCES CENTRO_DISTRIBUCION(id_centro),
     FOREIGN KEY (created_by) REFERENCES USUARIO(id_usuario),
     FOREIGN KEY (updated_by) REFERENCES USUARIO(id_usuario)
 );
+
+-- Agregar FK para TESORERIA.id_centro hacia CENTRO_DISTRIBUCION
+ALTER TABLE TESORERIA
+    ADD CONSTRAINT fk_tesoreria_centro FOREIGN KEY (id_centro) REFERENCES CENTRO_DISTRIBUCION(id_centro);
 
 -- ==============================
 -- CREACIÓN DE ÍNDICES
@@ -173,6 +180,7 @@ CREATE TABLE VIAJE (
 CREATE INDEX idx_viaje_fecha ON VIAJE(fecha);
 CREATE INDEX idx_viaje_vehiculo_fecha ON VIAJE(id_vehiculo, fecha);
 CREATE INDEX idx_viaje_repartidor ON VIAJE(id_repartidor);
+CREATE INDEX idx_viaje_centro ON VIAJE(id_centro);
 CREATE INDEX idx_vehiculo_placa ON VEHICULO(placa);
 CREATE INDEX idx_repartidor_codigo ON REPARTIDOR(codigo);
 CREATE INDEX idx_viaje_fecha_vehiculo_repartidor ON VIAJE(fecha, id_vehiculo, id_repartidor);
@@ -186,6 +194,7 @@ CREATE INDEX idx_tesoreria_reembolso ON TESORERIA(reembolso);
 CREATE INDEX idx_tesoreria_turno ON TESORERIA(turno);
 CREATE INDEX idx_tesoreria_distrito ON TESORERIA(distrito);
 CREATE INDEX idx_tesoreria_deleted_at ON TESORERIA(deleted_at);
+CREATE INDEX idx_tesoreria_centro ON TESORERIA(id_centro);
 
 -- Evitar duplicados por día/vehículo/nro_viaje
 ALTER TABLE VIAJE ADD UNIQUE KEY uq_viaje_por_dia_vehiculo (fecha, id_vehiculo, nro_viaje);
@@ -233,13 +242,7 @@ GROUP BY
     r.codigo,
     r.nombre;
 
--- ==============================
--- ÍNDICES PARA CENTRO_DISTRIBUCION
--- ==============================
-CREATE INDEX idx_centro_distribucion_codigo ON CENTRO_DISTRIBUCION(codigo);
-CREATE INDEX idx_centro_distribucion_estado ON CENTRO_DISTRIBUCION(estado);
-CREATE INDEX idx_centro_distribucion_ciudad ON CENTRO_DISTRIBUCION(ciudad);
-CREATE INDEX idx_centro_distribucion_coordenadas ON CENTRO_DISTRIBUCION(latitud, longitud);
+
 
 -- ==============================
 -- DATOS DE PRUEBA PARA CENTROS DE DISTRIBUCIÓN
