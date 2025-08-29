@@ -41,8 +41,9 @@ const getTesoreria = async (req, res) => {
 
     const { where, params } = buildWhereAndParams({ ...req.query });
     const [rows] = await db.query(
-      `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
+      `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
        FROM TESORERIA t
+       LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
        ${where}
        ORDER BY t.fecha DESC, t.id DESC`,
       params
@@ -73,8 +74,10 @@ const getTesoreriaById = async (req, res) => {
     console.log(`🔍 Buscando registro de tesorería con ID: ${id}`);
 
     const [rows] = await db.query(
-      `SELECT id, fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, turno, encargado, monto, created_at, updated_at
-       FROM TESORERIA WHERE id = ?`,
+      `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
+       FROM TESORERIA t
+       LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
+       WHERE t.id = ?`,
       [id]
     );
 
@@ -92,7 +95,7 @@ const getTesoreriaById = async (req, res) => {
 // Crear un nuevo registro de tesorería (nuevo esquema)
 const createTesoreria = async (req, res) => {
   try {
-    const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, turno, encargado, monto } = req.body;
+  const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto } = req.body;
 
     // Validaciones básicas
     if (!fecha || !nombre || !categoria || monto === undefined) {
@@ -103,10 +106,18 @@ const createTesoreria = async (req, res) => {
       return res.status(400).json({ success: false, message: "El monto debe ser mayor a 0" });
     }
 
+    // Si se proporcionó id_centro, validar que exista
+    if (typeof id_centro !== 'undefined' && id_centro !== null) {
+      const [centroRows] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
+      if (centroRows.length === 0) {
+        return res.status(400).json({ success: false, message: 'Centro de distribución no encontrado' });
+      }
+    }
+
     const [result] = await db.query(
-      `INSERT INTO TESORERIA (fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, turno, encargado, monto)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [fecha, placa || null, nombre, cargo || null, categoria, detalle || null, reembolso || null, distrito || null, turno ?? null, encargado || null, monto]
+      `INSERT INTO TESORERIA (fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [fecha, placa || null, nombre, cargo || null, categoria, detalle || null, reembolso || null, distrito || null, id_centro ?? null, turno ?? null, encargado || null, monto]
     );
 
     res.status(201).json({ success: true, data: { id: result.insertId }, message: "Registro de tesorería creado exitosamente" });
@@ -119,13 +130,21 @@ const createTesoreria = async (req, res) => {
 // Actualizar un registro de tesorería (nuevo esquema)
 const updateTesoreria = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, turno, encargado, monto } = req.body;
+  const { id } = req.params;
+  const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto } = req.body;
 
     // Verificar que el registro existe
     const [existing] = await db.query("SELECT id FROM TESORERIA WHERE id = ?", [id]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: "Registro de tesorería no encontrado" });
+    }
+
+    // Si se proporcionó id_centro, validar que exista
+    if (typeof id_centro !== 'undefined' && id_centro !== null) {
+      const [centroRows] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
+      if (centroRows.length === 0) {
+        return res.status(400).json({ success: false, message: 'Centro de distribución no encontrado' });
+      }
     }
 
     await db.query(
@@ -138,12 +157,13 @@ const updateTesoreria = async (req, res) => {
         detalle = COALESCE(?, detalle),
         reembolso = COALESCE(?, reembolso),
         distrito = COALESCE(?, distrito),
+        id_centro = COALESCE(?, id_centro),
         turno = COALESCE(?, turno),
         encargado = COALESCE(?, encargado),
         monto = COALESCE(?, monto),
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?`,
-      [fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, turno, encargado, monto, id]
+      [fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro ?? null, turno, encargado, monto, id]
     );
 
     res.json({ success: true, message: "Registro de tesorería actualizado exitosamente" });

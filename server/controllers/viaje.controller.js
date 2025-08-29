@@ -74,6 +74,8 @@ const getViajes = async (req, res) => {
         vh.modelo as vehiculo_modelo,
         r.codigo as repartidor_codigo,
         r.nombre as repartidor_nombre,
+        c.codigo as centro_codigo,
+        c.nombre as centro_nombre,
         uc.nombre_completo as created_by_name,
         uu.nombre_completo as updated_by_name,
         v.created_at,
@@ -81,6 +83,7 @@ const getViajes = async (req, res) => {
       FROM VIAJE v
       LEFT JOIN VEHICULO vh ON v.id_vehiculo = vh.id_vehiculo
       LEFT JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
+      LEFT JOIN CENTRO_DISTRIBUCION c ON v.id_centro = c.id_centro
       LEFT JOIN USUARIO uc ON v.created_by = uc.id_usuario
       LEFT JOIN USUARIO uu ON v.updated_by = uu.id_usuario
       ORDER BY v.fecha DESC, v.nro_viaje ASC
@@ -133,6 +136,8 @@ const getViajeById = async (req, res) => {
         r.codigo as repartidor_codigo,
         r.nombre as repartidor_nombre,
         uc.nombre_completo as created_by_name,
+  c.codigo as centro_codigo,
+  c.nombre as centro_nombre,
         uu.nombre_completo as updated_by_name,
         v.created_at,
         v.updated_at
@@ -187,6 +192,7 @@ const createViaje = async (req, res) => {
       territorios_visitados,
       salida_cd,
       llegada_cd,
+  id_centro,
       distancia_km,
       tipo_viaje,
       nro_clientes,
@@ -229,6 +235,12 @@ const createViaje = async (req, res) => {
       return res.status(400).json({ success: false, message: "El repartidor especificado no existe" });
     }
 
+    // Si se envía id_centro, validar que exista
+    if (id_centro) {
+      const [cent] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
+      if (cent.length === 0) return res.status(400).json({ success: false, message: 'El centro de distribución especificado no existe' });
+    }
+
     // Unicidad de nro_viaje por fecha y vehículo
     const [existingViaje] = await db.query(
       "SELECT id_viaje FROM VIAJE WHERE fecha = ? AND id_vehiculo = ? AND nro_viaje = ?",
@@ -240,16 +252,17 @@ const createViaje = async (req, res) => {
 
     const [result] = await db.query(
       `INSERT INTO VIAJE (
-        fecha, id_vehiculo, id_repartidor, nro_viaje, territorios_visitados,
+        fecha, id_vehiculo, id_repartidor, id_centro, nro_viaje, territorios_visitados,
         salida_cd, llegada_cd, distancia_km, tipo_viaje,
         nro_clientes, nro_pedidos, entrega_cf, recojo_cf, peso_kg,
         nro_conductores, nro_liquidadores, nro_auxiliares, nro_trip_adicional, tripulacion_especial,
         created_by
-      ) VALUES (${new Array(20).fill('?').join(', ')})`,
+      ) VALUES (${new Array(21).fill('?').join(', ')})`,
       [
         fecha,
         id_vehiculo,
         id_repartidor,
+        id_centro || null,
         nro_viaje,
         territorios_visitados || 0,
         salida_cd || null,
@@ -276,6 +289,7 @@ const createViaje = async (req, res) => {
         DATE_FORMAT(v.fecha, '%Y-%m-%d') as fecha,
         v.id_vehiculo,
         v.id_repartidor,
+        v.id_centro,
         v.nro_viaje,
         v.territorios_visitados,
         v.salida_cd,
@@ -299,6 +313,8 @@ const createViaje = async (req, res) => {
         vh.modelo as vehiculo_modelo,
         r.codigo as repartidor_codigo,
         r.nombre as repartidor_nombre,
+        c.codigo as centro_codigo,
+        c.nombre as centro_nombre,
         uc.nombre_completo as created_by_name,
         uu.nombre_completo as updated_by_name,
         v.created_at,
@@ -306,6 +322,7 @@ const createViaje = async (req, res) => {
       FROM VIAJE v
       LEFT JOIN VEHICULO vh ON v.id_vehiculo = vh.id_vehiculo
       LEFT JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
+      LEFT JOIN CENTRO_DISTRIBUCION c ON v.id_centro = c.id_centro
       LEFT JOIN USUARIO uc ON v.created_by = uc.id_usuario
       LEFT JOIN USUARIO uu ON v.updated_by = uu.id_usuario
       WHERE v.id_viaje = ?`,
@@ -317,6 +334,7 @@ const createViaje = async (req, res) => {
     console.error('❌ Error al crear viaje:', error);
     res.status(500).json({ success: false, message: 'Error al crear viaje', error: error.message });
   }
+    
 };
 
 // Actualizar un viaje
@@ -327,6 +345,7 @@ const updateViaje = async (req, res) => {
       fecha,
       id_vehiculo,
       id_repartidor,
+      id_centro,
       nro_viaje,
       territorios_visitados,
       salida_cd,
@@ -347,8 +366,8 @@ const updateViaje = async (req, res) => {
 
     const updated_by = req.usuario?.id_usuario || null;
 
-    // Verificar existencia
-    const [exists] = await db.query('SELECT id_viaje FROM VIAJE WHERE id_viaje = ?', [id]);
+  // Verificar existencia
+  const [exists] = await db.query('SELECT id_viaje FROM VIAJE WHERE id_viaje = ?', [id]);
     if (exists.length === 0) return res.status(404).json({ success: false, message: 'Viaje no encontrado' });
 
     // Validar FK si se envían
@@ -360,6 +379,10 @@ const updateViaje = async (req, res) => {
       const [rep] = await db.query('SELECT id_repartidor FROM REPARTIDOR WHERE id_repartidor = ?', [id_repartidor]);
       if (rep.length === 0) return res.status(400).json({ success: false, message: 'El repartidor especificado no existe' });
     }
+    if (id_centro) {
+      const [cent] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
+      if (cent.length === 0) return res.status(400).json({ success: false, message: 'El centro de distribución especificado no existe' });
+    }
 
     // Unicidad
     if (fecha && id_vehiculo && nro_viaje) {
@@ -370,6 +393,7 @@ const updateViaje = async (req, res) => {
     await db.query(
       `UPDATE VIAJE SET
         fecha = COALESCE(?, fecha),
+        id_centro = COALESCE(?, id_centro),
         id_vehiculo = COALESCE(?, id_vehiculo),
         id_repartidor = COALESCE(?, id_repartidor),
         nro_viaje = COALESCE(?, nro_viaje),
@@ -393,6 +417,7 @@ const updateViaje = async (req, res) => {
       WHERE id_viaje = ?`,
       [
         fecha,
+        id_centro,
         id_vehiculo,
         id_repartidor,
         nro_viaje,
@@ -433,6 +458,8 @@ const updateViaje = async (req, res) => {
         vh.placa as vehiculo_placa,
         vh.marca as vehiculo_marca,
         vh.modelo as vehiculo_modelo,
+        c.codigo as centro_codigo,
+        c.nombre as centro_nombre,
         r.codigo as repartidor_codigo,
         r.nombre as repartidor_nombre,
         uc.nombre_completo as created_by_name,
@@ -442,6 +469,7 @@ const updateViaje = async (req, res) => {
       FROM VIAJE v
       LEFT JOIN VEHICULO vh ON v.id_vehiculo = vh.id_vehiculo
       LEFT JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
+      LEFT JOIN CENTRO_DISTRIBUCION c ON v.id_centro = c.id_centro
       LEFT JOIN USUARIO uc ON v.created_by = uc.id_usuario
       LEFT JOIN USUARIO uu ON v.updated_by = uu.id_usuario
       WHERE v.id_viaje = ?`,

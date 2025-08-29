@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Cookies from 'js-cookie';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -39,6 +40,10 @@ const tesoreriaSchema = z.object({
   fecha: z.string().min(1, "La fecha es requerida"),
   placa: z.string().optional().or(z.literal("")).transform((v) => v || undefined),
   nombre: z.string().min(1, "El nombre es requerido"),
+  id_centro: z
+    .union([z.string(), z.number()])
+    .optional()
+    .transform((v) => (v === undefined || v === "" ? undefined : Number(v))),
   cargo: z.string().optional(),
   categoria: z.string().min(1, "La categoría es requerida"),
   detalle: z.string().optional(),
@@ -96,6 +101,35 @@ export function TesoreriaForm({
   const [selectedCategoria, setSelectedCategoria] = useState<string>(
     tesoreria?.categoria || ""
   );
+  const [centros, setCentros] = useState<Array<any>>([]);
+  const [searchCentro, setSearchCentro] = useState("");
+  const [showCentros, setShowCentros] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const API_BASE = (window && (window as any).__env && (window as any).__env.NEXT_PUBLIC_API_URL) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        const token = Cookies.get('auth_token');
+        if (!token) {
+          setCentros([]);
+          return;
+        }
+        const res = await fetch(`${API_BASE}/centros-distribucion`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const json = await res.json();
+        if (mounted && json && json.success) setCentros(json.data || []);
+      } catch (err) {
+        // ignore
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   const form = useForm<z.infer<typeof tesoreriaSchema>>({
     resolver: zodResolver(tesoreriaSchema),
@@ -190,6 +224,34 @@ export function TesoreriaForm({
                   </FormItem>
                 )}
               />
+            </div>
+
+            {/* Centro de distribución (opcional) */}
+            <div>
+              <FormLabel className="mb-2">Centro de distribución (opcional)</FormLabel>
+              <div className="relative">
+                <Input
+                  value={searchCentro}
+                  onChange={(e) => { setSearchCentro(e.target.value); if (e.target.value === '') form.setValue('id_centro', undefined); }}
+                  onFocus={() => setShowCentros(true)}
+                  onBlur={() => setTimeout(() => setShowCentros(false), 200)}
+                  placeholder="Buscar centro por código o nombre"
+                />
+                {showCentros && (
+                  <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border rounded bg-white shadow-lg">
+                    {centros.length > 0 ? (
+                      centros.map((c) => (
+                        <div key={c.id_centro} className="p-2 cursor-pointer hover:bg-gray-100" onMouseDown={(e) => { e.preventDefault(); form.setValue('id_centro', c.id_centro); setSearchCentro(`${c.codigo} - ${c.nombre}`); setShowCentros(false); }}>
+                          <div className="font-medium">{c.codigo}</div>
+                          <div className="text-sm text-gray-600">{c.nombre} {c.ciudad ? `(${c.ciudad})` : ''}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-2 text-gray-500">No se encontraron centros</div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Cargo y Categoría */}
