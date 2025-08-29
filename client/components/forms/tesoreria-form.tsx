@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tesoreria, TesoreriaFormData } from "@/hooks/use-tesoreria";
+import { useAuth } from "@/contexts/AuthContext";
 
 const tesoreriaSchema = z.object({
   fecha: z.string().min(1, "La fecha es requerida"),
@@ -98,9 +99,11 @@ export function TesoreriaForm({
   onCancel,
   loading = false,
 }: TesoreriaFormProps) {
+  const { isAdmin } = useAuth();
   const [selectedCategoria, setSelectedCategoria] = useState<string>(
     tesoreria?.categoria || ""
   );
+  const [showConfirm, setShowConfirm] = useState(false);
   const [centros, setCentros] = useState<Array<any>>([]);
   const [searchCentro, setSearchCentro] = useState("");
   const [showCentros, setShowCentros] = useState(false);
@@ -149,10 +152,18 @@ export function TesoreriaForm({
   });
 
   const handleSubmit = async (data: z.infer<typeof tesoreriaSchema>) => {
+    // Si no es admin y estamos creando (no tesoreria), mostrar confirmación
+    if (!isAdmin && !tesoreria) {
+      // Mostrar modal de confirmación
+      setShowConfirm(true);
+      return false;
+    }
+
     const success = await onSubmit(data);
     if (success) {
       form.reset();
     }
+    return success;
   };
 
   const handleCategoriaChange = (categoria: string) => {
@@ -414,12 +425,42 @@ export function TesoreriaForm({
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Guardando..." : tesoreria ? "Actualizar" : "Crear"}
-              </Button>
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Guardando..." : tesoreria ? "Actualizar" : "Crear"}
+                </Button>
             </div>
           </form>
         </Form>
+          {/* Confirmación para usuarios no-admin antes de crear */}
+          {!isAdmin && !tesoreria && (
+            <div>
+              {showConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                  <div className="bg-black bg-opacity-50 absolute inset-0"></div>
+                  <div className="bg-white rounded shadow p-6 z-10 max-w-lg w-full">
+                    <h3 className="text-lg font-medium mb-2">Confirmar creación</h3>
+                    <p className="text-sm text-gray-600 mb-4">Estás a punto de crear un nuevo registro de tesorería. ¿Deseas continuar?</p>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
+                      <Button
+                        onClick={async () => {
+                          // Leer los valores actuales del formulario y enviar
+                          const values = form.getValues();
+                          const success = await onSubmit(values as any);
+                          if (success) {
+                            form.reset();
+                            setShowConfirm(false);
+                          }
+                        }}
+                      >
+                        Confirmar y crear
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
       </CardContent>
     </Card>
   );

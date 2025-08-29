@@ -156,8 +156,9 @@ const requireRole = (roles) => {
 // Middleware para verificar si es administrador
 const requireAdmin = requireRole(["ADMINISTRADOR"]);
 
-// Middleware para verificar si es operador o superior
-const requireOperator = requireRole(["ADMINISTRADOR", "OPERADOR"]);
+// Middleware para verificar si es empleado o superior
+// Nota: 'OPERADOR' fue renombrado a 'EMPLEADO' en el esquema de desarrollo
+const requireOperator = requireRole(["ADMINISTRADOR", "EMPLEADO"]);
 
 // Middleware para obtener roles del usuario sin bloquear (informativo)
 const getUserRoles = async (req, res, next) => {

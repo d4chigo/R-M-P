@@ -41,11 +41,11 @@ CREATE TABLE USUARIO_ROL (
     FOREIGN KEY (id_rol) REFERENCES ROL(id_rol)
 );
 
--- Insertar roles básicos del sistema
+-- Insertar roles básicos del sistema (desarrollo): mantener sólo ADMINISTRADOR y EMPLEADO
+-- Nota: para migraciones reales se debería mapear roles antiguos a EMPLEADO cuando aplique
 INSERT INTO ROL (nombre, descripcion) VALUES
 ('ADMINISTRADOR', 'Administrador del sistema con acceso total'),
-('OPERADOR', 'Usuario con acceso a gestión de rutas y reportes'),
-('REPARTIDOR', 'Usuario con acceso limitado a sus rutas asignadas');
+('EMPLEADO', 'Usuario con permisos de empleado (crear registros, ver información limitada)');
 
 -- Tabla ZONA: áreas geográficas
 CREATE TABLE ZONA (
