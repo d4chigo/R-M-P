@@ -130,6 +130,14 @@ const createTesoreria = async (req, res) => {
 // Actualizar un registro de tesorería (nuevo esquema)
 const updateTesoreria = async (req, res) => {
   try {
+  // Defensa en profundidad: verificar roles en request (debe establecer middleware)
+  if (!req.userRoles && req.usuario && req.usuario.roles) {
+    // normalizar roles si vienen en req.usuario.roles
+    req.userRoles = req.usuario.roles.map(r => String(r).toUpperCase());
+  }
+  if (!req.userRoles || !req.userRoles.includes('ADMINISTRADOR')) {
+    return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
+  }
   const { id } = req.params;
   const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto } = req.body;
 
@@ -176,6 +184,13 @@ const updateTesoreria = async (req, res) => {
 // Eliminar (soft delete) un registro de tesorería
 const deleteTesoreria = async (req, res) => {
   try {
+    // Defensa en profundidad: sólo ADMINISTRADOR puede eliminar
+    if (!req.userRoles && req.usuario && req.usuario.roles) {
+      req.userRoles = req.usuario.roles.map(r => String(r).toUpperCase());
+    }
+    if (!req.userRoles || !req.userRoles.includes('ADMINISTRADOR')) {
+      return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
+    }
     const { id } = req.params;
 
     const [existing] = await db.query("SELECT id, nombre, monto, categoria, deleted_at FROM TESORERIA WHERE id = ?", [id]);
@@ -200,6 +215,13 @@ const deleteTesoreria = async (req, res) => {
 // Restaurar un registro desde la papelera (soft restore)
 const restoreTesoreria = async (req, res) => {
   try {
+    // Defensa en profundidad: sólo ADMINISTRADOR puede restaurar
+    if (!req.userRoles && req.usuario && req.usuario.roles) {
+      req.userRoles = req.usuario.roles.map(r => String(r).toUpperCase());
+    }
+    if (!req.userRoles || !req.userRoles.includes('ADMINISTRADOR')) {
+      return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
+    }
     const { id } = req.params;
     const [existing] = await db.query("SELECT id, deleted_at FROM TESORERIA WHERE id = ?", [id]);
     if (existing.length === 0) {
@@ -243,6 +265,15 @@ const searchTesoreria = async (req, res) => {
 // Purgar definitivamente registros en papelera con más de 7 días
 const purgeTesoreria = async (_req, res) => {
   try {
+    // Nota: esta ruta normalmente estará protegida por middleware requireAdmin, pero añadimos
+    // una comprobación extra si llamadas directas bypassearon middleware.
+    const reqObj = _req || {};
+    if (!reqObj.userRoles && reqObj.usuario && reqObj.usuario.roles) {
+      reqObj.userRoles = reqObj.usuario.roles.map(r => String(r).toUpperCase());
+    }
+    if (!reqObj.userRoles || !reqObj.userRoles.includes('ADMINISTRADOR')) {
+      return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
+    }
     // Elimina filas cuya deleted_at sea anterior a 7 días
     const [result] = await db.query(
       `DELETE FROM TESORERIA
