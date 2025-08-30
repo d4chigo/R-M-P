@@ -241,37 +241,37 @@ export default function CentroDistribucionPage() {
         </AlertDialog>
 
         {/* Filtros y búsqueda */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Buscar por código, nombre, dirección o ciudad..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+         <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                Buscar Viajes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row gap-4 items-center">
+                <div className="flex-1 w-full">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <Input
+                      placeholder="Buscar por código, nombre, dirección o ciudad..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowStats(!showStats)}
+                  className="flex items-center gap-2 ml-auto"
+                >
+                  {showStats ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  Estadísticas
+                </Button>
               </div>
-            </div>
-            <div className="flex gap-2">
-              <Input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="w-auto"
-              />
-              <Button
-                variant="outline"
-                onClick={() => setShowStats(!showStats)}
-                className="flex items-center gap-2"
-              >
-                {showStats ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                Estadísticas
-              </Button>
-            </div>
-          </div>
-        </div>
+            </CardContent>
+          </Card>
 
         {/* Estadísticas */}
         {showStats && (
