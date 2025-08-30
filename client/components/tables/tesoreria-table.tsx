@@ -90,6 +90,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     fetchActive,
     fetchHistory,
     fetchTrash,
+  fetchTesoreriaById,
     restoreTesoreria,
   } = useTesoreria();
 
