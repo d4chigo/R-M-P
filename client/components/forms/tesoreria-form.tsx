@@ -264,19 +264,33 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                           onBlur={() => setTimeout(() => setShowPlacas(false), 200)}
                         />
                         {showPlacas && (
-                          <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border rounded bg-white shadow-lg">
-                            {vehiculos.length > 0 ? (
-                              vehiculos.map((vh) => (
-                                <div key={vh.id_vehiculo} className="p-2 cursor-pointer hover:bg-gray-100" onMouseDown={(e) => { e.preventDefault(); form.setValue('placa', vh.placa); setSearchPlaca(`${vh.placa} - ${vh.marca} ${vh.modelo}`); setShowPlacas(false); }}>
-                                  <div className="font-medium">{vh.placa}</div>
-                                  <div className="text-sm text-gray-600">{vh.marca} {vh.modelo} {vh.anio ? `(${vh.anio})` : ''}</div>
+                          <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border rounded bg-white dark:bg-gray-900 shadow-lg dark:shadow-lg">
+                             {vehiculos.length > 0 ? (
+                                vehiculos.map((vh) => (
+                                  <div
+                                    key={vh.id_vehiculo}
+                                    className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      form.setValue("placa", vh.placa);
+                                      setSearchPlaca(`${vh.placa} - ${vh.marca} ${vh.modelo}`);
+                                      setShowPlacas(false);
+                                    }}
+                                  >
+                                    <div className="font-medium">{vh.placa}</div>
+                                    <div className="text-sm text-gray-600 dark:text-gray-300">
+                                      {vh.marca} {vh.modelo} {vh.anio ? `(${vh.anio})` : ""}
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="p-2 text-gray-500 dark:text-gray-400">
+                                  No se encontraron vehículos
                                 </div>
-                              ))
-                            ) : (
-                              <div className="p-2 text-gray-500">No se encontraron vehículos</div>
-                            )}
-                          </div>
-                        )}
+                              )}
+                            </div>
+                          )}
+
                       </div>
                       <FormMessage />
                     </FormItem>
@@ -309,20 +323,34 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                   onBlur={() => setTimeout(() => setShowCentros(false), 200)}
                   placeholder="Buscar centro por código o nombre"
                 />
-                {showCentros && (
-                  <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border rounded bg-white shadow-lg">
-                    {centros.length > 0 ? (
-                      centros.map((c) => (
-                        <div key={c.id_centro} className="p-2 cursor-pointer hover:bg-gray-100" onMouseDown={(e) => { e.preventDefault(); form.setValue('id_centro', c.id_centro); setSearchCentro(`${c.codigo} - ${c.nombre}`); setShowCentros(false); }}>
-                          <div className="font-medium">{c.codigo}</div>
-                          <div className="text-sm text-gray-600">{c.nombre} {c.ciudad ? `(${c.ciudad})` : ''}</div>
+               {showCentros && (
+                    <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border rounded bg-white dark:bg-gray-900 shadow-lg dark:shadow-lg">
+                      {centros.length > 0 ? (
+                        centros.map((c) => (
+                          <div
+                            key={c.id_centro}
+                            className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              form.setValue("id_centro", c.id_centro);
+                              setSearchCentro(`${c.codigo} - ${c.nombre}`);
+                              setShowCentros(false);
+                            }}
+                          >
+                            <div className="font-medium">{c.codigo}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-300">
+                              {c.nombre} {c.ciudad ? `(${c.ciudad})` : ""}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-2 text-gray-500 dark:text-gray-400">
+                          No se encontraron centros
                         </div>
-                      ))
-                    ) : (
-                      <div className="p-2 text-gray-500">No se encontraron centros</div>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
+
               </div>
             </div>
 
