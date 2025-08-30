@@ -341,10 +341,14 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
             <TableBody>
               {tesoreria.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">
-                    No se encontraron registros de tesorería
-                  </TableCell>
-                </TableRow>
+                    <TableCell colSpan={12} className="py-16">
+                      <div className="flex flex-col items-center justify-center text-center text-muted-foreground">
+                        <FileText className="h-12 w-12 mb-4 text-gray-400" />
+                        <h3 className="text-lg font-semibold">No hay registros de tesorería</h3>
+                        <p className="text-sm">Comienza creando tu primer registro</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
               ) : (
                 paginatedData.map((item) => (
                   <TableRow key={item.id}>
