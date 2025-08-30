@@ -36,10 +36,13 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Tesoreria, TesoreriaFormData } from "@/hooks/use-tesoreria";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const tesoreriaSchema = z.object({
   fecha: z.string().min(1, "La fecha es requerida"),
-  placa: z.string().optional().or(z.literal("")).transform((v) => v || undefined),
+  // placa uses a sentinel value '__none' for the empty option in the Select.
+  // Transform that sentinel (or empty string/undefined) into undefined for backend.
+  placa: z.string().optional().transform((v) => (v === undefined || v === "" || v === "__none" ? undefined : v)),
   nombre: z.string().min(1, "El nombre es requerido"),
   id_centro: z
     .union([z.string(), z.number()])
@@ -93,20 +96,19 @@ const subcategorias = {
   Otros: ["Gastos Varios", "Emergencias", "Donaciones"],
 };
 
-export function TesoreriaForm({
-  tesoreria,
-  onSubmit,
-  onCancel,
-  loading = false,
-}: TesoreriaFormProps) {
+export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: TesoreriaFormProps) {
   const { isAdmin } = useAuth();
   const [selectedCategoria, setSelectedCategoria] = useState<string>(
     tesoreria?.categoria || ""
   );
   const [showConfirm, setShowConfirm] = useState(false);
   const [centros, setCentros] = useState<Array<any>>([]);
+  const [vehiculos, setVehiculos] = useState<Array<any>>([]);
+  const [searchPlaca, setSearchPlaca] = useState("");
+  const [showPlacas, setShowPlacas] = useState(false);
   const [searchCentro, setSearchCentro] = useState("");
   const [showCentros, setShowCentros] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     let mounted = true;
@@ -134,6 +136,26 @@ export function TesoreriaForm({
     return () => { mounted = false; };
   }, []);
 
+  // Cargar vehiculos activos para selector de placa
+  useEffect(() => {
+    let mounted = true;
+    const loadVeh = async () => {
+      try {
+        const API_BASE = (window && (window as any).__env && (window as any).__env.NEXT_PUBLIC_API_URL) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        const token = Cookies.get('auth_token');
+        const res = await fetch(`${API_BASE}/vehiculos`, {
+          headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }
+        });
+        const json = await res.json();
+        if (mounted && json && json.success) setVehiculos(json.data || []);
+      } catch (err) {
+        // ignore
+      }
+    };
+    loadVeh();
+    return () => { mounted = false; };
+  }, []);
+
   const form = useForm<z.infer<typeof tesoreriaSchema>>({
     resolver: zodResolver(tesoreriaSchema),
     defaultValues: {
@@ -152,18 +174,37 @@ export function TesoreriaForm({
   });
 
   const handleSubmit = async (data: z.infer<typeof tesoreriaSchema>) => {
-    // Si no es admin y estamos creando (no tesoreria), mostrar confirmación
-    if (!isAdmin && !tesoreria) {
-      // Mostrar modal de confirmación
-      setShowConfirm(true);
-      return false;
+    // If creating (no tesoreria), validate saldo for all users (admins included).
+    if (!tesoreria) {
+      try {
+        const API_BASE = (window && (window as any).__env && (window as any).__env.NEXT_PUBLIC_API_URL) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        const res = await fetch(`${API_BASE}/tesoreria/saldo/actual`);
+        const json = await res.json();
+        const saldoActual = parseFloat(json?.data?.saldo || 0);
+        if (data.monto > saldoActual) {
+          toast({ title: 'Saldo insuficiente', description: 'El monto excede el saldo disponible en la tarjeta de tesorería', variant: 'destructive' });
+          return false;
+        }
+      } catch (err) {
+        console.warn('No se pudo validar saldo:', err);
+        // continue — allow submission to proceed to confirmation
+      }
+      // For non-admins, show confirmation modal; for admins proceed immediately
+      if (!isAdmin) {
+        setShowConfirm(true);
+        return false;
+      }
     }
 
-    const success = await onSubmit(data);
-    if (success) {
-      form.reset();
+    // For admins or when editing, proceed to submit directly
+    try {
+      const success = await onSubmit(data as any);
+      if (success) form.reset();
+      return success;
+    } catch (err) {
+      console.error('Error on submit:', err);
+      return false;
     }
-    return success;
   };
 
   const handleCategoriaChange = (categoria: string) => {
@@ -208,19 +249,39 @@ export function TesoreriaForm({
 
             {/* Placa y Nombre */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="placa"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Placa</FormLabel>
-                    <FormControl>
-                      <Input placeholder="ABC-123" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="placa"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Placa</FormLabel>
+                      <div className="relative">
+                        <Input
+                          placeholder="Buscar placa..."
+                          value={searchPlaca || field.value || ''}
+                          onChange={(e) => { setSearchPlaca(e.target.value); if (e.target.value === '') form.setValue('placa', ''); }}
+                          onFocus={() => setShowPlacas(true)}
+                          onBlur={() => setTimeout(() => setShowPlacas(false), 200)}
+                        />
+                        {showPlacas && (
+                          <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border rounded bg-white shadow-lg">
+                            {vehiculos.length > 0 ? (
+                              vehiculos.map((vh) => (
+                                <div key={vh.id_vehiculo} className="p-2 cursor-pointer hover:bg-gray-100" onMouseDown={(e) => { e.preventDefault(); form.setValue('placa', vh.placa); setSearchPlaca(`${vh.placa} - ${vh.marca} ${vh.modelo}`); setShowPlacas(false); }}>
+                                  <div className="font-medium">{vh.placa}</div>
+                                  <div className="text-sm text-gray-600">{vh.marca} {vh.modelo} {vh.anio ? `(${vh.anio})` : ''}</div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="p-2 text-gray-500">No se encontraron vehículos</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
               <FormField
                 control={form.control}
