@@ -17,6 +17,9 @@ export interface Tesoreria {
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
+  // Optional audit display names returned by the backend for admins
+  created_by_nombre?: string | null;
+  updated_by_nombre?: string | null;
 }
 
 export interface TesoreriaFormData {
@@ -126,7 +129,9 @@ export const useTesoreria = () => {
         body: JSON.stringify(data),
       });
       if (response.success) {
-        await fetchTesoreria(); // Recargar la lista
+  await fetchTesoreria(); // Recargar la lista
+  // Notificar otros componentes (p. ej. SaldoCard) que el saldo puede haber cambiado
+  try { window.dispatchEvent(new Event('tesoreria:saldo-changed')); } catch(e) {}
         return true;
       } else {
         setError(response.message || 'Error al crear el registro');
@@ -141,6 +146,20 @@ export const useTesoreria = () => {
     }
   };
 
+  // Obtener saldo actual de la tarjeta
+  const fetchSaldoActual = async (): Promise<number> => {
+    try {
+      const response = await request('/tesoreria/saldo/actual');
+      if (response && response.success) {
+        return parseFloat(response.data?.saldo || 0);
+      }
+      return 0;
+    } catch (err) {
+      console.error('Error fetching saldo actual:', err);
+      return 0;
+    }
+  };
+
   // Actualizar registro
   const updateTesoreria = async (id: number, data: Partial<TesoreriaFormData>): Promise<boolean> => {
     setLoading(true);
@@ -151,7 +170,8 @@ export const useTesoreria = () => {
         body: JSON.stringify(data),
       });
       if (response.success) {
-        await fetchTesoreria(); // Recargar la lista
+  await fetchTesoreria(); // Recargar la lista
+  try { window.dispatchEvent(new Event('tesoreria:saldo-changed')); } catch(e) {}
         return true;
       } else {
         setError(response.message || 'Error al actualizar el registro');
@@ -176,7 +196,8 @@ export const useTesoreria = () => {
       });
       if (response.success) {
         // No conocemos el scope actual desde aquí, pero recargar activos por defecto ayuda a mantener en sincronía
-        await fetchActive();
+  await fetchActive();
+  try { window.dispatchEvent(new Event('tesoreria:saldo-changed')); } catch(e) {}
         return true;
       } else {
         setError(response.message || 'Error al eliminar el registro');
@@ -201,6 +222,7 @@ export const useTesoreria = () => {
       });
       if (response.success) {
         await fetchTrash();
+  try { window.dispatchEvent(new Event('tesoreria:saldo-changed')); } catch(e) {}
         return true;
       } else {
         setError(response.message || 'Error al restaurar el registro');

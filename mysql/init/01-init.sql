@@ -124,6 +124,8 @@ CREATE TABLE TESORERIA (
     turno TINYINT NULL,
     encargado VARCHAR(99) NULL,
     monto DECIMAL(11,2) NOT NULL,
+    created_by INT NULL,
+    updated_by INT NULL,
     deleted_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -172,6 +174,32 @@ CREATE TABLE VIAJE (
 -- Agregar FK para TESORERIA.id_centro hacia CENTRO_DISTRIBUCION
 ALTER TABLE TESORERIA
     ADD CONSTRAINT fk_tesoreria_centro FOREIGN KEY (id_centro) REFERENCES CENTRO_DISTRIBUCION(id_centro);
+
+-- Agregar FK a usuarios para saber quién creó/actualizó registros de tesorería
+ALTER TABLE TESORERIA
+    ADD CONSTRAINT fk_tesoreria_created_by FOREIGN KEY (created_by) REFERENCES USUARIO(id_usuario) ON DELETE SET NULL,
+    ADD CONSTRAINT fk_tesoreria_updated_by FOREIGN KEY (updated_by) REFERENCES USUARIO(id_usuario) ON DELETE SET NULL;
+
+-- Tabla para almacenar el saldo / monto fijo de tesorería (tarjeta fija)
+CREATE TABLE TESORERIA_SALDO (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    saldo DECIMAL(14,2) NOT NULL DEFAULT 0,
+    updated_by INT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- FK de TESORERIA_SALDO.updated_by hacia USUARIO
+ALTER TABLE TESORERIA_SALDO
+    ADD CONSTRAINT fk_tesoreria_saldo_updated_by FOREIGN KEY (updated_by) REFERENCES USUARIO(id_usuario) ON DELETE SET NULL;
+
+-- Tabla para histórico diario de saldo (snapshot diario para rollover)
+CREATE TABLE IF NOT EXISTS TESORERIA_SALDO_HISTORY (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    fecha DATE NOT NULL,
+    saldo_final DECIMAL(14,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
 -- ==============================
 -- CREACIÓN DE ÍNDICES
@@ -242,30 +270,3 @@ GROUP BY
     r.codigo,
     r.nombre;
 
-
-
--- ==============================
--- DATOS DE PRUEBA PARA CENTROS DE DISTRIBUCIÓN
--- ==============================
-INSERT INTO CENTRO_DISTRIBUCION (
-    codigo, 
-    nombre, 
-    descripcion, 
-    direccion, 
-    ciudad, 
-    estado, 
-    capacidad_almacen, 
-    personal_asignado, 
-    telefono, 
-    email, 
-    latitud, 
-    longitud
-) VALUES 
-('CD001', 'Centro Norte CDMX', 'Centro de distribución principal en el norte de la Ciudad de México', 'Av. Insurgentes Norte 1234', 'Ciudad de México', 'activo', 50000, 45, '55-1234-5678', 'norte@empresa.com', 19.4326, -99.1332),
-('CD002', 'Centro Sur CDMX', 'Centro de distribución en el sur de la Ciudad de México', 'Calzada Tlalpan 5678', 'Ciudad de México', 'activo', 35000, 32, '55-8765-4321', 'sur@empresa.com', 19.3019, -99.1398),
-('CD003', 'Centro Guadalajara', 'Centro de distribución en Guadalajara, Jalisco', 'Av. Vallarta 9012', 'Guadalajara', 'activo', 40000, 38, '33-9876-5432', 'gdl@empresa.com', 20.6597, -103.3496),
-('CD004', 'Centro Monterrey', 'Centro de distribución en Monterrey, Nuevo León', 'Av. Constitución 3456', 'Monterrey', 'activo', 45000, 42, '81-2345-6789', 'mty@empresa.com', 25.6866, -100.3161),
-('CD005', 'Centro Puebla', 'Centro de distribución en Puebla', 'Blvd. 5 de Mayo 7890', 'Puebla', 'mantenimiento', 30000, 28, '222-3456-7890', 'pue@empresa.com', 19.0413, -98.2062),
-('CD006', 'Centro Querétaro', 'Centro de distribución en Querétaro', 'Av. Tecnológico 2345', 'Querétaro', 'activo', 25000, 25, '442-4567-8901', 'qro@empresa.com', 20.5888, -100.3899),
-('CD007', 'Centro Mérida', 'Centro de distribución en Mérida, Yucatán', 'Calle 60 Norte 1234', 'Mérida', 'inactivo', 20000, 0, '999-5678-9012', 'mrd@empresa.com', 20.9674, -89.5926),
-('CD008', 'Centro Tijuana', 'Centro de distribución en Tijuana, Baja California', 'Blvd. Agua Caliente 5678', 'Tijuana', 'activo', 35000, 35, '664-6789-0123', 'tij@empresa.com', 32.5149, -117.0382);

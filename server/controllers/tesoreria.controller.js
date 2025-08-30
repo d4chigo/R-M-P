@@ -40,16 +40,52 @@ const getTesoreria = async (req, res) => {
     console.log("📋 Obteniendo lista de tesorería (con scope)...");
 
     const { where, params } = buildWhereAndParams({ ...req.query });
-    const [rows] = await db.query(
-      `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
-       FROM TESORERIA t
-       LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
-       ${where}
-       ORDER BY t.fecha DESC, t.id DESC`,
-      params
-    );
+    let rows;
+    try {
+      const [r] = await db.query(
+        `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at, t.created_by, t.updated_by,
+                u1.nombre_completo AS created_by_nombre,
+                u2.nombre_completo AS updated_by_nombre
+         FROM TESORERIA t
+         LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
+         LEFT JOIN USUARIO u1 ON t.created_by = u1.id_usuario
+         LEFT JOIN USUARIO u2 ON t.updated_by = u2.id_usuario
+         ${where}
+         ORDER BY t.fecha DESC, t.id DESC`,
+        params
+      );
+      rows = r;
+    } catch (errQuery) {
+      // Si falla por esquema antiguo (columnas/joins inexistentes), intentar una consulta de respaldo sin joins a USUARIO
+      if (String(errQuery.message).includes('Unknown column') || String(errQuery.code).includes('ER_BAD_FIELD_ERROR')) {
+        console.warn('⚠️ Consulta con joins de auditoría falló, intentando consulta de respaldo sin joins de USUARIO');
+        const [r2] = await db.query(
+          `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
+           FROM TESORERIA t
+           LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
+           ${where}
+           ORDER BY t.fecha DESC, t.id DESC`,
+          params
+        );
+        rows = r2;
+        // No habrá campos created_by_nombre/updated_by_nombre en esta variante
+        rows.forEach(r => { r.created_by_nombre = null; r.updated_by_nombre = null; });
+      } else {
+        throw errQuery;
+      }
+    }
 
     console.log(`✅ Se encontraron ${rows.length} registros de tesorería`);
+
+    // Si el request no tiene roles (no autenticado) o no es admin, ocultar nombres
+    const userRoles = req.userRoles || [];
+    const isAdmin = Array.isArray(userRoles) && userRoles.includes('ADMINISTRADOR');
+    if (!isAdmin) {
+      rows.forEach(r => {
+        r.created_by_nombre = null;
+        r.updated_by_nombre = null;
+      });
+    }
 
     res.json({
       success: true,
@@ -73,16 +109,47 @@ const getTesoreriaById = async (req, res) => {
     const { id } = req.params;
     console.log(`🔍 Buscando registro de tesorería con ID: ${id}`);
 
-    const [rows] = await db.query(
-      `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
-       FROM TESORERIA t
-       LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
-       WHERE t.id = ?`,
-      [id]
-    );
+    let rows;
+    try {
+      const [r] = await db.query(
+        `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at, t.created_by, t.updated_by,
+                u1.nombre_completo AS created_by_nombre,
+                u2.nombre_completo AS updated_by_nombre
+         FROM TESORERIA t
+         LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
+         LEFT JOIN USUARIO u1 ON t.created_by = u1.id_usuario
+         LEFT JOIN USUARIO u2 ON t.updated_by = u2.id_usuario
+         WHERE t.id = ?`,
+        [id]
+      );
+      rows = r;
+    } catch (errQuery) {
+      if (String(errQuery.message).includes('Unknown column') || String(errQuery.code).includes('ER_BAD_FIELD_ERROR')) {
+        console.warn('⚠️ Consulta detalle con joins de auditoría falló, intentando consulta de respaldo sin joins de USUARIO');
+        const [r2] = await db.query(
+          `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
+           FROM TESORERIA t
+           LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
+           WHERE t.id = ?`,
+          [id]
+        );
+        rows = r2;
+        rows.forEach(r => { r.created_by_nombre = null; r.updated_by_nombre = null; });
+      } else {
+        throw errQuery;
+      }
+    }
 
     if (rows.length === 0) {
       return res.status(404).json({ success: false, message: "Registro de tesorería no encontrado" });
+    }
+
+    // ocultar nombres si no es admin
+    const userRoles = req.userRoles || [];
+    const isAdmin = Array.isArray(userRoles) && userRoles.includes('ADMINISTRADOR');
+    if (!isAdmin) {
+      rows[0].created_by_nombre = null;
+      rows[0].updated_by_nombre = null;
     }
 
     res.json({ success: true, data: rows[0], message: "Registro de tesorería obtenido exitosamente" });
@@ -114,13 +181,50 @@ const createTesoreria = async (req, res) => {
       }
     }
 
-    const [result] = await db.query(
-      `INSERT INTO TESORERIA (fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [fecha, placa || null, nombre, cargo || null, categoria, detalle || null, reembolso || null, distrito || null, id_centro ?? null, turno ?? null, encargado || null, monto]
-    );
+    // Manejar decremento de saldo: obtener saldo actual y restar monto dentro de una transacción
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
 
-    res.status(201).json({ success: true, data: { id: result.insertId }, message: "Registro de tesorería creado exitosamente" });
+      // Obtener saldo actual (si no existe, inicializar a 0)
+      const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+      let saldoId = null;
+      let saldoActual = 0;
+      if (saldoRows.length === 0) {
+        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (?)', [0]);
+        saldoId = ins.insertId;
+        saldoActual = 0;
+      } else {
+        saldoId = saldoRows[0].id;
+        saldoActual = parseFloat(saldoRows[0].saldo || 0);
+      }
+
+      if (monto > saldoActual) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: 'Saldo insuficiente en la tarjeta de tesorería' });
+      }
+
+      // Insertar registro de tesorería
+      const [result] = await connection.query(
+        `INSERT INTO TESORERIA (fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [fecha, placa || null, nombre, cargo || null, categoria, detalle || null, reembolso || null, distrito || null, id_centro ?? null, turno ?? null, encargado || null, monto, req.usuario ? req.usuario.id_usuario : null]
+      );
+
+      // Restar monto del saldo
+      const nuevoSaldo = (saldoActual - parseFloat(monto));
+      await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+
+      await connection.commit();
+
+      res.status(201).json({ success: true, data: { id: result.insertId }, message: "Registro de tesorería creado exitosamente" });
+    } catch (txErr) {
+      console.error('Error en transacción crear tesorería:', txErr);
+      await connection.rollback();
+      res.status(500).json({ success: false, message: 'Error al crear registro de tesorería', error: txErr.message });
+    } finally {
+      connection.release();
+    }
   } catch (error) {
     console.error("❌ Error al crear registro de tesorería:", error);
     res.status(500).json({ success: false, message: "Error al crear registro de tesorería", error: error.message });
@@ -169,15 +273,53 @@ const updateTesoreria = async (req, res) => {
         turno = COALESCE(?, turno),
         encargado = COALESCE(?, encargado),
         monto = COALESCE(?, monto),
+        updated_by = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?`,
-      [fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro ?? null, turno, encargado, monto, id]
+      [fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro ?? null, turno, encargado, monto, req.usuario ? req.usuario.id_usuario : null, id]
     );
 
     res.json({ success: true, message: "Registro de tesorería actualizado exitosamente" });
   } catch (error) {
     console.error("❌ Error al actualizar registro de tesorería:", error);
     res.status(500).json({ success: false, message: "Error al actualizar registro de tesorería", error: error.message });
+  }
+};
+
+// Obtener saldo actual de la tarjeta de tesorería
+const getSaldo = async (_req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, saldo, updated_by, updated_at, created_at FROM TESORERIA_SALDO LIMIT 1');
+    if (rows.length === 0) {
+      return res.json({ success: true, data: { saldo: 0 }, message: 'Saldo por defecto' });
+    }
+    res.json({ success: true, data: rows[0], message: 'Saldo obtenido' });
+  } catch (error) {
+    console.error('Error obteniendo saldo:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener saldo', error: error.message });
+  }
+};
+
+// Actualizar saldo (solo admin)
+const updateSaldo = async (req, res) => {
+  try {
+    const { saldo } = req.body;
+    if (typeof saldo === 'undefined' || isNaN(parseFloat(saldo))) {
+      return res.status(400).json({ success: false, message: 'Saldo inválido' });
+    }
+
+    const [rows] = await db.query('SELECT id FROM TESORERIA_SALDO LIMIT 1');
+    if (rows.length === 0) {
+      const [ins] = await db.query('INSERT INTO TESORERIA_SALDO (saldo, updated_by) VALUES (?, ?)', [saldo, req.usuario ? req.usuario.id_usuario : null]);
+      return res.json({ success: true, data: { id: ins.insertId, saldo }, message: 'Saldo creado' });
+    }
+
+    const id = rows[0].id;
+    await db.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [saldo, req.usuario ? req.usuario.id_usuario : null, id]);
+    res.json({ success: true, data: { id, saldo }, message: 'Saldo actualizado' });
+  } catch (error) {
+    console.error('Error actualizando saldo:', error);
+    res.status(500).json({ success: false, message: 'Error al actualizar saldo', error: error.message });
   }
 };
 
@@ -305,3 +447,44 @@ module.exports = {
   update: updateTesoreria,
   delete: deleteTesoreria,
 };
+
+// Exportar saldo
+module.exports.getSaldo = getSaldo;
+module.exports.updateSaldo = updateSaldo;
+
+// Rollover diario: snapshot del saldo actual y reset al inicio del nuevo día
+const rolloverSaldo = async (req, res) => {
+  try {
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+      // Obtener saldo actual
+      const [rows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+      if (rows.length === 0) {
+        // nada que snapshotear, crear fila con saldo 0
+        await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (?)', [0]);
+        await connection.commit();
+        return res.json({ success: true, message: 'Rollover completado: saldo inicializado a 0' });
+      }
+      const saldoActual = parseFloat(rows[0].saldo || 0);
+      const fechaHoy = new Date().toISOString().split('T')[0];
+  // Insertar snapshot en history
+  await connection.query('INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final) VALUES (?, ?)', [fechaHoy, saldoActual]);
+  // Política actual: mantener el sobrante para el día siguiente (no resetear el saldo)
+      await connection.commit();
+      console.log(`✅ Rollover tesorería: snapshot ${saldoActual} guardado para ${fechaHoy}`);
+      return res.json({ success: true, message: 'Rollover completado', saldo_final: saldoActual });
+    } catch (txErr) {
+      await connection.rollback();
+      console.error('Error en transacción rollover:', txErr);
+      return res.status(500).json({ success: false, message: 'Error en rollover', error: txErr.message });
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error('Error en rolloverSaldo:', err);
+    return res.status(500).json({ success: false, message: 'Error en rollover', error: err.message });
+  }
+};
+
+module.exports.rolloverSaldo = rolloverSaldo;

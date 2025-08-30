@@ -248,8 +248,20 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   };
 
   const handleView = (tesoreria: Tesoreria) => {
-    setSelectedTesoreria(tesoreria);
-    setIsViewDialogOpen(true);
+    // Fetch fresh record to include audit fields for admins
+    (async () => {
+      const full = await fetchTesoreriaById ? await fetchTesoreriaById(tesoreria.id) : null;
+      setSelectedTesoreria(full || tesoreria);
+      setIsViewDialogOpen(true);
+    })();
+  };
+  
+  const handleInfo = (tesoreria: Tesoreria) => {
+    (async () => {
+      const full = await fetchTesoreriaById ? await fetchTesoreriaById(tesoreria.id) : null;
+      setSelectedTesoreria(full || tesoreria);
+      setIsViewDialogOpen(true);
+    })();
   };
 
   const formatCurrency = (amount: number) => {
@@ -375,6 +387,15 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                                   aria-label="Editar"
                                 >
                                   <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleInfo(item)}
+                                  aria-label="Info"
+                                >
+                                  <Eye className="h-4 w-4" />
                                 </Button>
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
@@ -719,6 +740,15 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleInfo(item)}
+                            aria-label="Info"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
@@ -851,10 +881,16 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                 <div>
                   <label className="text-sm font-medium text-gray-500">Creado</label>
                   <p className="text-sm">{format(new Date(selectedTesoreria.created_at), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+                  {selectedTesoreria.created_by_nombre && (
+                    <p className="text-xs text-gray-600">Creado por: {selectedTesoreria.created_by_nombre}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Actualizado</label>
                   <p className="text-sm">{format(new Date(selectedTesoreria.updated_at), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+                  {selectedTesoreria.updated_by_nombre && (
+                    <p className="text-xs text-gray-600">Modificado por: {selectedTesoreria.updated_by_nombre}</p>
+                  )}
                 </div>
               </div>
             </div>

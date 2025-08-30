@@ -30,11 +30,15 @@ import {
   Plus,
 } from "lucide-react";
 import { useTesoreria } from "@/hooks/use-tesoreria";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { SaldoCard } from "@/components/tesoreria/SaldoCard";
 
 export default function TesoreriaPage() {
   const { tesoreria, loading, createTesoreria, searchTesoreria } = useTesoreria();
   const { toast } = useToast();
+  const { isAdmin, token } = useAuth();
+  const [rolloverLoading, setRolloverLoading] = useState(false);
 
   // UI state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -154,6 +158,46 @@ export default function TesoreriaPage() {
             <TesoreriaForm onSubmit={handleCreate} onCancel={() => setIsCreateDialogOpen(false)} loading={loading} />
           </DialogContent>
         </Dialog>
+      </div>
+
+      {/* Tarjeta fija de saldo (visible para todos; edición solo por ADMIN en componente) */}
+      <div className="flex justify-end items-center gap-2">
+        <SaldoCard />
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              setRolloverLoading(true);
+              try {
+                const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+                const res = await fetch(`${API_BASE}/tesoreria/saldo/rollover`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: token ? `Bearer ${token}` : "",
+                  },
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                  toast({ title: "Rollover ejecutado", description: data.message || "Snapshot creado" });
+                  window.dispatchEvent(new Event("tesoreria:saldo-changed"));
+                } else {
+                  toast({ title: "Error", description: data.message || "No se pudo ejecutar rollover", variant: "destructive" });
+                }
+              } catch (error) {
+                toast({ title: "Error", description: "Error de conexión con el servidor", variant: "destructive" });
+              } finally {
+                setRolloverLoading(false);
+              }
+            }}
+            disabled={rolloverLoading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            {rolloverLoading ? "Ejecutando..." : "Ejecutar Rollover"}
+          </Button>
+        )}
       </div>
 
       {/* Tabs */}

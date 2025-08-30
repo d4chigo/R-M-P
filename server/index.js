@@ -398,6 +398,36 @@ try {
   } else {
     console.log('\n\u23f3 Scheduler for resumen_rutas is DISABLED (set WORKER_ENABLE_SCHEDULER=true to enable)');
   }
-} catch (err) {
-  console.error('Error initializing resumen_rutas scheduler:', err);
+} catch(e) {
+  console.error('Error checking scheduler flag:', e);
 }
+
+// Rollover tesoreria diario opcional
+try {
+  const enableRollover = String(process.env.TESORERIA_ROLLOVER_ENABLE || 'false').toLowerCase() === 'true';
+  if (enableRollover) {
+    const cron = require('node-cron');
+    const runRollover = require('./scripts/tesoreria-rollover');
+    const rolloverCron = process.env.TESORERIA_ROLLOVER_CRON || '59 23 * * *'; // 23:59 daily
+    console.log('\n\u23f3 Tesoreria rollover scheduler ENABLED');
+    console.log(`\u23f0 Cron schedule: ${rolloverCron}`);
+    const taskR = cron.schedule(rolloverCron, async () => {
+      try {
+        console.log('\n\u23f3 [rollover] Running tesoreria rollover...');
+        await runRollover();
+        console.log('\u2705 [rollover] Finished');
+      } catch (err) {
+        console.error('\u274c [rollover] Error:', err);
+      }
+    }, { scheduled: true, timezone: process.env.TESORERIA_ROLLOVER_TZ || 'UTC' });
+
+    process.on('SIGINT', async () => {
+      try { if (taskR) taskR.stop(); console.log('\u2705 Rollover scheduler stopped'); } catch(e) {}
+    });
+  } else {
+    console.log('\n\u23f3 Tesoreria rollover scheduler is DISABLED (set TESORERIA_ROLLOVER_ENABLE=true to enable)');
+  }
+} catch (e) {
+  console.error('Error starting rollover scheduler:', e);
+}
+// All schedulers initialized
