@@ -143,27 +143,7 @@ export default function HomePage() {
       href: "/resumen-rutas",
       color: "bg-emerald-500",
     },
-    {
-      title: "Resumen por Viaje",
-      description: "Detalle de rutas por viaje con métricas",
-      icon: BarChart3,
-      href: "/reportes/resumen-rutas-por-viaje",
-      color: "bg-sky-500",
-    },
-    {
-      title: "Performance Vehículos",
-      description: "Análisis de rendimiento por vehículo",
-      icon: TrendingUp,
-      href: "/reportes/performance-vehiculos",
-      color: "bg-teal-500",
-    },
-    {
-      title: "Performance Repartidores",
-      description: "Análisis de rendimiento por repartidor",
-      icon: Users2,
-      href: "/reportes/performance-repartidores",
-      color: "bg-amber-500",
-    },
+  // Removed: resumen por viaje, performance vehiculos, performance repartidores
     {
       title: "Cumplimiento VH",
       description: "Visitas: ventana horaria, IDR y puntualidad",
@@ -446,17 +426,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Botón flotante de diagnóstico */}
-          <Link href="/diagnostico">
-            <div className="fixed bottom-6 right-6 z-50">
-              <div className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group">
-                <Settings className="w-6 h-6" />
-                <span className="absolute right-16 top-1/2 transform -translate-y-1/2 bg-gray-900 text-white px-3 py-1 rounded text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                  Diagnóstico del Sistema
-                </span>
-              </div>
-            </div>
-          </Link>
+          {/* Botón flotante de diagnóstico: eliminado */}
         </div>
       </div>
     </ProtectedRoute>
