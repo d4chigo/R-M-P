@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, type FC } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -25,72 +25,116 @@ import {
   CheckCircle2,
   Warehouse,
 } from "lucide-react";
+// NOTE: node_modules may not be available in this environment; provide a small local spotlight
+// fallback so the tutorial button always funciona. The project already lists react-spotlight-tour,
+// but to guarantee behavior we implement a tiny tour here.
+import type { FC } from "react";
+
+type TourStepLocal = { selector: string; title: string; description?: string };
+
+const SimpleSpotlightTour: FC<{
+  steps: TourStepLocal[];
+  isOpen: boolean;
+  initialStep?: number;
+  onClose: () => void;
+  onStepChange?: (s: number) => void;
+}> = ({ steps, isOpen, initialStep = 0, onClose, onStepChange }) => {
+  const [step, setStep] = useState(initialStep);
+
+  useEffect(() => {
+    setStep(initialStep);
+  }, [initialStep]);
+
+  if (!isOpen) return null;
+
+  const current = steps[step];
+  if (!current) return null;
+
+  // Try to find element
+  const el = typeof window !== "undefined" ? document.querySelector(current.selector) as HTMLElement | null : null;
+
+  const next = () => {
+    const ns = Math.min(steps.length - 1, step + 1);
+    setStep(ns);
+    onStepChange?.(ns);
+  };
+
+  const prev = () => {
+    const ns = Math.max(0, step - 1);
+    setStep(ns);
+    onStepChange?.(ns);
+  };
+
+  const close = () => {
+    onClose();
+    setStep(0);
+    onStepChange?.(0);
+  };
+
+  // Compute position
+  const rect = el?.getBoundingClientRect();
+
+  return (
+    <div className="fixed inset-0 z-50 pointer-events-none">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto" onClick={close} />
+      {el && rect ? (
+        <div
+          style={{ left: rect.left + window.scrollX, top: rect.top + window.scrollY }}
+          className="absolute pointer-events-auto"
+        >
+          <div className="rounded-md border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-lg p-4 max-w-xs">
+            <div className="font-semibold text-gray-900 dark:text-gray-100">{current.title}</div>
+            {current.description && (
+              <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">{current.description}</div>
+            )}
+            <div className="flex justify-between gap-2 mt-3">
+              <button onClick={prev} className="px-3 py-1 bg-gray-100 rounded disabled:opacity-50" disabled={step===0}>Anterior</button>
+              <div className="flex gap-2">
+                <button onClick={close} className="px-3 py-1 bg-red-100 rounded">Cerrar</button>
+                <button onClick={next} className="px-3 py-1 bg-blue-600 text-white rounded">{step === steps.length - 1 ? 'Finalizar' : 'Siguiente'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="fixed bottom-28 right-6 pointer-events-auto">
+          <div className="rounded-md border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-lg p-4 max-w-xs">
+            <div className="font-semibold text-gray-900 dark:text-gray-100">{current.title}</div>
+            {current.description && (
+              <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">{current.description}</div>
+            )}
+            <div className="flex justify-between gap-2 mt-3">
+              <button onClick={prev} className="px-3 py-1 bg-gray-100 rounded disabled:opacity-50" disabled={step===0}>Anterior</button>
+              <div className="flex gap-2">
+                <button onClick={close} className="px-3 py-1 bg-red-100 rounded">Cerrar</button>
+                <button onClick={next} className="px-3 py-1 bg-blue-600 text-white rounded">{step === steps.length - 1 ? 'Finalizar' : 'Siguiente'}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function HomePage() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
-  // Tutorial
-  const tutorialSteps = [
-    {
-      title: "Bienvenido al Sistema R-M-P ",
-      description:
-        "Esta es la página principal del Sistema de Gestión de Rutas. Aquí encontrarás acceso a todos los módulos y reportes para gestionar tu operación logística. Vamos a explorar cada sección paso a paso.",
-      icon: <BookOpen className="w-14 h-14 text-blue-500" />,
-    },
-    {
-      title: "Módulos Principales",
-      description:
-        "Esta sección contiene los módulos principales para gestionar vehículos, repartidores, centros de distribución y viajes. Haz clic en cada tarjeta para acceder a funciones como agregar vehículos, gestionar centros o asignar repartidores.",
-      icon: <Truck className="w-14 h-14 text-green-500" />,
-    },
-    {
-      title: "Módulo de Tesorería",
-      description:
-        "El módulo de Tesorería te permite gestionar los ingresos y egresos de tu operación. Accede a esta sección para controlar los aspectos financieros de la logística.",
-      icon: <DollarSign className="w-14 h-14 text-emerald-500" />,
-    },
-    {
-      title: "Reportes y Análisis",
-      description:
-        "Aquí encontrarás reportes detallados como Resumen de Rutas, Performance de Vehículos y Repartidores, y métricas de cumplimiento. Usa estas herramientas para analizar el rendimiento y tomar decisiones informadas.",
-      icon: <BarChart3 className="w-14 h-14 text-indigo-500" />,
-    },
-    {
-      title: "Características Principales",
-      description:
-        "Esta sección destaca las funcionalidades clave del sistema, como reportes automáticos, índices optimizados, procedimientos almacenados y métricas en tiempo real para un control eficiente.",
-      icon: <FileText className="w-14 h-14 text-purple-500" />,
-    },
-    {
-      title: "Diagnóstico del Sistema",
-      description:
-        "El botón flotante en la esquina inferior derecha te lleva a la herramienta de diagnóstico del sistema, donde puedes verificar el estado y solucionar problemas.",
-      icon: <Settings className="w-14 h-14 text-orange-500" />,
-    },
-    {
-      title: "¡Listo para empezar!",
-      description:
-        "Ahora que conoces las secciones principales, explora cada módulo y utiliza los reportes para optimizar tu operación. ¡Cierra este tutorial y comienza a gestionar tus rutas!",
-      icon: <CheckCircle2 className="w-14 h-14 text-green-600" />,
-    },
+  // Tour steps (local type)
+  const tourSteps: TourStepLocal[] = [
+    { selector: "#card-vehiculos", title: "Vehículos", description: "Gestión de flota de vehículos." },
+    { selector: "#card-repartidores", title: "Repartidores", description: "Gestión de conductores y asignaciones." },
+    { selector: "#card-centro-distribucion", title: "Centro de Distribución", description: "Gestión y mapa de centros de distribución." },
+    { selector: "#card-viajes", title: "Viajes", description: "Programación y seguimiento de viajes." },
+    { selector: "#card-tesoreria", title: "Tesorería", description: "Gestión de ingresos y egresos." },
+    { selector: "#card-resumen-rutas", title: "Resumen de Rutas", description: "Reporte principal con métricas de rutas diarias." },
+    { selector: "#card-reportes-cumplimiento-vh", title: "Cumplimiento VH", description: "Visitas: ventana horaria, IDR y puntualidad." },
   ];
 
-  const handleNextStep = () => {
-    if (currentStep < tutorialSteps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      setIsTutorialOpen(false);
-      setCurrentStep(0);
-    }
-  };
-
-  const handlePrevStep = () => {
-    if (currentStep > 0) setCurrentStep(currentStep - 1);
-  };
-
-  const progress = ((currentStep + 1) / tutorialSteps.length) * 100;
+  const handleNextStep = () => setCurrentStep((s) => s + 1);
+  const handlePrevStep = () => setCurrentStep((s) => Math.max(0, s - 1));
 
   // Tus módulos
   const modules = [
@@ -173,110 +217,17 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Tutorial Button */}
-          <div className="flex justify-end mb-6">
-            <button
-              onClick={() => setIsTutorialOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-300 transform hover:scale-105 hover:shadow-md"
-            >
-              <BookOpen className="w-5 h-5 animate-pulse" />
-              Iniciar Tutorial
-            </button>
-          </div>
+          {/* header tutorial button removed; use floating button */}
 
-          {/* Tutorial Modal Pro */}
+          {/* Spotlight tour */}
           {isTutorialOpen && (
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fadeIn">
-              <div className="relative bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-700 rounded-3xl shadow-2xl w-full max-w-xl mx-4 p-8 animate-scaleUp">
-                
-                {/* Icono principal */}
-                <div className="flex justify-center mb-6">
-                  <div className="p-4 rounded-full bg-white dark:bg-gray-800 shadow-lg">
-                    {tutorialSteps[currentStep].icon}
-                  </div>
-                </div>
-
-                {/* Título */}
-                <h2 className="text-2xl font-bold text-center text-gray-800 dark:text-white mb-3">
-                  {tutorialSteps[currentStep].title}
-                </h2>
-
-                {/* Descripción */}
-                <p className="text-gray-600 dark:text-gray-300 text-center mb-8 leading-relaxed">
-                  {tutorialSteps[currentStep].description}
-                </p>
-
-                {/* Progreso circular */}
-                <div className="flex justify-center mb-8">
-                  <div className="relative w-20 h-20">
-                    <svg className="w-20 h-20 transform -rotate-90">
-                      <circle
-                        cx="40"
-                        cy="40"
-                        r="36"
-                        stroke="currentColor"
-                        strokeWidth="6"
-                        className="text-gray-300 dark:text-gray-700"
-                        fill="transparent"
-                      />
-                      <circle
-                        cx="40"
-                        cy="40"
-                        r="36"
-                        stroke="url(#gradient)"
-                        strokeWidth="6"
-                        strokeDasharray={2 * Math.PI * 36}
-                        strokeDashoffset={
-                          2 * Math.PI * 36 -
-                          (progress / 100) * (2 * Math.PI * 36)
-                        }
-                        className="transition-all duration-500"
-                        fill="transparent"
-                      />
-                      <defs>
-                        <linearGradient
-                          id="gradient"
-                          x1="0%"
-                          y1="0%"
-                          x2="100%"
-                          y2="0%"
-                        >
-                          <stop offset="0%" stopColor="#3b82f6" />
-                          <stop offset="100%" stopColor="#6366f1" />
-                        </linearGradient>
-                      </defs>
-                    </svg>
-                    <span className="absolute inset-0 flex items-center justify-center font-semibold text-gray-800 dark:text-white">
-                      {currentStep + 1}/{tutorialSteps.length}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Botones */}
-                <div className="flex justify-between">
-                  <button
-                    onClick={handlePrevStep}
-                    disabled={currentStep === 0}
-                    className={`px-5 py-2.5 rounded-xl font-medium transition-all ${
-                      currentStep === 0
-                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                        : "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 shadow"
-                    }`}
-                  >
-                    ← Anterior
-                  </button>
-
-                  <button
-                    onClick={handleNextStep}
-                    className="px-6 py-2.5 rounded-xl font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:opacity-90 shadow-lg transition-all"
-                  >
-                    {currentStep === tutorialSteps.length - 1
-                      ? "Finalizar"
-                      : "Siguiente →"}
-                  </button>
-                </div>
-              </div>
-            </div>
+            <SimpleSpotlightTour
+              steps={tourSteps}
+              isOpen={isTutorialOpen}
+              initialStep={currentStep}
+              onClose={() => setIsTutorialOpen(false)}
+              onStepChange={(s) => setCurrentStep(s)}
+            />
           )}
 
           {/* Módulos Principales */}
@@ -289,7 +240,8 @@ export default function HomePage() {
                 const IconComponent = module.icon;
                 return (
                   <Link key={module.href} href={module.href}>
-                    <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full dark:bg-gray-800 dark:border-gray-700 dark:hover:shadow-gray-700/25">
+                    <Card id={`card-${module.href.replace("/", "").replace("-", "-")}`}
+                      className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full dark:bg-gray-800 dark:border-gray-700 dark:hover:shadow-gray-700/25">
                       <CardHeader className="text-center pb-4">
                         <div
                           className={`w-16 h-16 ${module.color} rounded-full flex items-center justify-center mx-auto mb-4`}
@@ -322,7 +274,7 @@ export default function HomePage() {
                 const IconComponent = module.icon;
                 return (
                   <Link key={module.href} href={module.href}>
-                    <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full dark:bg-gray-800 dark:border-gray-700 dark:hover:shadow-gray-700/25">
+                    <Card id={`card-${module.href.replace("/", "").replace("-", "-")}`} className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full dark:bg-gray-800 dark:border-gray-700 dark:hover:shadow-gray-700/25">
                       <CardHeader className="text-center pb-4">
                         <div
                           className={`w-16 h-16 ${module.color} rounded-full flex items-center justify-center mx-auto mb-4`}
@@ -355,7 +307,7 @@ export default function HomePage() {
                 const IconComponent = reporte.icon;
                 return (
                   <Link key={reporte.href} href={reporte.href}>
-                    <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full dark:bg-gray-800 dark:border-gray-700 dark:hover:shadow-gray-700/25">
+                    <Card id={`card-${reporte.href.replace(/\//g, "-").replace(/^-/, "")}`} className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full dark:bg-gray-800 dark:border-gray-700 dark:hover:shadow-gray-700/25">
                       <CardHeader className="text-center pb-4">
                         <div
                           className={`w-16 h-16 ${reporte.color} rounded-full flex items-center justify-center mx-auto mb-4`}
@@ -427,6 +379,17 @@ export default function HomePage() {
           </div>
 
           {/* Botón flotante de diagnóstico: eliminado */}
+          {/* Botón flotante del tutorial (estilo diagnóstico) */}
+          <div className="fixed bottom-6 right-6 z-40">
+            <button
+              aria-label="Abrir tutorial"
+              onClick={() => setIsTutorialOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full flex items-center gap-3 shadow-lg"
+            >
+              <BookOpen className="w-5 h-5" />
+              <span className="hidden sm:inline">Iniciar Tutorial</span>
+            </button>
+          </div>
         </div>
       </div>
     </ProtectedRoute>
