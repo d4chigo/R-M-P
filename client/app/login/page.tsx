@@ -200,7 +200,7 @@ export default function LoginPage() {
       {/* Columna Derecha - Imagen decorativa */}
       <div className="hidden lg:block">
         <img
-          src="/Fondo4.jpg"
+          src="/Fondo5.jpeg"
           alt="Imagen decorativa"
           className="w-full h-screen object-cover object-center"
         />
