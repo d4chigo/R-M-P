@@ -28,7 +28,7 @@ import {
 // NOTE: node_modules may not be available in this environment; provide a small local spotlight
 // fallback so the tutorial button always funciona. The project already lists react-spotlight-tour,
 // but to guarantee behavior we implement a tiny tour here.
-import type { FC } from "react";
+import ProtectedRoute from "@/components/ProtectedRoute";
 
 type TourStepLocal = { selector: string; title: string; description?: string };
 
@@ -119,51 +119,89 @@ const SimpleSpotlightTour: FC<{
       } catch (e) {}
     };
   }, [isOpen, step, current.selector]);
+// Dentro del return del SimpleSpotlightTour
+return (
+  <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 100000 }}>
+    {/* Overlay con recorte */}
+    {rect && (
+      <div
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
+        style={{
+          // Generamos el hueco en forma rectangular alrededor del elemento
+          clipPath: `polygon(
+            0 0,
+            0 100%,
+            100% 100%,
+            100% 0,
+            0 0,
+            ${rect.left}px ${rect.top}px,
+            ${rect.right}px ${rect.top}px,
+            ${rect.right}px ${rect.bottom}px,
+            ${rect.left}px ${rect.bottom}px,
+            ${rect.left}px ${rect.top}px
+          )`,
+        }}
+        onClick={close}
+      />
+    )}
 
-  return (
-    <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 100000 }}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto" onClick={close} />
-      {el && rect ? (
-        <div
-          style={{ left: rect.left + window.scrollX, top: rect.top + window.scrollY }}
-          className="absolute pointer-events-auto"
-        >
-          <div className="rounded-md border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-lg p-4 max-w-xs">
-            <div className="font-semibold text-gray-900 dark:text-gray-100">{current.title}</div>
-            {current.description && (
-              <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">{current.description}</div>
-            )}
-            <div className="flex justify-between gap-2 mt-3">
-              <button onClick={prev} className="px-3 py-1 bg-gray-100 rounded disabled:opacity-50" disabled={step===0}>Anterior</button>
-              <div className="flex gap-2">
-                <button onClick={close} className="px-3 py-1 bg-red-100 rounded">Cerrar</button>
-                <button onClick={next} className="px-3 py-1 bg-blue-600 text-white rounded">{step === steps.length - 1 ? 'Finalizar' : 'Siguiente'}</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="fixed bottom-28 right-6 pointer-events-auto">
-          <div className="rounded-md border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-lg p-4 max-w-xs">
-            <div className="font-semibold text-gray-900 dark:text-gray-100">{current.title}</div>
-            {current.description && (
-              <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">{current.description}</div>
-            )}
-            <div className="flex justify-between gap-2 mt-3">
-              <button onClick={prev} className="px-3 py-1 bg-gray-100 rounded disabled:opacity-50" disabled={step===0}>Anterior</button>
-              <div className="flex gap-2">
-                <button onClick={close} className="px-3 py-1 bg-red-100 rounded">Cerrar</button>
-                <button onClick={next} className="px-3 py-1 bg-blue-600 text-white rounded">{step === steps.length - 1 ? 'Finalizar' : 'Siguiente'}</button>
-              </div>
-            </div>
-          </div>
+    {/* Tooltip */}
+    {rect && (
+      <div
+         style={{
+      position: "fixed", // ✅ ahora se adapta al viewport
+      left: rect.left + rect.width / 2, // centrado horizontal
+      top: rect.bottom + 4,             // más pegado al elemento
+      transform: "translateX(-50%)",    // centra el tooltip respecto al target
+      maxWidth: "90vw",                 // no se corta en pantallas pequeñas
+      // aparece debajo del elemento
+        }}
+        className="pointer-events-auto"
+      >
+        <div className="rounded-md border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-lg p-4">
+      <div className="font-semibold text-gray-900 dark:text-gray-100">
+        {current.title}
+      </div>
+      {current.description && (
+        <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+          {current.description}
         </div>
       )}
+      <div className="flex justify-between gap-2 mt-3">
+        <button
+          onClick={prev}
+          className="px-3 py-1 rounded disabled:opacity-50 
+               bg-gray-100 text-gray-800 hover:bg-gray-200
+               dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
+          disabled={step === 0}
+        >
+          Anterior
+        </button>
+        <div className="flex gap-2">
+          <button
+                onClick={close}
+                 className="px-3 py-1 rounded 
+                 bg-red-100 text-red-700 hover:bg-red-200
+                 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800"
+          >
+            Cerrar
+          </button>
+          <button
+             onClick={next}
+             className="px-3 py-1 rounded 
+                 bg-blue-600 text-white hover:bg-blue-700
+                 dark:bg-blue-500 dark:hover:bg-blue-400"
+          >
+            {step === steps.length - 1 ? "Finalizar" : "Siguiente"}
+          </button>
+        </div>
+      </div>
     </div>
-  );
+      </div>
+    )}
+  </div>
+);
 };
-import ProtectedRoute from "@/components/ProtectedRoute";
-
 export default function HomePage() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);

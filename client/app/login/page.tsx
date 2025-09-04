@@ -131,11 +131,7 @@ export default function LoginPage() {
                     />
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Credenciales de prueba: admin@rmp.com / demo@rmp.com
-                  </p>
                 </div>
-
                 {/* Password */}
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-gray-800">
@@ -168,9 +164,6 @@ export default function LoginPage() {
                       )}
                     </Button>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    Contraseñas de prueba: admin123 / demo123
-                  </p>
                 </div>
 
                 <Button
@@ -198,12 +191,6 @@ export default function LoginPage() {
                     </span>
                   }
                 />
-                <p className="text-sm text-gray-600 mt-2">
-                  ¿Otros problemas para acceder?{" "}
-                  <span className="text-blue-600 cursor-pointer hover:underline">
-                    Contacte al administrador
-                  </span>
-                </p>
               </div>
             </CardContent>
           </Card>
