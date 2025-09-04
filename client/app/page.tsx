@@ -54,7 +54,12 @@ const SimpleSpotlightTour: FC<{
   const el = typeof window !== "undefined" ? document.querySelector(current.selector) as HTMLElement | null : null;
 
   const next = () => {
-    const ns = Math.min(steps.length - 1, step + 1);
+    if (step >= steps.length - 1) {
+      // last step -> close the tour
+      close();
+      return;
+    }
+    const ns = step + 1;
     setStep(ns);
     onStepChange?.(ns);
   };
@@ -74,8 +79,49 @@ const SimpleSpotlightTour: FC<{
   // Compute position
   const rect = el?.getBoundingClientRect();
 
+  // Highlight target element by applying temporary inline styles and restore on cleanup
+  useEffect(() => {
+    if (!isOpen) return;
+    const target = typeof window !== "undefined" ? document.querySelector(current.selector) as HTMLElement | null : null;
+    if (!target) return;
+
+    const original = {
+      boxShadow: target.style.boxShadow || "",
+      zIndex: target.style.zIndex || "",
+      position: target.style.position || "",
+      transition: target.style.transition || "",
+      background: target.style.background || "",
+    };
+
+  // Ensure element is on top and get a visible highlight in dark or light mode
+    try {
+      if (getComputedStyle(document.documentElement).getPropertyValue("background-color") || document.documentElement.classList.contains("dark")) {
+        // dark mode-ish
+        target.style.boxShadow = "0 8px 30px rgba(99,102,241,0.45), 0 0 0 3px rgba(99,102,241,0.12)";
+      } else {
+        target.style.boxShadow = "0 8px 30px rgba(59,130,246,0.25), 0 0 0 3px rgba(59,130,246,0.08)";
+      }
+  // keep highlight zIndex lower than tooltip container (tooltip container will use zIndex 100000)
+  target.style.zIndex = "9990";
+      if (getComputedStyle(target).position === "static") target.style.position = "relative";
+      target.style.transition = "box-shadow 200ms ease, transform 200ms ease";
+    } catch (e) {
+      // ignore
+    }
+
+    return () => {
+      try {
+        target.style.boxShadow = original.boxShadow;
+        target.style.zIndex = original.zIndex;
+        target.style.position = original.position;
+        target.style.transition = original.transition;
+        target.style.background = original.background;
+      } catch (e) {}
+    };
+  }, [isOpen, step, current.selector]);
+
   return (
-    <div className="fixed inset-0 z-50 pointer-events-none">
+    <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 100000 }}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm pointer-events-auto" onClick={close} />
       {el && rect ? (
         <div
@@ -179,6 +225,9 @@ export default function HomePage() {
     },
   ];
 
+  // Combine modules so Tesorería appears within Módulos Principales
+  const allModules = [...modules, ...financeModules];
+
   const reportes = [
     {
       title: "Resumen de Rutas",
@@ -233,10 +282,10 @@ export default function HomePage() {
           {/* Módulos Principales */}
           <div className="mb-12">
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-              Módulos Principales
+              Módulos de Gestión y Finanzas
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-              {modules.map((module) => {
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full">
+              {allModules.map((module) => {
                 const IconComponent = module.icon;
                 return (
                   <Link key={module.href} href={module.href}>
@@ -264,45 +313,14 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Módulo de Tesorería */}
-          <div className="mb-12">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-              Módulo de Tesorería
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-              {financeModules.map((module) => {
-                const IconComponent = module.icon;
-                return (
-                  <Link key={module.href} href={module.href}>
-                    <Card id={`card-${module.href.replace("/", "").replace("-", "-")}`} className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full dark:bg-gray-800 dark:border-gray-700 dark:hover:shadow-gray-700/25">
-                      <CardHeader className="text-center pb-4">
-                        <div
-                          className={`w-16 h-16 ${module.color} rounded-full flex items-center justify-center mx-auto mb-4`}
-                        >
-                          <IconComponent className="w-8 h-8 text-white" />
-                        </div>
-                        <CardTitle className="text-lg dark:text-gray-100">
-                          {module.title}
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <CardDescription className="text-center dark:text-gray-300">
-                          {module.description}
-                        </CardDescription>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
+          {/* Tesorería integrado dentro de Módulos Principales */}
 
           {/* Reportes y Analytics */}
           <div className="mb-12">
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-              Reportes y Análisis
+              Modulos de Reportes y Análisis
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4 sm:gap-6">
               {reportes.map((reporte) => {
                 const IconComponent = reporte.icon;
                 return (
