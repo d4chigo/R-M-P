@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useSimpleCrud } from "./use-simple-api";
 
 export interface Viaje {
+  estado: string;
   id?: number;
   id_viaje?: number;
   fecha: string;
