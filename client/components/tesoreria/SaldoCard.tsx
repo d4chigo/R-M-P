@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import Cookies from "js-cookie";
+import { Wallet } from "lucide-react";
 
 export function SaldoCard() {
   const { isAdmin } = useAuth();
@@ -14,7 +16,7 @@ export function SaldoCard() {
   const [saldo, setSaldo] = useState<number | null>(null);
   const [updatedBy, setUpdatedBy] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
-  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(false);
   const [value, setValue] = useState(0);
 
   const API_BASE =
@@ -33,8 +35,8 @@ export function SaldoCard() {
         setUpdatedBy(json.data?.updated_by_nombre || null);
         setUpdatedAt(json.data?.updated_at || null);
       }
-    } catch (err) {
-      // ignore
+    } catch {
+      /* ignore */
     }
   };
 
@@ -43,12 +45,9 @@ export function SaldoCard() {
   }, []);
 
   useEffect(() => {
-    const handler = () => {
-      fetchSaldo();
-    };
+    const handler = () => fetchSaldo();
     window.addEventListener("tesoreria:saldo-changed", handler);
-    return () =>
-      window.removeEventListener("tesoreria:saldo-changed", handler);
+    return () => window.removeEventListener("tesoreria:saldo-changed", handler);
   }, []);
 
   const save = async () => {
@@ -66,13 +65,11 @@ export function SaldoCard() {
       if (json && json.success) {
         toast({
           title: "Saldo actualizado",
-          description: "El saldo de la tarjeta fue actualizado",
+          description: "El saldo fue actualizado correctamente",
         });
         setSaldo(parseFloat(String(value)));
-        setEditing(false);
-        try {
-          window.dispatchEvent(new Event("tesoreria:saldo-changed"));
-        } catch (e) {}
+        setOpen(false);
+        window.dispatchEvent(new Event("tesoreria:saldo-changed"));
       } else {
         toast({
           title: "Error",
@@ -80,7 +77,7 @@ export function SaldoCard() {
           variant: "destructive",
         });
       }
-    } catch (err) {
+    } catch {
       toast({
         title: "Error",
         description: "Error de conexión",
@@ -90,77 +87,78 @@ export function SaldoCard() {
   };
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>Tarjeta de Tesorería</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm text-muted-foreground">Saldo disponible</div>
-            <div className="text-2xl font-semibold">
-              {saldo != null
-                ? new Intl.NumberFormat("es-PE", {
-                    style: "currency",
-                    currency: "PEN",
-                  }).format(saldo)
-                : "Cargando..."}
+    <>
+      <Card className="w-full max-w-md shadow-sm rounded-lg">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+            <Wallet className="h-5 w-5 text-emerald-600" />
+            Tesorería
+          </CardTitle>
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setValue(Number(saldo ?? 0));
+                setOpen(true);
+              }}
+            >
+              Editar
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex items-baseline justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Saldo disponible</p>
+              <p className="text-xl font-bold text-emerald-700">
+                {saldo != null
+                  ? new Intl.NumberFormat("es-PE", {
+                      style: "currency",
+                      currency: "PEN",
+                    }).format(saldo)
+                  : "Cargando..."}
+              </p>
             </div>
           </div>
-          {isAdmin && (
-            <div>
-              <Button
-                size="sm"
-                onClick={() => {
-                  setValue(Number(saldo ?? 0));
-                  setEditing(true);
-                }}
-              >
-                Editar +
-              </Button>
+
+          {(isAdmin || updatedBy || updatedAt) && (
+            <div className="mt-2 text-xs text-muted-foreground space-y-1">
+              {updatedAt && (
+                <div>
+                  Última actualización: {new Date(updatedAt).toLocaleString("es-PE")}
+                </div>
+              )}
+              {updatedBy && <div>Actualizado por: {updatedBy}</div>}
             </div>
           )}
-        </div>
+        </CardContent>
+      </Card>
 
-        {(isAdmin || updatedBy || updatedAt) && (
-          <div className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-            {updatedAt && (
-              <div>
-                Última actualización:{" "}
-                {new Date(updatedAt).toLocaleString("es-PE")}
-              </div>
-            )}
-            {updatedBy && <div>Actualizado por: {updatedBy}</div>}
-          </div>
-        )}
-
-        {/* Modal */}
-        {editing && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="bg-white dark:bg-gray-900 rounded p-6 w-full max-w-md shadow-lg">
-              <h3 className="text-lg font-bold mb-4 dark:text-gray-100">
-                Editar Saldo
-              </h3>
-              <div className="mb-4">
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={value}
-                  onChange={(e) =>
-                    setValue(parseFloat(e.target.value) || 0)
-                  }
-                />
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setEditing(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={save}>Guardar</Button>
-              </div>
+      {/* Modal flotante de edición */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar Saldo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              type="number"
+              step="0.01"
+              value={value}
+              onChange={(e) => setValue(parseFloat(e.target.value) || 0)}
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={save}>
+                Guardar
+              </Button>
             </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
