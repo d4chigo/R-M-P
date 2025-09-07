@@ -408,7 +408,7 @@ try {
   if (enableRollover) {
     const cron = require('node-cron');
     const runRollover = require('./scripts/tesoreria-rollover');
-    const rolloverCron = process.env.TESORERIA_ROLLOVER_CRON || '59 23 * * *'; // 23:59 daily
+  const rolloverCron = process.env.TESORERIA_ROLLOVER_CRON || '59 23 * * *'; // 23:59 daily
     console.log('\n\u23f3 Tesoreria rollover scheduler ENABLED');
     console.log(`\u23f0 Cron schedule: ${rolloverCron}`);
     const taskR = cron.schedule(rolloverCron, async () => {
@@ -419,7 +419,7 @@ try {
       } catch (err) {
         console.error('\u274c [rollover] Error:', err);
       }
-    }, { scheduled: true, timezone: process.env.TESORERIA_ROLLOVER_TZ || 'UTC' });
+  }, { scheduled: true, timezone: process.env.TESORERIA_ROLLOVER_TZ || 'America/Lima' });
 
     process.on('SIGINT', async () => {
       try { if (taskR) taskR.stop(); console.log('\u2705 Rollover scheduler stopped'); } catch(e) {}

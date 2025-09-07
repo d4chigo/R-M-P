@@ -280,6 +280,16 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   const totalMonto = tesoreria.reduce((acc, it) => acc + (it.monto || 0), 0);
   const promedioMonto = totalRegistros > 0 ? totalMonto / totalRegistros : 0;
 
+  // Formatear fecha (DATE) sin desfasar zona horaria: si es 'YYYY-MM-DD', solo reordenar para dd/MM/yyyy
+  const formatDatePeru = (value: any) => {
+    if (!value) return "-";
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [y, m, d] = value.split('-');
+      return `${d}/${m}/${y}`;
+    }
+    try { return format(new Date(value), "dd/MM/yyyy", { locale: es }); } catch { return String(value); }
+  };
+
   if (loading) {
     if (variant === "simple") {
       return (
@@ -357,7 +367,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-gray-500" />
-                        {format(new Date(item.fecha), "dd/MM/yyyy", { locale: es })}
+                        {formatDatePeru(item.fecha)}
                       </div>
                     </TableCell>
                     <TableCell>{item.placa || ""}</TableCell>
@@ -500,7 +510,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                   <div>
                     <label className="text-sm font-medium text-gray-500">Fecha</label>
                     <p className="text-sm">
-                      {format(new Date(selectedTesoreria.fecha), "dd/MM/yyyy", { locale: es })}
+                      {formatDatePeru(selectedTesoreria.fecha)}
                     </p>
                   </div>
                   <div>
@@ -702,7 +712,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-gray-500" />
-                          {format(new Date(item.fecha), "dd/MM/yyyy", { locale: es })}
+                          {formatDatePeru(item.fecha)}
                         </div>
                       </TableCell>
                       <TableCell>{item.placa || "-"}</TableCell>
@@ -837,7 +847,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                 <div>
                   <label className="text-sm font-medium text-gray-500">Fecha</label>
                   <p className="text-sm">
-                    {format(new Date(selectedTesoreria.fecha), "dd/MM/yyyy", { locale: es })}
+                    {formatDatePeru(selectedTesoreria.fecha)}
                   </p>
                 </div>
                 <div>

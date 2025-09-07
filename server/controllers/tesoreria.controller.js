@@ -1,19 +1,35 @@
 const db = require("../config/db");
 const { logAudit } = require("../lib/audit");
 
+// Utilidad: Hoy en formato YYYY-MM-DD para zona horaria de Lima (Perú)
+function todayPeruYMD() {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Lima',
+      year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date());
+  } catch (e) {
+    // Fallback: ISO (UTC) — puede desfasar 1 día en algunos horarios
+    return new Date().toISOString().split('T')[0];
+  }
+}
+
 // Helper: construir cláusula WHERE según scope y filtros
 function buildWhereAndParams(query) {
   const { scope = "active", q, fecha_inicio, fecha_fin, categoria, reembolso, turno, distrito, encargado } = query;
   let where = "WHERE 1=1";
   const params = [];
+  // Normalizar 'hoy' a hora de Lima (Perú) independiente del TZ del servidor
+  // Usamos UTC_TIMESTAMP() y convertimos a -05:00, luego tomamos solo la fecha
+  const PERU_TODAY_SQL = "DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'))";
 
   // Scope
   if (scope === "trash") {
     where += " AND t.deleted_at IS NOT NULL";
   } else if (scope === "history") {
-    where += " AND t.deleted_at IS NULL AND t.fecha < CURDATE()";
+    where += ` AND t.deleted_at IS NULL AND t.fecha < ${PERU_TODAY_SQL}`;
   } else { // active (default)
-    where += " AND t.deleted_at IS NULL AND t.fecha = CURDATE()";
+    where += ` AND t.deleted_at IS NULL AND t.fecha = ${PERU_TODAY_SQL}`;
   }
 
   // Búsqueda libre
@@ -642,7 +658,7 @@ const rolloverSaldo = async (req, res) => {
         return res.json({ success: true, message: 'Rollover completado: saldo inicializado a 0' });
       }
       const saldoActual = parseFloat(rows[0].saldo || 0);
-      const fechaHoy = new Date().toISOString().split('T')[0];
+  const fechaHoy = todayPeruYMD();
   // Insertar snapshot en history
   await connection.query('INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final) VALUES (?, ?)', [fechaHoy, saldoActual]);
   // Política actual: mantener el sobrante para el día siguiente (no resetear el saldo)
@@ -727,7 +743,7 @@ const createAjuste = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Saldo insuficiente para aplicar el ajuste' });
       }
 
-      const f = fecha && String(fecha).trim() ? fecha : new Date().toISOString().split('T')[0];
+  const f = fecha && String(fecha).trim() ? fecha : todayPeruYMD();
       const [aj] = await connection.query(
         'INSERT INTO TESORERIA_AJUSTE (fecha, tipo, monto, motivo, created_by) VALUES (?, ?, ?, ?, ?)',
         [f, tipo, amount, String(motivo).trim(), req.usuario ? req.usuario.id_usuario : null]
@@ -779,7 +795,7 @@ const listAjustes = async (req, res) => {
 
 const resumenDia = async (req, res) => {
   try {
-    const fecha = (req.query?.fecha && String(req.query.fecha).trim()) || new Date().toISOString().split('T')[0];
+  const fecha = (req.query?.fecha && String(req.query.fecha).trim()) || todayPeruYMD();
     await ensureAjusteTables();
     // Opening: saldo_final del día anterior (si existe)
     const [openRows] = await db.query('SELECT saldo_final FROM TESORERIA_SALDO_HISTORY WHERE fecha = DATE_SUB(?, INTERVAL 1 DAY) LIMIT 1', [fecha]);
