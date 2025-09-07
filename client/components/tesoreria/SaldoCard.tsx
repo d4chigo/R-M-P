@@ -18,6 +18,7 @@ export function SaldoCard() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(0);
+  const [motivo, setMotivo] = useState("");
 
   const API_BASE =
     (typeof window !== "undefined" &&
@@ -53,13 +54,17 @@ export function SaldoCard() {
   const save = async () => {
     try {
       const token = Cookies.get("auth_token");
+      if (!motivo || !motivo.trim()) {
+        toast({ title: "Motivo requerido", description: "Ingrese un motivo para el ajuste del saldo", variant: "destructive" });
+        return;
+      }
       const res = await fetch(`${API_BASE}/tesoreria/saldo/actual`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: token ? `Bearer ${token}` : "",
         },
-        body: JSON.stringify({ saldo: parseFloat(String(value)) }),
+        body: JSON.stringify({ saldo: parseFloat(String(value)), motivo: String(motivo).trim() }),
       });
       const json = await res.json();
       if (json && json.success) {
@@ -69,6 +74,7 @@ export function SaldoCard() {
         });
         setSaldo(parseFloat(String(value)));
         setOpen(false);
+  setMotivo("");
         window.dispatchEvent(new Event("tesoreria:saldo-changed"));
       } else {
         toast({
@@ -147,6 +153,11 @@ export function SaldoCard() {
               step="0.01"
               value={value}
               onChange={(e) => setValue(parseFloat(e.target.value) || 0)}
+            />
+            <Input
+              placeholder="Motivo del ajuste (requerido)"
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
             />
             <div className="flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>

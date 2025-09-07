@@ -40,24 +40,16 @@ import { useToast } from "@/hooks/use-toast";
 
 const tesoreriaSchema = z.object({
   fecha: z.string().min(1, "La fecha es requerida"),
-  // placa uses a sentinel value '__none' for the empty option in the Select.
-  // Transform that sentinel (or empty string/undefined) into undefined for backend.
-  placa: z.string().optional().transform((v) => (v === undefined || v === "" || v === "__none" ? undefined : v)),
+  placa: z.string().min(1, "La PLACA T2 es requerida"), // PLACA T2: texto libre, puede ser CD, placa, etc
   nombre: z.string().min(1, "El nombre es requerido"),
-  id_centro: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((v) => (v === undefined || v === "" ? undefined : Number(v))),
-  cargo: z.string().optional(),
+  id_centro: z.union([z.string(), z.number()]).optional().transform((v) => (v === undefined || v === "" ? undefined : Number(v))),
+  cargo: z.string().optional(), // Opcional
   categoria: z.string().min(1, "La categoría es requerida"),
   detalle: z.string().optional(),
-  reembolso: z.string().optional(),
-  distrito: z.string().optional(),
-  turno: z
-    .union([z.string(), z.number()])
-    .optional()
-    .transform((v) => (v === undefined || v === "" ? undefined : Number(v))),
-  encargado: z.string().optional(),
+  reembolso: z.enum(["Si", "No"]).optional(), // Opcional
+  distrito: z.string().min(1, "El distrito es requerido"),
+  turno: z.string().min(1, "El turno es requerido"),
+  encargado: z.string().min(1, "El encargado es requerido"),
   monto: z.number().min(0.01, "El monto debe ser mayor a 0"),
 });
 
@@ -73,13 +65,31 @@ const categorias = [
   "Mantenimiento",
   "Salarios",
   "Peajes",
+  "Viáticos",
   "Seguros",
   "Licencias",
   "Impuestos",
   "Servicios",
   "Ventas",
+  "Adelantos",
   "Comisiones",
   "Otros",
+];
+
+const cargos = [
+  "Liquidador",
+  "Conductor",
+  "Asistente",
+  "Auxiliar",
+  "Supervisor",
+];
+
+const reembolsos = ["Si", "No"];
+
+const turnos = [
+  { value: 1, label: "1 - Mañana" },
+  { value: 2, label: "2 - Tarde" },
+  { value: 3, label: "3 - Noche" },
 ];
 
 const subcategorias = {
@@ -160,20 +170,26 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     resolver: zodResolver(tesoreriaSchema),
     defaultValues: {
       fecha: tesoreria?.fecha || new Date().toISOString().split("T")[0],
-      placa: tesoreria?.placa || "",
+  placa: tesoreria?.placa || "",
       nombre: tesoreria?.nombre || "",
       cargo: tesoreria?.cargo || "",
       categoria: tesoreria?.categoria || "",
       detalle: tesoreria?.detalle || "",
-      reembolso: tesoreria?.reembolso || "",
-      distrito: tesoreria?.distrito || "",
-      turno: tesoreria?.turno ?? undefined,
-      encargado: tesoreria?.encargado || "",
+  reembolso: tesoreria?.reembolso || "",
+  distrito: tesoreria?.distrito || "",
+  turno: tesoreria?.turno ? String(tesoreria.turno) : "",
+  encargado: tesoreria?.encargado || "",
       monto: tesoreria?.monto || 0,
     },
   });
 
   const handleSubmit = async (data: z.infer<typeof tesoreriaSchema>) => {
+    // Normalizar payload (turno como número, reembolso vacío a undefined)
+    const payload: any = {
+      ...data,
+      turno: data.turno ? Number(data.turno) : undefined,
+      reembolso: !data.reembolso || data.reembolso === 'none' || data.reembolso === '' ? undefined : data.reembolso,
+    };
     // If creating (no tesoreria), validate saldo for all users (admins included).
     if (!tesoreria) {
       try {
@@ -181,7 +197,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
         const res = await fetch(`${API_BASE}/tesoreria/saldo/actual`);
         const json = await res.json();
         const saldoActual = parseFloat(json?.data?.saldo || 0);
-        if (data.monto > saldoActual) {
+        if (payload.monto > saldoActual) {
           toast({ title: 'Saldo insuficiente', description: 'El monto excede el saldo disponible en la tarjeta de tesorería', variant: 'destructive' });
           return false;
         }
@@ -198,8 +214,11 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
 
     // For admins or when editing, proceed to submit directly
     try {
-      const success = await onSubmit(data as any);
-      if (success) form.reset();
+      const success = await onSubmit(payload as any);
+      if (success) {
+        form.reset();
+        try { window.dispatchEvent(new Event('tesoreria:refresh')); } catch {}
+      }
       return success;
     } catch (err) {
       console.error('Error on submit:', err);
@@ -223,7 +242,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-            {/* Fecha */}
+      {/* Campos obligatorios */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -232,7 +251,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                   <FormItem className="flex flex-col">
                     <FormLabel className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
-                      Fecha
+          Fecha *
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -247,62 +266,27 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               />
             </div>
 
-            {/* Placa y Nombre */}
+      {/* PLACA T2 y Nombre (obligatorios) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="placa"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Placa</FormLabel>
-                      <div className="relative">
-                        <Input
-                          placeholder="Buscar placa..."
-                          value={searchPlaca || field.value || ''}
-                          onChange={(e) => { setSearchPlaca(e.target.value); if (e.target.value === '') form.setValue('placa', ''); }}
-                          onFocus={() => setShowPlacas(true)}
-                          onBlur={() => setTimeout(() => setShowPlacas(false), 200)}
-                        />
-                        {showPlacas && (
-                          <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border rounded bg-white dark:bg-gray-900 shadow-lg dark:shadow-lg">
-                             {vehiculos.length > 0 ? (
-                                vehiculos.map((vh) => (
-                                  <div
-                                    key={vh.id_vehiculo}
-                                    className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                    onMouseDown={(e) => {
-                                      e.preventDefault();
-                                      form.setValue("placa", vh.placa);
-                                      setSearchPlaca(`${vh.placa} - ${vh.marca} ${vh.modelo}`);
-                                      setShowPlacas(false);
-                                    }}
-                                  >
-                                    <div className="font-medium">{vh.placa}</div>
-                                    <div className="text-sm text-gray-600 dark:text-gray-300">
-                                      {vh.marca} {vh.modelo} {vh.anio ? `(${vh.anio})` : ""}
-                                    </div>
-                                  </div>
-                                ))
-                              ) : (
-                                <div className="p-2 text-gray-500 dark:text-gray-400">
-                                  No se encontraron vehículos
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
+              <FormField
+                control={form.control}
+                name="placa"
+                render={({ field }) => (
+                  <FormItem>
+        <FormLabel>PLACA T2 / CD *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Placa, CD, etc" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="nombre"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Nombre</FormLabel>
+        <FormLabel>Nombre *</FormLabel>
                     <FormControl>
                       <Input placeholder="Nombre completo" {...field} />
                     </FormControl>
@@ -354,15 +338,15 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               </div>
             </div>
 
-            {/* Cargo y Categoría */}
+            {/* Categoría (obligatoria) y Cargo (opcional) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="categoria"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Categoría</FormLabel>
-                    <Select onValueChange={handleCategoriaChange} defaultValue={field.value}>
+                    <FormLabel>Categoría *</FormLabel>
+                    <Select onValueChange={handleCategoriaChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar categoría" />
@@ -386,9 +370,63 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cargo</FormLabel>
+                    <Select
+                      onValueChange={(val: string) => field.onChange(val === 'none' ? '' : val)}
+                      value={field.value === '' ? 'none' : field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="(Vacío o seleccione)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">(Vacío)</SelectItem>
+                        {cargos.map((cargo) => (
+                          <SelectItem key={cargo} value={cargo}>{cargo}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            {/* Distrito y Turno (ambos obligatorios) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="distrito"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Distrito *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Cargo" {...field} />
+                      <Input placeholder="Distrito" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="turno"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Turno *</FormLabel>
+                    <Select
+                      onValueChange={(val: string) => field.onChange(val)}
+                      value={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleccione turno" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {turnos.map((t) => (
+                          <SelectItem key={t.value} value={String(t.value)}>{t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -417,14 +455,14 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               )}
             />
 
-            {/* Monto */}
+            {/* Monto (obligatorio) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="monto"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Monto</FormLabel>
+                    <FormLabel>Monto *</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -432,7 +470,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                         min="0"
                         placeholder="0.00"
                         {...field}
-                        onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.onChange(parseFloat(e.target.value) || 0)}
                       />
                     </FormControl>
                     <FormMessage />
@@ -442,30 +480,16 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               {/* espacio para layout */}
             </div>
 
-            {/* Reembolso y Distrito */}
+            {/* Encargado (obligatorio) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="reembolso"
+                name="encargado"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Reembolso</FormLabel>
+                    <FormLabel>Encargado *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Reembolso" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="distrito"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Distrito</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Distrito" {...field} />
+                      <Input placeholder="Encargado" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -473,31 +497,30 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               />
             </div>
 
-            {/* Turno y Encargado */}
+            {/* Opcionales: Reembolso */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="turno"
+                name="reembolso"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Turno</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="0" placeholder="0" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="encargado"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Encargado</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Encargado" {...field} />
-                    </FormControl>
+                    <FormLabel>Reembolso (opcional)</FormLabel>
+                    <Select
+                      onValueChange={(val: string) => field.onChange(val === 'none' ? '' : val)}
+                      value={field.value === '' ? 'none' : field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="(Vacío o seleccione)" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">(Vacío)</SelectItem>
+                        {reembolsos.map((r) => (
+                          <SelectItem key={r} value={r}>{r}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -535,10 +558,11 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                         onClick={async () => {
                           // Leer los valores actuales del formulario y enviar
                           const values = form.getValues();
-                          const success = await onSubmit(values as any);
+                          const success = await onSubmit({ ...values, turno: values.turno ? Number(values.turno) : undefined } as any);
                           if (success) {
                             form.reset();
                             setShowConfirm(false);
+                            try { window.dispatchEvent(new Event('tesoreria:refresh')); } catch {}
                           }
                         }}
                       >

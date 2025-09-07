@@ -149,11 +149,13 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     "Mantenimiento",
     "Salarios",
     "Peajes",
+  "Viáticos",
     "Seguros",
     "Licencias",
     "Impuestos",
     "Servicios",
     "Ventas",
+  "Adelantos",
     "Comisiones",
     "Otros",
   ];
@@ -325,7 +327,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
-                <TableHead>Placa</TableHead>
+                <TableHead>PLACA T2</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Cargo</TableHead>
                 <TableHead>Categoría</TableHead>
@@ -341,16 +343,16 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
             <TableBody>
               {tesoreria.length === 0 ? (
                 <TableRow>
-                    <TableCell colSpan={12} className="py-16">
-                      <div className="flex flex-col items-center justify-center text-center text-muted-foreground">
-                        <FileText className="h-12 w-12 mb-4 text-gray-400" />
-                        <h3 className="text-lg font-semibold">No hay registros de tesorería</h3>
-                        <p className="text-sm">Comienza creando tu primer registro</p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <TableCell colSpan={12} className="py-16">
+                    <div className="flex flex-col items-center justify-center text-center text-muted-foreground">
+                      <FileText className="h-12 w-12 mb-4 text-gray-400" />
+                      <h3 className="text-lg font-semibold">No hay registros de tesorería</h3>
+                      <p className="text-sm">Comienza creando tu primer registro</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ) : (
-                paginatedData.map((item) => (
+                (paginatedData as Tesoreria[]).map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
@@ -358,26 +360,22 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                         {format(new Date(item.fecha), "dd/MM/yyyy", { locale: es })}
                       </div>
                     </TableCell>
-                    <TableCell>{item.placa || "-"}</TableCell>
+                    <TableCell>{item.placa || ""}</TableCell>
                     <TableCell>{item.nombre}</TableCell>
-                    <TableCell>{item.cargo || "-"}</TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{item.categoria}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="max-w-xs truncate" title={item.detalle || ""}>
-                        {item.detalle || "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>{item.reembolso || "-"}</TableCell>
-                    <TableCell>{item.distrito || "-"}</TableCell>
-                    <TableCell>{item.turno ?? "-"}</TableCell>
-                    <TableCell>{item.encargado || "-"}</TableCell>
-                    <TableCell>
-                      <div className="font-medium">{formatCurrency(item.monto)}</div>
-                    </TableCell>
+                    <TableCell>{item.cargo || ""}</TableCell>
+                    <TableCell>{item.categoria}</TableCell>
+                    <TableCell>{item.detalle || ""}</TableCell>
+                    <TableCell>{item.reembolso || ""}</TableCell>
+                    <TableCell>{item.distrito || ""}</TableCell>
+                    <TableCell>{(() => {
+                      const n = Number(item.turno);
+                      if (n === 1) return '1 - Mañana';
+                      if (n === 2) return '2 - Tarde';
+                      if (n === 3) return '3 - Noche';
+                      return item.turno || '';
+                    })()}</TableCell>
+                    <TableCell>{item.encargado || ""}</TableCell>
+                    <TableCell>{formatCurrency(item.monto)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         {mode !== "trash" ? (
@@ -506,8 +504,8 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Placa</label>
-                    <p className="text-sm">{selectedTesoreria.placa || "-"}</p>
+                    <label className="text-sm font-medium text-gray-500">PLACA T2</label>
+                    <p className="text-sm">{selectedTesoreria.placa || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Nombre</label>
@@ -515,45 +513,40 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Cargo</label>
-                    <p className="text-sm">{selectedTesoreria.cargo || "-"}</p>
+                    <p className="text-sm">{selectedTesoreria.cargo || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Categoría</label>
                     <p className="text-sm">{selectedTesoreria.categoria}</p>
                   </div>
                   <div>
+                    <label className="text-sm font-medium text-gray-500">Detalle</label>
+                    <p className="text-sm">{selectedTesoreria.detalle || ""}</p>
+                  </div>
+                  <div>
                     <label className="text-sm font-medium text-gray-500">Reembolso</label>
-                    <p className="text-sm">{selectedTesoreria.reembolso || "-"}</p>
+                    <p className="text-sm">{selectedTesoreria.reembolso || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Distrito</label>
-                    <p className="text-sm">{selectedTesoreria.distrito || "-"}</p>
+                    <p className="text-sm">{selectedTesoreria.distrito || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Turno</label>
-                    <p className="text-sm">{selectedTesoreria.turno ?? "-"}</p>
+                    <p className="text-sm">{
+                      selectedTesoreria.turno === 1 ? '1 - Mañana' :
+                      selectedTesoreria.turno === 2 ? '2 - Tarde' :
+                      selectedTesoreria.turno === 3 ? '3 - Noche' :
+                      selectedTesoreria.turno || ""
+                    }</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Encargado</label>
-                    <p className="text-sm">{selectedTesoreria.encargado || "-"}</p>
+                    <p className="text-sm">{selectedTesoreria.encargado || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Monto</label>
                     <p className="text-sm font-medium">{formatCurrency(selectedTesoreria.monto)}</p>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Detalle</label>
-                  <p className="text-sm mt-1">{selectedTesoreria.detalle || "-"}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Creado</label>
-                    <p className="text-sm">{format(new Date(selectedTesoreria.created_at), "dd/MM/yyyy HH:mm", { locale: es })}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Actualizado</label>
-                    <p className="text-sm">{format(new Date(selectedTesoreria.updated_at), "dd/MM/yyyy HH:mm", { locale: es })}</p>
                   </div>
                 </div>
               </div>
