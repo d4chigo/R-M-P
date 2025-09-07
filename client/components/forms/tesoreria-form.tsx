@@ -108,15 +108,24 @@ const subcategorias = {
 
 export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: TesoreriaFormProps) {
   const { isAdmin } = useAuth();
-  const formatPEN = (n: number) =>
-    new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(isNaN(n) ? 0 : n);
-  const parsePEN = (s: string) => {
-    const cleaned = String(s || "").replace(/[^0-9,.-]/g, "");
-    // Quitar separadores de miles y normalizar decimal coma->punto
-    const normalized = cleaned.replace(/\./g, "").replace(/,/g, ".");
-    const num = parseFloat(normalized);
-    return isNaN(num) ? 0 : num;
+  // Fecha local Lima (Perú) en formato YYYY-MM-DD
+  const todayPeruYMD = () => {
+    try {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/Lima",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+    } catch {
+      return new Date().toISOString().split("T")[0];
+    }
   };
+  // Formateador de números con 2 decimales sin símbolo (mostramos prefijo S/ aparte)
+  const formatNumberPretty = (n: number) =>
+    new Intl.NumberFormat("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+      isNaN(n) ? 0 : n
+    );
   const [selectedCategoria, setSelectedCategoria] = useState<string>(
     tesoreria?.categoria || ""
   );
@@ -178,7 +187,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
   const form = useForm<z.infer<typeof tesoreriaSchema>>({
     resolver: zodResolver(tesoreriaSchema),
     defaultValues: {
-      fecha: tesoreria?.fecha || new Date().toISOString().split("T")[0],
+  fecha: (tesoreria?.fecha && /^\d{4}-\d{2}-\d{2}$/.test(tesoreria.fecha) ? tesoreria.fecha : tesoreria?.fecha) || todayPeruYMD(),
   placa: tesoreria?.placa || "",
       nombre: tesoreria?.nombre || "",
       cargo: tesoreria?.cargo || "",
@@ -191,11 +200,12 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       monto: tesoreria?.monto || 0,
     },
   });
+  // Estado visual del monto (sin símbolo, ya que mostramos prefijo S/)
   const [montoInput, setMontoInput] = useState<string>(
-    formatPEN(tesoreria?.monto ?? 0)
+    formatNumberPretty(tesoreria?.monto ?? 0)
   );
   useEffect(() => {
-    setMontoInput(formatPEN(form.getValues("monto") || 0));
+    setMontoInput(formatNumberPretty(form.getValues("monto") || 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tesoreria?.monto]);
 
@@ -471,7 +481,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               )}
             />
 
-            {/* Monto (obligatorio) — entrada formateada en moneda */}
+            {/* Monto (obligatorio) — entrada simple y bonita con prefijo S/ */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -480,19 +490,33 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                   <FormItem>
                     <FormLabel>Monto *</FormLabel>
                     <FormControl>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="S/ 0.00"
-                        value={montoInput}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setMontoInput(val);
-                          const num = parsePEN(val);
-                          field.onChange(num);
-                        }}
-                        onBlur={() => setMontoInput(formatPEN(form.getValues("monto") || 0))}
-                      />
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-3 flex items-center text-gray-500 select-none">
+                          S/
+                        </span>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          pattern="[0-9]*[.,]?[0-9]*"
+                          placeholder="0.00"
+                          className="pl-10"
+                          value={montoInput}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            // Permitir números, coma o punto. Normalizar a punto para cálculo.
+                            const cleaned = raw.replace(/[^0-9,\.]/g, "");
+                            const normalized = cleaned.replace(/,/g, ".");
+                            setMontoInput(cleaned);
+                            const num = parseFloat(normalized);
+                            field.onChange(isNaN(num) ? 0 : num);
+                          }}
+                          onFocus={(e) => e.currentTarget.select()}
+                          onBlur={() => {
+                            const n = form.getValues("monto") || 0;
+                            setMontoInput(formatNumberPretty(n));
+                          }}
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
