@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { logAudit } = require("../lib/audit");
 
 // Helper: construir cláusula WHERE según scope y filtros
 function buildWhereAndParams(query) {
@@ -217,6 +218,17 @@ const createTesoreria = async (req, res) => {
 
       await connection.commit();
 
+      // Audit
+      try {
+        await logAudit({
+          req,
+          evento: 'CREATE',
+          entidad: 'TESORERIA',
+          entityId: result.insertId,
+          detalle: { after: { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto }, saldo_after: nuevoSaldo }
+        });
+      } catch (e) {}
+
       res.status(201).json({ success: true, data: { id: result.insertId }, message: "Registro de tesorería creado exitosamente" });
     } catch (txErr) {
       console.error('Error en transacción crear tesorería:', txErr);
@@ -231,24 +243,29 @@ const createTesoreria = async (req, res) => {
   }
 };
 
-// Actualizar un registro de tesorería (nuevo esquema)
+// Actualizar un registro de tesorería (ajusta el saldo si cambia el monto)
 const updateTesoreria = async (req, res) => {
   try {
-  // Defensa en profundidad: verificar roles en request (debe establecer middleware)
-  if (!req.userRoles && req.usuario && req.usuario.roles) {
-    // normalizar roles si vienen en req.usuario.roles
-    req.userRoles = req.usuario.roles.map(r => String(r).toUpperCase());
-  }
-  if (!req.userRoles || !req.userRoles.includes('ADMINISTRADOR')) {
-    return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
-  }
-  const { id } = req.params;
-  const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto } = req.body;
+    // Defensa en profundidad: verificar roles en request (debe establecer middleware)
+    if (!req.userRoles && req.usuario && req.usuario.roles) {
+      // normalizar roles si vienen en req.usuario.roles
+      req.userRoles = req.usuario.roles.map(r => String(r).toUpperCase());
+    }
+    if (!req.userRoles || !req.userRoles.includes('ADMINISTRADOR')) {
+      return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
+    }
+
+    const { id } = req.params;
+    const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado } = req.body;
+    const newMonto = req.body.monto;
 
     // Verificar que el registro existe
-    const [existing] = await db.query("SELECT id FROM TESORERIA WHERE id = ?", [id]);
+    const [existing] = await db.query("SELECT id, monto, deleted_at FROM TESORERIA WHERE id = ?", [id]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: "Registro de tesorería no encontrado" });
+    }
+    if (existing[0].deleted_at) {
+      return res.status(400).json({ success: false, message: 'No se puede editar un registro en la papelera' });
     }
 
     // Si se proporcionó id_centro, validar que exista
@@ -259,41 +276,105 @@ const updateTesoreria = async (req, res) => {
       }
     }
 
-    await db.query(
-      `UPDATE TESORERIA SET
-        fecha = COALESCE(?, fecha),
-        placa = COALESCE(?, placa),
-        nombre = COALESCE(?, nombre),
-        cargo = COALESCE(?, cargo),
-        categoria = COALESCE(?, categoria),
-        detalle = COALESCE(?, detalle),
-        reembolso = COALESCE(?, reembolso),
-        distrito = COALESCE(?, distrito),
-        id_centro = COALESCE(?, id_centro),
-        turno = COALESCE(?, turno),
-        encargado = COALESCE(?, encargado),
-        monto = COALESCE(?, monto),
-        updated_by = ?,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?`,
-      [fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro ?? null, turno, encargado, monto, req.usuario ? req.usuario.id_usuario : null, id]
-    );
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
 
-    res.json({ success: true, message: "Registro de tesorería actualizado exitosamente" });
+      // Ajustar saldo si cambia el monto
+      if (typeof newMonto !== 'undefined' && newMonto !== null) {
+        const oldMonto = parseFloat(existing[0].monto);
+        const delta = parseFloat(newMonto) - oldMonto; // si >0: restar adicional; si <0: devolver saldo
+        if (delta !== 0) {
+          const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+          let saldoId, saldoActual;
+          if (saldoRows.length === 0) {
+            const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
+            saldoId = ins.insertId;
+            saldoActual = 0;
+          } else {
+            saldoId = saldoRows[0].id;
+            saldoActual = parseFloat(saldoRows[0].saldo || 0);
+          }
+
+          if (delta > 0 && delta > saldoActual) {
+            await connection.rollback();
+            return res.status(400).json({ success: false, message: 'Saldo insuficiente para aumentar el monto' });
+          }
+
+          const nuevoSaldo = saldoActual - delta; // si delta negativo, se suma
+          await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+        }
+      }
+
+      // Actualizar registro
+      await connection.query(
+        `UPDATE TESORERIA SET
+          fecha = COALESCE(?, fecha),
+          placa = COALESCE(?, placa),
+          nombre = COALESCE(?, nombre),
+          cargo = COALESCE(?, cargo),
+          categoria = COALESCE(?, categoria),
+          detalle = COALESCE(?, detalle),
+          reembolso = COALESCE(?, reembolso),
+          distrito = COALESCE(?, distrito),
+          id_centro = COALESCE(?, id_centro),
+          turno = COALESCE(?, turno),
+          encargado = COALESCE(?, encargado),
+          monto = COALESCE(?, monto),
+          updated_by = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?`,
+        [fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro ?? null, turno, encargado, newMonto, req.usuario ? req.usuario.id_usuario : null, id]
+      );
+
+      await connection.commit();
+      // Audit
+      try {
+        await logAudit({
+          req,
+          evento: 'UPDATE',
+          entidad: 'TESORERIA',
+          entityId: Number(id),
+          detalle: { change: { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto: newMonto }, note: 'Saldo ajustado si cambió el monto' }
+        });
+      } catch (e) {}
+      res.json({ success: true, message: "Registro de tesorería actualizado exitosamente" });
+    } catch (txErr) {
+      await connection.rollback();
+      console.error('Error en transacción actualizar tesorería:', txErr);
+      res.status(500).json({ success: false, message: 'Error al actualizar registro de tesorería', error: txErr.message });
+    } finally {
+      connection.release();
+    }
   } catch (error) {
     console.error("❌ Error al actualizar registro de tesorería:", error);
     res.status(500).json({ success: false, message: "Error al actualizar registro de tesorería", error: error.message });
   }
 };
 
-// Obtener saldo actual de la tarjeta de tesorería
+// Obtener saldo actual de la tarjeta de tesorería (incluye nombre de quien actualizó si está disponible)
 const getSaldo = async (_req, res) => {
   try {
-    const [rows] = await db.query('SELECT id, saldo, updated_by, updated_at, created_at FROM TESORERIA_SALDO LIMIT 1');
-    if (rows.length === 0) {
-      return res.json({ success: true, data: { saldo: 0 }, message: 'Saldo por defecto' });
+    try {
+      const [rows] = await db.query(
+        `SELECT s.id, s.saldo, s.updated_by, s.updated_at, s.created_at, u.nombre_completo AS updated_by_nombre
+         FROM TESORERIA_SALDO s
+         LEFT JOIN USUARIO u ON s.updated_by = u.id_usuario
+         LIMIT 1`
+      );
+      if (rows.length === 0) {
+        return res.json({ success: true, data: { saldo: 0 }, message: 'Saldo por defecto' });
+      }
+      return res.json({ success: true, data: rows[0], message: 'Saldo obtenido' });
+    } catch (e) {
+      const [rows2] = await db.query('SELECT id, saldo, updated_by, updated_at, created_at FROM TESORERIA_SALDO LIMIT 1');
+      if (rows2.length === 0) {
+        return res.json({ success: true, data: { saldo: 0 }, message: 'Saldo por defecto' });
+      }
+      const r = rows2[0];
+      r.updated_by_nombre = null;
+      return res.json({ success: true, data: r, message: 'Saldo obtenido' });
     }
-    res.json({ success: true, data: rows[0], message: 'Saldo obtenido' });
   } catch (error) {
     console.error('Error obteniendo saldo:', error);
     res.status(500).json({ success: false, message: 'Error al obtener saldo', error: error.message });
@@ -303,19 +384,36 @@ const getSaldo = async (_req, res) => {
 // Actualizar saldo (solo admin)
 const updateSaldo = async (req, res) => {
   try {
-    const { saldo } = req.body;
+    const { saldo, motivo } = req.body || {};
     if (typeof saldo === 'undefined' || isNaN(parseFloat(saldo))) {
       return res.status(400).json({ success: false, message: 'Saldo inválido' });
     }
+    if (parseFloat(saldo) < 0) {
+      return res.status(400).json({ success: false, message: 'El saldo no puede ser negativo' });
+    }
 
-    const [rows] = await db.query('SELECT id FROM TESORERIA_SALDO LIMIT 1');
+    const [rows] = await db.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1');
     if (rows.length === 0) {
+      if (typeof motivo === 'undefined' || String(motivo).trim() === '') {
+        return res.status(400).json({ success: false, message: 'Debe especificar un motivo para establecer el saldo inicial' });
+      }
       const [ins] = await db.query('INSERT INTO TESORERIA_SALDO (saldo, updated_by) VALUES (?, ?)', [saldo, req.usuario ? req.usuario.id_usuario : null]);
+      try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: ins.insertId, detalle: { motivo, before: { saldo: 0 }, after: { saldo: parseFloat(saldo) }, delta: parseFloat(saldo) } }); } catch(e) {}
       return res.json({ success: true, data: { id: ins.insertId, saldo }, message: 'Saldo creado' });
     }
 
     const id = rows[0].id;
-    await db.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [saldo, req.usuario ? req.usuario.id_usuario : null, id]);
+    const beforeSaldo = parseFloat(rows[0].saldo || 0);
+    const afterSaldo = parseFloat(saldo);
+    const delta = afterSaldo - beforeSaldo;
+    if (delta === 0) {
+      return res.json({ success: true, data: { id, saldo: afterSaldo }, message: 'Saldo sin cambios' });
+    }
+    if (typeof motivo === 'undefined' || String(motivo).trim() === '') {
+      return res.status(400).json({ success: false, message: 'Debe especificar un motivo para ajustar el saldo' });
+    }
+    await db.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [afterSaldo, req.usuario ? req.usuario.id_usuario : null, id]);
+    try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: id, detalle: { motivo, before: { saldo: beforeSaldo }, after: { saldo: afterSaldo }, delta } }); } catch(e) {}
     res.json({ success: true, data: { id, saldo }, message: 'Saldo actualizado' });
   } catch (error) {
     console.error('Error actualizando saldo:', error);
@@ -323,7 +421,7 @@ const updateSaldo = async (req, res) => {
   }
 };
 
-// Eliminar (soft delete) un registro de tesorería
+// Eliminar (soft delete) un registro de tesorería y devolver el monto al saldo
 const deleteTesoreria = async (req, res) => {
   try {
     // Defensa en profundidad: sólo ADMINISTRADOR puede eliminar
@@ -345,8 +443,44 @@ const deleteTesoreria = async (req, res) => {
       return res.json({ success: true, message: "El registro ya se encuentra en la papelera" });
     }
 
-    await db.query("UPDATE TESORERIA SET deleted_at = NOW(), updated_at = CURRENT_TIMESTAMP WHERE id = ?", [id]);
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+      // Devolver monto al saldo
+      const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+      let saldoId, saldoActual;
+      if (saldoRows.length === 0) {
+        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
+        saldoId = ins.insertId;
+        saldoActual = 0;
+      } else {
+        saldoId = saldoRows[0].id;
+        saldoActual = parseFloat(saldoRows[0].saldo || 0);
+      }
+      const nuevoSaldo = saldoActual + parseFloat(existing[0].monto);
+      await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
 
+      // Marcar como eliminado
+      await connection.query("UPDATE TESORERIA SET deleted_at = NOW(), updated_at = CURRENT_TIMESTAMP WHERE id = ?", [id]);
+      await connection.commit();
+    } catch (txErr) {
+      await connection.rollback();
+      console.error('Error en transacción eliminar tesorería:', txErr);
+      return res.status(500).json({ success: false, message: 'Error al eliminar registro de tesorería', error: txErr.message });
+    } finally {
+      connection.release();
+    }
+
+    // Audit
+    try {
+      await logAudit({
+        req,
+        evento: 'DELETE',
+        entidad: 'TESORERIA',
+        entityId: Number(id),
+        detalle: { before: existing[0] }
+      });
+    } catch (e) {}
     res.json({ success: true, message: `Registro enviado a la papelera: ${existing[0].nombre} - ${existing[0].categoria} S/.${existing[0].monto}` });
   } catch (error) {
     console.error("❌ Error al eliminar registro de tesorería:", error);
@@ -354,7 +488,7 @@ const deleteTesoreria = async (req, res) => {
   }
 };
 
-// Restaurar un registro desde la papelera (soft restore)
+// Restaurar un registro desde la papelera (soft restore) y descontar nuevamente del saldo
 const restoreTesoreria = async (req, res) => {
   try {
     // Defensa en profundidad: sólo ADMINISTRADOR puede restaurar
@@ -365,7 +499,7 @@ const restoreTesoreria = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
     }
     const { id } = req.params;
-    const [existing] = await db.query("SELECT id, deleted_at FROM TESORERIA WHERE id = ?", [id]);
+    const [existing] = await db.query("SELECT id, monto, deleted_at FROM TESORERIA WHERE id = ?", [id]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: "Registro de tesorería no encontrado" });
     }
@@ -373,7 +507,48 @@ const restoreTesoreria = async (req, res) => {
       return res.status(400).json({ success: false, message: "El registro no está en la papelera" });
     }
 
-    await db.query("UPDATE TESORERIA SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [id]);
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+      // Descontar del saldo nuevamente
+      const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+      let saldoId, saldoActual;
+      if (saldoRows.length === 0) {
+        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
+        saldoId = ins.insertId;
+        saldoActual = 0;
+      } else {
+        saldoId = saldoRows[0].id;
+        saldoActual = parseFloat(saldoRows[0].saldo || 0);
+      }
+      const monto = parseFloat(existing[0].monto);
+      if (monto > saldoActual) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: 'Saldo insuficiente para restaurar el registro' });
+      }
+      const nuevoSaldo = saldoActual - monto;
+      await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+
+      await connection.query("UPDATE TESORERIA SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?", [id]);
+      await connection.commit();
+    } catch (txErr) {
+      await connection.rollback();
+      console.error('Error en transacción restaurar tesorería:', txErr);
+      return res.status(500).json({ success: false, message: 'Error al restaurar registro de tesorería', error: txErr.message });
+    } finally {
+      connection.release();
+    }
+
+    // Audit
+    try {
+      await logAudit({
+        req,
+        evento: 'RESTORE',
+        entidad: 'TESORERIA',
+        entityId: Number(id),
+        detalle: { restored: true }
+      });
+    } catch (e) {}
     res.json({ success: true, message: "Registro restaurado exitosamente" });
   } catch (error) {
     console.error("❌ Error al restaurar registro de tesorería:", error);
@@ -471,7 +646,8 @@ const rolloverSaldo = async (req, res) => {
   // Insertar snapshot en history
   await connection.query('INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final) VALUES (?, ?)', [fechaHoy, saldoActual]);
   // Política actual: mantener el sobrante para el día siguiente (no resetear el saldo)
-      await connection.commit();
+  await connection.commit();
+  try { await logAudit({ req, evento: 'ROLLOVER', entidad: 'TESORERIA_SALDO', entityId: rows[0]?.id || null, detalle: { fecha: fechaHoy, saldo_final: saldoActual } }); } catch(e) {}
       console.log(`✅ Rollover tesorería: snapshot ${saldoActual} guardado para ${fechaHoy}`);
       return res.json({ success: true, message: 'Rollover completado', saldo_final: saldoActual });
     } catch (txErr) {
@@ -488,3 +664,205 @@ const rolloverSaldo = async (req, res) => {
 };
 
 module.exports.rolloverSaldo = rolloverSaldo;
+
+// =====================
+// Ajustes contables y resumen
+// =====================
+async function ensureAjusteTables() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS TESORERIA_AJUSTE (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      fecha DATE NOT NULL,
+      tipo ENUM('incremento','decremento') NOT NULL,
+      monto DECIMAL(14,2) NOT NULL,
+      motivo VARCHAR(255) NOT NULL,
+      created_by INT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES USUARIO(id_usuario) ON DELETE SET NULL,
+      INDEX idx_ajuste_fecha (fecha),
+      INDEX idx_ajuste_tipo (tipo)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+}
+
+// Crear ajuste que impacta el saldo general (admin)
+const createAjuste = async (req, res) => {
+  try {
+    if (!req.userRoles && req.usuario && req.usuario.roles) {
+      req.userRoles = req.usuario.roles.map(r => String(r).toUpperCase());
+    }
+    if (!req.userRoles || !req.userRoles.includes('ADMINISTRADOR')) {
+      return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
+    }
+
+    const { tipo, monto, motivo, fecha } = req.body || {};
+    if (!['incremento','decremento'].includes(String(tipo))) {
+      return res.status(400).json({ success: false, message: 'Tipo inválido (use incremento/decremento)' });
+    }
+    const amount = parseFloat(monto);
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ success: false, message: 'Monto inválido' });
+    }
+    if (!motivo || !String(motivo).trim()) {
+      return res.status(400).json({ success: false, message: 'Motivo requerido' });
+    }
+
+    await ensureAjusteTables();
+
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+      let saldoId, saldoActual;
+      if (saldoRows.length === 0) {
+        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
+        saldoId = ins.insertId; saldoActual = 0;
+      } else {
+        saldoId = saldoRows[0].id; saldoActual = parseFloat(saldoRows[0].saldo || 0);
+      }
+      const signo = tipo === 'incremento' ? 1 : -1;
+      const nuevoSaldo = saldoActual + signo * amount;
+      if (nuevoSaldo < 0) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: 'Saldo insuficiente para aplicar el ajuste' });
+      }
+
+      const f = fecha && String(fecha).trim() ? fecha : new Date().toISOString().split('T')[0];
+      const [aj] = await connection.query(
+        'INSERT INTO TESORERIA_AJUSTE (fecha, tipo, monto, motivo, created_by) VALUES (?, ?, ?, ?, ?)',
+        [f, tipo, amount, String(motivo).trim(), req.usuario ? req.usuario.id_usuario : null]
+      );
+      await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+      await connection.commit();
+
+      try { await logAudit({ req, evento: 'AJUSTE', entidad: 'TESORERIA_SALDO', entityId: saldoId, detalle: { ajuste_id: aj.insertId, fecha: f, tipo, monto: amount, motivo, saldo_before: saldoActual, saldo_after: nuevoSaldo } }); } catch(e) {}
+      res.status(201).json({ success: true, data: { id: aj.insertId, saldo: nuevoSaldo }, message: 'Ajuste aplicado' });
+    } catch (txErr) {
+      await connection.rollback();
+      console.error('❌ Error en ajuste:', txErr);
+      res.status(500).json({ success: false, message: 'Error al aplicar ajuste', error: txErr.message });
+    } finally {
+      connection.release();
+    }
+  } catch (error) {
+    console.error('❌ Error creando ajuste:', error);
+    res.status(500).json({ success: false, message: 'Error creando ajuste', error: error.message });
+  }
+};
+
+const listAjustes = async (req, res) => {
+  try {
+    if (!req.userRoles && req.usuario && req.usuario.roles) {
+      req.userRoles = req.usuario.roles.map(r => String(r).toUpperCase());
+    }
+    if (!req.userRoles || !req.userRoles.includes('ADMINISTRADOR')) {
+      return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
+    }
+    await ensureAjusteTables();
+    const { fecha_inicio, fecha_fin } = req.query || {};
+    let where = 'WHERE 1=1'; const params = [];
+    if (fecha_inicio) { where += ' AND fecha >= ?'; params.push(fecha_inicio); }
+    if (fecha_fin) { where += ' AND fecha <= ?'; params.push(fecha_fin); }
+    const [rows] = await db.query(
+      `SELECT a.*, u.nombre_completo AS created_by_nombre
+       FROM TESORERIA_AJUSTE a
+       LEFT JOIN USUARIO u ON a.created_by = u.id_usuario
+       ${where}
+       ORDER BY a.fecha DESC, a.id DESC
+       LIMIT 500`, params);
+    res.json({ success: true, data: rows, count: rows.length });
+  } catch (error) {
+    console.error('❌ Error listando ajustes:', error);
+    res.status(500).json({ success: false, message: 'Error listando ajustes', error: error.message });
+  }
+};
+
+const resumenDia = async (req, res) => {
+  try {
+    const fecha = (req.query?.fecha && String(req.query.fecha).trim()) || new Date().toISOString().split('T')[0];
+    await ensureAjusteTables();
+    // Opening: saldo_final del día anterior (si existe)
+    const [openRows] = await db.query('SELECT saldo_final FROM TESORERIA_SALDO_HISTORY WHERE fecha = DATE_SUB(?, INTERVAL 1 DAY) LIMIT 1', [fecha]);
+    const opening = openRows.length ? parseFloat(openRows[0].saldo_final || 0) : null;
+    const [gastoRows] = await db.query('SELECT COALESCE(SUM(monto),0) AS total FROM TESORERIA WHERE deleted_at IS NULL AND fecha = ?', [fecha]);
+    const totalGastos = parseFloat(gastoRows[0].total || 0);
+    const [ajInc] = await db.query("SELECT COALESCE(SUM(monto),0) AS total FROM TESORERIA_AJUSTE WHERE tipo='incremento' AND fecha = ?", [fecha]);
+    const [ajDec] = await db.query("SELECT COALESCE(SUM(monto),0) AS total FROM TESORERIA_AJUSTE WHERE tipo='decremento' AND fecha = ?", [fecha]);
+    const totalInc = parseFloat(ajInc[0].total || 0);
+    const totalDec = parseFloat(ajDec[0].total || 0);
+    const closingCalc = (opening ?? 0) + totalInc - totalDec - totalGastos;
+    const [saldoNow] = await db.query('SELECT saldo FROM TESORERIA_SALDO LIMIT 1');
+    const saldoActual = saldoNow.length ? parseFloat(saldoNow[0].saldo || 0) : 0;
+    res.json({ success: true, data: { fecha, opening, total_ajustes_incremento: totalInc, total_ajustes_decremento: totalDec, total_gastos: totalGastos, closing_calculado: closingCalc, saldo_actual: saldoActual } });
+  } catch (error) {
+    console.error('❌ Error en resumen diario:', error);
+    res.status(500).json({ success: false, message: 'Error en resumen diario', error: error.message });
+  }
+};
+
+module.exports.createAjuste = createAjuste;
+module.exports.listAjustes = listAjustes;
+module.exports.resumenDia = resumenDia;
+// =====================
+// Auditoría (solo lectura, admin)
+// =====================
+const getAudit = async (req, res) => {
+  try {
+    if (!req.userRoles && req.usuario && req.usuario.roles) {
+      req.userRoles = req.usuario.roles.map(r => String(r).toUpperCase());
+    }
+    if (!req.userRoles || !req.userRoles.includes('ADMINISTRADOR')) {
+      return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
+    }
+
+    const { entidad, entity_id, desde, hasta, evento } = req.query;
+    let where = 'WHERE 1=1';
+    const params = [];
+    if (entidad) { where += ' AND entidad = ?'; params.push(entidad); }
+    if (entity_id) { where += ' AND entity_id = ?'; params.push(Number(entity_id)); }
+    if (evento) { where += ' AND evento = ?'; params.push(evento); }
+    if (desde) { where += ' AND fecha_evento >= ?'; params.push(desde); }
+    if (hasta) { where += ' AND fecha_evento <= ?'; params.push(hasta); }
+
+    const [rows] = await db.query(
+      `SELECT a.id, a.fecha_evento, a.evento, a.entidad, a.entity_id, a.user_id, u.nombre_completo AS user_nombre, a.ip, a.detalle
+       FROM TESORERIA_AUDIT a
+       LEFT JOIN USUARIO u ON a.user_id = u.id_usuario
+       ${where}
+       ORDER BY a.fecha_evento DESC, a.id DESC
+       LIMIT 500`,
+      params
+    );
+    res.json({ success: true, data: rows, count: rows.length });
+  } catch (error) {
+    console.error('❌ Error obteniendo auditoría:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener auditoría', error: error.message });
+  }
+};
+
+const getAuditByTesoreriaId = async (req, res) => {
+  try {
+    if (!req.userRoles && req.usuario && req.usuario.roles) {
+      req.userRoles = req.usuario.roles.map(r => String(r).toUpperCase());
+    }
+    if (!req.userRoles || !req.userRoles.includes('ADMINISTRADOR')) {
+      return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
+    }
+    const id = Number(req.params.id);
+    const [rows] = await db.query(
+      `SELECT a.id, a.fecha_evento, a.evento, a.entidad, a.entity_id, a.user_id, u.nombre_completo AS user_nombre, a.ip, a.detalle
+       FROM TESORERIA_AUDIT a
+       LEFT JOIN USUARIO u ON a.user_id = u.id_usuario
+       WHERE a.entidad = 'TESORERIA' AND a.entity_id = ?
+       ORDER BY a.fecha_evento DESC, a.id DESC`,
+      [id]
+    );
+    res.json({ success: true, data: rows, count: rows.length });
+  } catch (error) {
+    console.error('❌ Error obteniendo auditoría por id:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener auditoría', error: error.message });
+  }
+};
+
+module.exports.getAudit = getAudit;
+module.exports.getAuditByTesoreriaId = getAuditByTesoreriaId;

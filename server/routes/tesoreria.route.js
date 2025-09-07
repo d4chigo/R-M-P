@@ -8,6 +8,14 @@ const { authenticateToken, requireAdmin, optionalAuth, getUserRoles } = require(
 // GET routes are public but accept optional auth so we can show extra data to admins
 router.get('/', optionalAuth, getUserRoles, tesoreriaController.getTesoreria);
 router.get('/search', optionalAuth, getUserRoles, tesoreriaController.searchTesoreria);
+// Auditoría (admin) - deben ir antes de rutas dinámicas
+router.get('/audit/list', authenticateToken, requireAdmin, tesoreriaController.getAudit);
+router.get('/:id/audit', authenticateToken, requireAdmin, tesoreriaController.getAuditByTesoreriaId);
+// Ajustes contables (admin)
+router.post('/saldo/ajustes', authenticateToken, requireAdmin, tesoreriaController.createAjuste);
+router.get('/saldo/ajustes', authenticateToken, requireAdmin, tesoreriaController.listAjustes);
+// Resumen diario
+router.get('/resumen/dia', optionalAuth, getUserRoles, tesoreriaController.resumenDia);
 router.get('/:id', optionalAuth, getUserRoles, tesoreriaController.getTesoreriaById);
 // Crear: requiere autenticación (cualquier usuario autenticado puede crear)
 router.post('/', authenticateToken, tesoreriaController.createTesoreria);
