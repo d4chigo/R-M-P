@@ -676,7 +676,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>
-                  <TableHead>Placa</TableHead>
+                  <TableHead>PLACA T2</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Cargo</TableHead>
                   <TableHead>Categoría</TableHead>
@@ -720,7 +720,13 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                       </TableCell>
                       <TableCell>{item.reembolso || "-"}</TableCell>
                       <TableCell>{item.distrito || "-"}</TableCell>
-                      <TableCell>{item.turno ?? "-"}</TableCell>
+                      <TableCell>{(() => {
+                        const n = Number(item.turno);
+                        if (n === 1) return '1 - Mañana';
+                        if (n === 2) return '2 - Tarde';
+                        if (n === 3) return '3 - Noche';
+                        return item.turno ?? '-';
+                      })()}</TableCell>
                       <TableCell>{item.encargado || "-"}</TableCell>
                       <TableCell>
                         <div className="font-medium">
@@ -860,7 +866,13 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Turno</label>
-                  <p className="text-sm">{selectedTesoreria.turno ?? "-"}</p>
+                  <p className="text-sm">{(() => {
+                    const n = Number(selectedTesoreria.turno);
+                    if (n === 1) return '1 - Mañana';
+                    if (n === 2) return '2 - Tarde';
+                    if (n === 3) return '3 - Noche';
+                    return selectedTesoreria.turno ?? '-';
+                  })()}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Encargado</label>

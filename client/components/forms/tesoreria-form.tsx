@@ -108,6 +108,15 @@ const subcategorias = {
 
 export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: TesoreriaFormProps) {
   const { isAdmin } = useAuth();
+  const formatPEN = (n: number) =>
+    new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(isNaN(n) ? 0 : n);
+  const parsePEN = (s: string) => {
+    const cleaned = String(s || "").replace(/[^0-9,.-]/g, "");
+    // Quitar separadores de miles y normalizar decimal coma->punto
+    const normalized = cleaned.replace(/\./g, "").replace(/,/g, ".");
+    const num = parseFloat(normalized);
+    return isNaN(num) ? 0 : num;
+  };
   const [selectedCategoria, setSelectedCategoria] = useState<string>(
     tesoreria?.categoria || ""
   );
@@ -175,13 +184,20 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       cargo: tesoreria?.cargo || "",
       categoria: tesoreria?.categoria || "",
       detalle: tesoreria?.detalle || "",
-  reembolso: tesoreria?.reembolso || "",
+      reembolso: tesoreria?.reembolso || undefined,
   distrito: tesoreria?.distrito || "",
   turno: tesoreria?.turno ? String(tesoreria.turno) : "",
   encargado: tesoreria?.encargado || "",
       monto: tesoreria?.monto || 0,
     },
   });
+  const [montoInput, setMontoInput] = useState<string>(
+    formatPEN(tesoreria?.monto ?? 0)
+  );
+  useEffect(() => {
+    setMontoInput(formatPEN(form.getValues("monto") || 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tesoreria?.monto]);
 
   const handleSubmit = async (data: z.infer<typeof tesoreriaSchema>) => {
     // Normalizar payload (turno como número, reembolso vacío a undefined)
@@ -455,7 +471,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               )}
             />
 
-            {/* Monto (obligatorio) */}
+            {/* Monto (obligatorio) — entrada formateada en moneda */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -465,12 +481,17 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                     <FormLabel>Monto *</FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        {...field}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => field.onChange(parseFloat(e.target.value) || 0)}
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="S/ 0.00"
+                        value={montoInput}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setMontoInput(val);
+                          const num = parsePEN(val);
+                          field.onChange(num);
+                        }}
+                        onBlur={() => setMontoInput(formatPEN(form.getValues("monto") || 0))}
                       />
                     </FormControl>
                     <FormMessage />
@@ -497,7 +518,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               />
             </div>
 
-            {/* Opcionales: Reembolso */}
+            {/* Reembolso (opcional): Solo Sí o No */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -506,19 +527,17 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                   <FormItem>
                     <FormLabel>Reembolso (opcional)</FormLabel>
                     <Select
-                      onValueChange={(val: string) => field.onChange(val === 'none' ? '' : val)}
-                      value={field.value === '' ? 'none' : field.value}
+                      onValueChange={(val: string) => field.onChange(val)}
+                      value={field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="(Vacío o seleccione)" />
+                          <SelectValue placeholder="Seleccione" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="none">(Vacío)</SelectItem>
-                        {reembolsos.map((r) => (
-                          <SelectItem key={r} value={r}>{r}</SelectItem>
-                        ))}
+                        <SelectItem value="Si">Si</SelectItem>
+                        <SelectItem value="No">No</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
