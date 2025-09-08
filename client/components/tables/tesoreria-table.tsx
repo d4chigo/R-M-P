@@ -282,13 +282,21 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   const totalMonto = tesoreria.reduce((acc, it) => acc + (it.monto || 0), 0);
   const promedioMonto = totalRegistros > 0 ? totalMonto / totalRegistros : 0;
 
-  // Formatear fecha (DATE) sin desfasar zona horaria: si es 'YYYY-MM-DD', solo reordenar para dd/MM/yyyy
+  // Formatear fecha (DATE) sin desfasar zona horaria: manejar tanto YYYY-MM-DD como timestamps
   const formatDatePeru = (value: any) => {
     if (!value) return "-";
+    // Si es string YYYY-MM-DD, convertir directamente
     if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
       const [y, m, d] = value.split('-');
       return `${d}/${m}/${y}`;
     }
+    // Si es timestamp (ej: 2025-09-06T00:00:00.000Z), extraer solo fecha
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      const dateOnly = value.split('T')[0];
+      const [y, m, d] = dateOnly.split('-');
+      return `${d}/${m}/${y}`;
+    }
+    // Fallback para otros formatos usando date-fns
     try { return format(new Date(value), "dd/MM/yyyy", { locale: es }); } catch { return String(value); }
   };
 
