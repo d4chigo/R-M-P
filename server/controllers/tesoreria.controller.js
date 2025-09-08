@@ -23,6 +23,9 @@ function buildWhereAndParams(query) {
   // Usamos UTC_TIMESTAMP() y convertimos a -05:00, luego tomamos solo la fecha
   const PERU_TODAY_SQL = "DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'))";
 
+  // Debug: log de parámetros recibidos
+  console.log("🔍 buildWhereAndParams - query recibida:", JSON.stringify(query, null, 2));
+
   // Scope + política de fechas
   const hasDate = (fecha && String(fecha).trim()) || fecha_inicio || fecha_fin;
   if (scope === "trash") {
