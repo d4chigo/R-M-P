@@ -212,7 +212,7 @@ export const TutorialTour: React.FC<TutorialTourProps> = ({ className }) => {
           zIndex: 10001,
         }}
       >
-        <Card className="w-80 shadow-2xl border-2 border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-900">
+        <Card className="w-96 shadow-2xl border-2 border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-900">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -251,48 +251,52 @@ export const TutorialTour: React.FC<TutorialTourProps> = ({ className }) => {
             )}
 
             {/* Botones de navegación */}
-            <div className="flex justify-between items-center">
-              <div className="flex gap-2">
+            <div className="flex flex-col gap-3">
+              {/* Botones principales */}
+              <div className="flex justify-between items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={prevStep}
                   disabled={isFirstStep}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 flex-1"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Anterior
                 </Button>
-                
-                {currentTutorial.allowSkip !== false && (
+
+                <Button
+                  onClick={nextStep}
+                  className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white flex-1"
+                >
+                  {isLastStep ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Finalizar
+                    </>
+                  ) : (
+                    <>
+                      Siguiente
+                      <ChevronRight className="w-4 h-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
+              
+              {/* Botón omitir centrado */}
+              {currentTutorial.allowSkip !== false && (
+                <div className="flex justify-center">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={skipTutorial}
-                    className="flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                    className="flex items-center gap-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xs"
                   >
-                    <SkipForward className="w-4 h-4" />
-                    Omitir
+                    <SkipForward className="w-3 h-3" />
+                    Omitir tutorial
                   </Button>
-                )}
-              </div>
-
-              <Button
-                onClick={nextStep}
-                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {isLastStep ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    Finalizar
-                  </>
-                ) : (
-                  <>
-                    Siguiente
-                    <ChevronRight className="w-4 h-4" />
-                  </>
-                )}
-              </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
