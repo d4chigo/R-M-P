@@ -38,6 +38,7 @@ export interface TesoreriaFormData {
 
 export interface SearchParams {
   q?: string;
+  fecha?: string;
   fecha_inicio?: string;
   fecha_fin?: string;
   categoria?: string;
@@ -46,7 +47,6 @@ export interface SearchParams {
   distrito?: string;
   encargado?: string;
   scope?: 'active' | 'history' | 'trash';
-  fecha?: string; // soporte para filtrar por un día puntual
 }
 
 export const useTesoreria = () => {

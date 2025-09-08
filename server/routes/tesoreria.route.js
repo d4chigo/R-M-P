@@ -16,6 +16,12 @@ router.post('/saldo/ajustes', authenticateToken, requireAdmin, tesoreriaControll
 router.get('/saldo/ajustes', authenticateToken, requireAdmin, tesoreriaController.listAjustes);
 // Resumen diario
 router.get('/resumen/dia', optionalAuth, getUserRoles, tesoreriaController.resumenDia);
+// Saldo (tarjeta fija) - lectura pública, actualización sólo admin
+router.get('/saldo/actual', tesoreriaController.getSaldo);
+router.put('/saldo/actual', authenticateToken, requireAdmin, tesoreriaController.updateSaldo);
+// Rollover diario snapshot (solo admin)
+router.post('/saldo/rollover', authenticateToken, requireAdmin, tesoreriaController.rolloverSaldo);
+
 router.get('/:id', optionalAuth, getUserRoles, tesoreriaController.getTesoreriaById);
 // Crear: requiere autenticación (cualquier usuario autenticado puede crear)
 router.post('/', authenticateToken, tesoreriaController.createTesoreria);
@@ -26,11 +32,5 @@ router.delete('/:id', authenticateToken, requireAdmin, tesoreriaController.delet
 router.post('/:id/restore', authenticateToken, requireAdmin, tesoreriaController.restoreTesoreria);
 // Purgar definitivamente registros en papelera (>7 días)
 router.post('/purge', authenticateToken, requireAdmin, tesoreriaController.purgeTesoreria);
-
-// Saldo (tarjeta fija) - lectura pública, actualización sólo admin
-router.get('/saldo/actual', tesoreriaController.getSaldo);
-router.put('/saldo/actual', authenticateToken, requireAdmin, tesoreriaController.updateSaldo);
-// Rollover diario snapshot (solo admin)
-router.post('/saldo/rollover', authenticateToken, requireAdmin, tesoreriaController.rolloverSaldo);
 
 module.exports = router;

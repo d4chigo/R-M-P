@@ -70,6 +70,8 @@ export default function TesoreriaPage() {
       if (searchTerm) params.q = searchTerm;
       if (filterCategoria) params.categoria = filterCategoria;
       if (fecha) {
+        params.fecha = fecha;
+        // por compatibilidad, mantenemos también rango de 1 día
         params.fecha_inicio = fecha;
         params.fecha_fin = fecha;
       }
