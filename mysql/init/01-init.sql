@@ -41,11 +41,11 @@ CREATE TABLE USUARIO_ROL (
     FOREIGN KEY (id_rol) REFERENCES ROL(id_rol)
 );
 
--- Insertar roles básicos del sistema
+-- Insertar roles básicos del sistema (desarrollo): mantener sólo ADMINISTRADOR y EMPLEADO
+-- Nota: para migraciones reales se debería mapear roles antiguos a EMPLEADO cuando aplique
 INSERT INTO ROL (nombre, descripcion) VALUES
 ('ADMINISTRADOR', 'Administrador del sistema con acceso total'),
-('OPERADOR', 'Usuario con acceso a gestión de rutas y reportes'),
-('REPARTIDOR', 'Usuario con acceso limitado a sus rutas asignadas');
+('EMPLEADO', 'Usuario con permisos de empleado (crear registros, ver información limitada)');
 
 -- Tabla ZONA: áreas geográficas
 CREATE TABLE ZONA (
@@ -86,6 +86,25 @@ CREATE TABLE REPARTIDOR (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- Tabla CENTRO_DISTRIBUCION: centros de distribución y almacenes
+CREATE TABLE CENTRO_DISTRIBUCION (
+    id_centro INT PRIMARY KEY AUTO_INCREMENT,
+    codigo VARCHAR(20) NOT NULL UNIQUE,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion TEXT,
+    direccion VARCHAR(200) NOT NULL,
+    ciudad VARCHAR(100) NOT NULL,
+    estado ENUM('activo', 'inactivo', 'mantenimiento') DEFAULT 'activo',
+    capacidad_almacen DECIMAL(12,2) COMMENT 'Capacidad en metros cúbicos',
+    personal_asignado INT DEFAULT 0,
+    telefono VARCHAR(20),
+    email VARCHAR(100),
+    latitud DECIMAL(10, 8),
+    longitud DECIMAL(11, 8),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- ==============================
 -- TABLAS FINANCIERAS
 -- ==============================
@@ -101,9 +120,12 @@ CREATE TABLE TESORERIA (
     detalle TEXT NULL,
     reembolso VARCHAR(49) NULL,
     distrito VARCHAR(99) NULL,
+    id_centro INT NULL,
     turno TINYINT NULL,
     encargado VARCHAR(99) NULL,
     monto DECIMAL(11,2) NOT NULL,
+    created_by INT NULL,
+    updated_by INT NULL,
     deleted_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -119,6 +141,7 @@ CREATE TABLE VIAJE (
     fecha DATE NOT NULL,
     id_vehiculo INT NOT NULL,
     id_repartidor INT NOT NULL,
+    id_centro INT NULL,
     nro_viaje INT NOT NULL,
     territorios_visitados INT DEFAULT 0 COMMENT 'Total de territorios visitados en el viaje',
     salida_cd DATETIME,
@@ -143,8 +166,39 @@ CREATE TABLE VIAJE (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (id_vehiculo) REFERENCES VEHICULO(id_vehiculo),
     FOREIGN KEY (id_repartidor) REFERENCES REPARTIDOR(id_repartidor),
+    FOREIGN KEY (id_centro) REFERENCES CENTRO_DISTRIBUCION(id_centro),
     FOREIGN KEY (created_by) REFERENCES USUARIO(id_usuario),
     FOREIGN KEY (updated_by) REFERENCES USUARIO(id_usuario)
+);
+
+-- Agregar FK para TESORERIA.id_centro hacia CENTRO_DISTRIBUCION
+ALTER TABLE TESORERIA
+    ADD CONSTRAINT fk_tesoreria_centro FOREIGN KEY (id_centro) REFERENCES CENTRO_DISTRIBUCION(id_centro);
+
+-- Agregar FK a usuarios para saber quién creó/actualizó registros de tesorería
+ALTER TABLE TESORERIA
+    ADD CONSTRAINT fk_tesoreria_created_by FOREIGN KEY (created_by) REFERENCES USUARIO(id_usuario) ON DELETE SET NULL,
+    ADD CONSTRAINT fk_tesoreria_updated_by FOREIGN KEY (updated_by) REFERENCES USUARIO(id_usuario) ON DELETE SET NULL;
+
+-- Tabla para almacenar el saldo / monto fijo de tesorería (tarjeta fija)
+CREATE TABLE TESORERIA_SALDO (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    saldo DECIMAL(14,2) NOT NULL DEFAULT 0,
+    updated_by INT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- FK de TESORERIA_SALDO.updated_by hacia USUARIO
+ALTER TABLE TESORERIA_SALDO
+    ADD CONSTRAINT fk_tesoreria_saldo_updated_by FOREIGN KEY (updated_by) REFERENCES USUARIO(id_usuario) ON DELETE SET NULL;
+
+-- Tabla para histórico diario de saldo (snapshot diario para rollover)
+CREATE TABLE IF NOT EXISTS TESORERIA_SALDO_HISTORY (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    fecha DATE NOT NULL,
+    saldo_final DECIMAL(14,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ==============================
@@ -154,15 +208,21 @@ CREATE TABLE VIAJE (
 CREATE INDEX idx_viaje_fecha ON VIAJE(fecha);
 CREATE INDEX idx_viaje_vehiculo_fecha ON VIAJE(id_vehiculo, fecha);
 CREATE INDEX idx_viaje_repartidor ON VIAJE(id_repartidor);
+CREATE INDEX idx_viaje_centro ON VIAJE(id_centro);
 CREATE INDEX idx_vehiculo_placa ON VEHICULO(placa);
 CREATE INDEX idx_repartidor_codigo ON REPARTIDOR(codigo);
 CREATE INDEX idx_viaje_fecha_vehiculo_repartidor ON VIAJE(fecha, id_vehiculo, id_repartidor);
+CREATE INDEX idx_centro_distribucion_codigo ON CENTRO_DISTRIBUCION(codigo);
+CREATE INDEX idx_centro_distribucion_estado ON CENTRO_DISTRIBUCION(estado);
+CREATE INDEX idx_centro_distribucion_ciudad ON CENTRO_DISTRIBUCION(ciudad);
+CREATE INDEX idx_centro_distribucion_coordenadas ON CENTRO_DISTRIBUCION(latitud, longitud);
 CREATE INDEX idx_tesoreria_fecha ON TESORERIA(fecha);
 CREATE INDEX idx_tesoreria_categoria ON TESORERIA(categoria);
 CREATE INDEX idx_tesoreria_reembolso ON TESORERIA(reembolso);
 CREATE INDEX idx_tesoreria_turno ON TESORERIA(turno);
 CREATE INDEX idx_tesoreria_distrito ON TESORERIA(distrito);
 CREATE INDEX idx_tesoreria_deleted_at ON TESORERIA(deleted_at);
+CREATE INDEX idx_tesoreria_centro ON TESORERIA(id_centro);
 
 -- Evitar duplicados por día/vehículo/nro_viaje
 ALTER TABLE VIAJE ADD UNIQUE KEY uq_viaje_por_dia_vehiculo (fecha, id_vehiculo, nro_viaje);
@@ -209,3 +269,4 @@ GROUP BY
     r.id_repartidor,
     r.codigo,
     r.nombre;
+

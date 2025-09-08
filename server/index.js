@@ -13,6 +13,7 @@ const authRoutes = require("./routes/auth.route");
 const adminRoutes = require("./routes/admin.route");
 const vehiculoRoutes = require("./routes/vehiculo.route");
 const zonaRoutes = require("./routes/zona.route");
+const centroDistribucionRoutes = require("./routes/centro-distribucion.route");
 const tesoreriaRoutes = require("./routes/tesoreria.route");
 const repartidorRoutes = require("./routes/repartidor.route");
 const viajeRoutes = require("./routes/viaje.route");
@@ -191,6 +192,7 @@ app.use("/api/admin", adminRoutes);
 // Registrar rutas protegidas (requieren autenticación)
 app.use("/api/vehiculos", authenticateToken, vehiculoRoutes);
 app.use("/api/zonas", authenticateToken, zonaRoutes);
+app.use("/api/centros-distribucion", centroDistribucionRoutes);
 app.use("/api/tesoreria", tesoreriaRoutes);
 app.use("/api/repartidores", authenticateToken, repartidorRoutes);
 app.use("/api/viajes", authenticateToken, viajeRoutes);
@@ -303,9 +305,10 @@ async function startServer() {
       console.log("   🔐  POST /api/auth/login - Iniciar sesión");
       console.log("");
       console.log("📦 Entidades principales (Auth requerida):");
-      console.log("   🚛  /api/vehiculos - Gestión de vehículos");
-      console.log("   🗺️   /api/zonas - Gestión de zonas");
-      console.log("   💰  /api/tesoreria - Gestión de tesorería");
+console.log("   🚛  /api/vehiculos - Gestión de vehículos");
+console.log("   🗺️   /api/zonas - Gestión de zonas");
+console.log("   🏭  /api/centros-distribucion - Gestión de centros de distribución");
+console.log("   💰  /api/tesoreria - Gestión de tesorería");
       console.log("   👤  /api/repartidores - Gestión de repartidores");
       console.log("   🚚  /api/viajes - Gestión de viajes");
       console.log("   👥  /api/usuarios - Gestión de usuarios");
@@ -395,6 +398,36 @@ try {
   } else {
     console.log('\n\u23f3 Scheduler for resumen_rutas is DISABLED (set WORKER_ENABLE_SCHEDULER=true to enable)');
   }
-} catch (err) {
-  console.error('Error initializing resumen_rutas scheduler:', err);
+} catch(e) {
+  console.error('Error checking scheduler flag:', e);
 }
+
+// Rollover tesoreria diario opcional
+try {
+  const enableRollover = String(process.env.TESORERIA_ROLLOVER_ENABLE || 'false').toLowerCase() === 'true';
+  if (enableRollover) {
+    const cron = require('node-cron');
+    const runRollover = require('./scripts/tesoreria-rollover');
+  const rolloverCron = process.env.TESORERIA_ROLLOVER_CRON || '59 23 * * *'; // 23:59 daily
+    console.log('\n\u23f3 Tesoreria rollover scheduler ENABLED');
+    console.log(`\u23f0 Cron schedule: ${rolloverCron}`);
+    const taskR = cron.schedule(rolloverCron, async () => {
+      try {
+        console.log('\n\u23f3 [rollover] Running tesoreria rollover...');
+        await runRollover();
+        console.log('\u2705 [rollover] Finished');
+      } catch (err) {
+        console.error('\u274c [rollover] Error:', err);
+      }
+  }, { scheduled: true, timezone: process.env.TESORERIA_ROLLOVER_TZ || 'America/Lima' });
+
+    process.on('SIGINT', async () => {
+      try { if (taskR) taskR.stop(); console.log('\u2705 Rollover scheduler stopped'); } catch(e) {}
+    });
+  } else {
+    console.log('\n\u23f3 Tesoreria rollover scheduler is DISABLED (set TESORERIA_ROLLOVER_ENABLE=true to enable)');
+  }
+} catch (e) {
+  console.error('Error starting rollover scheduler:', e);
+}
+// All schedulers initialized

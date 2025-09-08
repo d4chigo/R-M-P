@@ -64,6 +64,7 @@ import { Tesoreria } from "@/hooks/use-tesoreria";
 import { TesoreriaForm } from "@/components/forms/tesoreria-form";
 import { useTesoreria } from "@/hooks/use-tesoreria";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { TablePagination, usePagination } from "@/components/ui/table-pagination";
@@ -76,6 +77,7 @@ interface TesoreriaTableProps {
 }
 
 export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }: TesoreriaTableProps) {
+  const { isAdmin } = useAuth();
   const {
     tesoreria,
     loading,
@@ -88,6 +90,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     fetchActive,
     fetchHistory,
     fetchTrash,
+  fetchTesoreriaById,
     restoreTesoreria,
   } = useTesoreria();
 
@@ -122,13 +125,15 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     };
   }, [fetchActive, fetchHistory, fetchTrash, searchTesoreria, mode]);
 
-  // Carga inicial según el modo
+  // Carga inicial según el modo (solo para variant "full").
+  // En variant "simple" la página externa controla las búsquedas vía evento.
   useEffect(() => {
+    if (variant !== "full") return;
     if (mode === "active") fetchActive();
     if (mode === "history") fetchHistory();
     if (mode === "trash") fetchTrash();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, variant]);
 
   // Paginación
   const {
@@ -146,11 +151,13 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     "Mantenimiento",
     "Salarios",
     "Peajes",
+  "Viáticos",
     "Seguros",
     "Licencias",
     "Impuestos",
     "Servicios",
     "Ventas",
+  "Adelantos",
     "Comisiones",
     "Otros",
   ];
@@ -178,17 +185,19 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
       });
       setIsCreateDialogOpen(false);
       onRefresh?.();
+      return true;
     } else {
       toast({
         title: "Error",
         description: "Error al crear el registro de tesorería",
         variant: "destructive",
       });
+      return false;
     }
   };
 
   const handleUpdate = async (data: any) => {
-    if (!selectedTesoreria) return;
+  if (!selectedTesoreria) return false;
     const success = await updateTesoreria(selectedTesoreria.id, data);
     if (success) {
       toast({
@@ -198,12 +207,14 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
       setIsEditDialogOpen(false);
       setSelectedTesoreria(null);
       onRefresh?.();
+      return true;
     } else {
       toast({
         title: "Error",
         description: "Error al actualizar el registro de tesorería",
         variant: "destructive",
       });
+      return false;
     }
   };
 
@@ -242,8 +253,20 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   };
 
   const handleView = (tesoreria: Tesoreria) => {
-    setSelectedTesoreria(tesoreria);
-    setIsViewDialogOpen(true);
+    // Fetch fresh record to include audit fields for admins
+    (async () => {
+      const full = await fetchTesoreriaById ? await fetchTesoreriaById(tesoreria.id) : null;
+      setSelectedTesoreria(full || tesoreria);
+      setIsViewDialogOpen(true);
+    })();
+  };
+  
+  const handleInfo = (tesoreria: Tesoreria) => {
+    (async () => {
+      const full = await fetchTesoreriaById ? await fetchTesoreriaById(tesoreria.id) : null;
+      setSelectedTesoreria(full || tesoreria);
+      setIsViewDialogOpen(true);
+    })();
   };
 
   const formatCurrency = (amount: number) => {
@@ -258,6 +281,24 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   const totalRegistros = tesoreria.length;
   const totalMonto = tesoreria.reduce((acc, it) => acc + (it.monto || 0), 0);
   const promedioMonto = totalRegistros > 0 ? totalMonto / totalRegistros : 0;
+
+  // Formatear fecha (DATE) sin desfasar zona horaria: manejar tanto YYYY-MM-DD como timestamps
+  const formatDatePeru = (value: any) => {
+    if (!value) return "-";
+    // Si es string YYYY-MM-DD, convertir directamente
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [y, m, d] = value.split('-');
+      return `${d}/${m}/${y}`;
+    }
+    // Si es timestamp (ej: 2025-09-06T00:00:00.000Z), extraer solo fecha
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
+      const dateOnly = value.split('T')[0];
+      const [y, m, d] = dateOnly.split('-');
+      return `${d}/${m}/${y}`;
+    }
+    // Fallback para otros formatos usando date-fns
+    try { return format(new Date(value), "dd/MM/yyyy", { locale: es }); } catch { return String(value); }
+  };
 
   if (loading) {
     if (variant === "simple") {
@@ -306,7 +347,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
-                <TableHead>Placa</TableHead>
+                <TableHead>PLACA T2</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Cargo</TableHead>
                 <TableHead>Categoría</TableHead>
@@ -322,91 +363,110 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
             <TableBody>
               {tesoreria.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8">
-                    No se encontraron registros de tesorería
+                  <TableCell colSpan={12} className="py-16">
+                    <div className="flex flex-col items-center justify-center text-center text-muted-foreground">
+                      <FileText className="h-12 w-12 mb-4 text-gray-400" />
+                      <h3 className="text-lg font-semibold">No hay registros de tesorería</h3>
+                      <p className="text-sm">Comienza creando tu primer registro</p>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedData.map((item) => (
+                (paginatedData as Tesoreria[]).map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Calendar className="h-4 w-4 text-gray-500" />
-                        {format(new Date(item.fecha), "dd/MM/yyyy", { locale: es })}
+                        {formatDatePeru(item.fecha)}
                       </div>
                     </TableCell>
-                    <TableCell>{item.placa || "-"}</TableCell>
+                    <TableCell>{item.placa || ""}</TableCell>
                     <TableCell>{item.nombre}</TableCell>
-                    <TableCell>{item.cargo || "-"}</TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{item.categoria}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="max-w-xs truncate" title={item.detalle || ""}>
-                        {item.detalle || "-"}
-                      </div>
-                    </TableCell>
-                    <TableCell>{item.reembolso || "-"}</TableCell>
-                    <TableCell>{item.distrito || "-"}</TableCell>
-                    <TableCell>{item.turno ?? "-"}</TableCell>
-                    <TableCell>{item.encargado || "-"}</TableCell>
-                    <TableCell>
-                      <div className="font-medium">{formatCurrency(item.monto)}</div>
-                    </TableCell>
+                    <TableCell>{item.cargo || ""}</TableCell>
+                    <TableCell>{item.categoria}</TableCell>
+                    <TableCell>{item.detalle || ""}</TableCell>
+                    <TableCell>{item.reembolso || ""}</TableCell>
+                    <TableCell>{item.distrito || ""}</TableCell>
+                    <TableCell>{(() => {
+                      const n = Number(item.turno);
+                      if (n === 1) return '1 - Mañana';
+                      if (n === 2) return '2 - Tarde';
+                      if (n === 3) return '3 - Noche';
+                      return item.turno || '';
+                    })()}</TableCell>
+                    <TableCell>{item.encargado || ""}</TableCell>
+                    <TableCell>{formatCurrency(item.monto)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         {mode !== "trash" ? (
                           <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 w-8 p-0"
-                              onClick={() => handleEdit(item)}
-                              aria-label="Editar"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
+                            {isAdmin ? (
+                              <>
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  aria-label="Eliminar"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleEdit(item)}
+                                  aria-label="Editar"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Edit className="h-4 w-4" />
                                 </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>¿Mover a papelera?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta acción moverá el registro a la papelera. Podrás restaurarlo durante 7 días.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(item.id)}
-                                    className="bg-red-600 hover:bg-red-700"
-                                  >
-                                    Mover a papelera
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => handleInfo(item)}
+                                  aria-label="Info"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      aria-label="Eliminar"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>¿Mover a papelera?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Esta acción moverá el registro a la papelera. Podrás restaurarlo durante 7 días.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDelete(item.id)}
+                                        className="bg-red-600 hover:bg-red-700"
+                                      >
+                                        Mover a papelera
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </>
+                            ) : (
+                              <span className="text-sm text-gray-500">—</span>
+                            )}
                           </>
                         ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-2"
-                            onClick={() => handleRestore(item.id)}
-                          >
-                            Restaurar
-                          </Button>
+                          isAdmin ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 px-2"
+                              onClick={() => handleRestore(item.id)}
+                            >
+                              Restaurar
+                            </Button>
+                          ) : (
+                            <span className="text-sm text-gray-500">—</span>
+                          )
                         )}
                       </div>
                     </TableCell>
@@ -460,12 +520,12 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                   <div>
                     <label className="text-sm font-medium text-gray-500">Fecha</label>
                     <p className="text-sm">
-                      {format(new Date(selectedTesoreria.fecha), "dd/MM/yyyy", { locale: es })}
+                      {formatDatePeru(selectedTesoreria.fecha)}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Placa</label>
-                    <p className="text-sm">{selectedTesoreria.placa || "-"}</p>
+                    <label className="text-sm font-medium text-gray-500">PLACA T2</label>
+                    <p className="text-sm">{selectedTesoreria.placa || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Nombre</label>
@@ -473,45 +533,40 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Cargo</label>
-                    <p className="text-sm">{selectedTesoreria.cargo || "-"}</p>
+                    <p className="text-sm">{selectedTesoreria.cargo || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Categoría</label>
                     <p className="text-sm">{selectedTesoreria.categoria}</p>
                   </div>
                   <div>
+                    <label className="text-sm font-medium text-gray-500">Detalle</label>
+                    <p className="text-sm">{selectedTesoreria.detalle || ""}</p>
+                  </div>
+                  <div>
                     <label className="text-sm font-medium text-gray-500">Reembolso</label>
-                    <p className="text-sm">{selectedTesoreria.reembolso || "-"}</p>
+                    <p className="text-sm">{selectedTesoreria.reembolso || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Distrito</label>
-                    <p className="text-sm">{selectedTesoreria.distrito || "-"}</p>
+                    <p className="text-sm">{selectedTesoreria.distrito || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Turno</label>
-                    <p className="text-sm">{selectedTesoreria.turno ?? "-"}</p>
+                    <p className="text-sm">{
+                      selectedTesoreria.turno === 1 ? '1 - Mañana' :
+                      selectedTesoreria.turno === 2 ? '2 - Tarde' :
+                      selectedTesoreria.turno === 3 ? '3 - Noche' :
+                      selectedTesoreria.turno || ""
+                    }</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Encargado</label>
-                    <p className="text-sm">{selectedTesoreria.encargado || "-"}</p>
+                    <p className="text-sm">{selectedTesoreria.encargado || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Monto</label>
                     <p className="text-sm font-medium">{formatCurrency(selectedTesoreria.monto)}</p>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Detalle</label>
-                  <p className="text-sm mt-1">{selectedTesoreria.detalle || "-"}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Creado</label>
-                    <p className="text-sm">{format(new Date(selectedTesoreria.created_at), "dd/MM/yyyy HH:mm", { locale: es })}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Actualizado</label>
-                    <p className="text-sm">{format(new Date(selectedTesoreria.updated_at), "dd/MM/yyyy HH:mm", { locale: es })}</p>
                   </div>
                 </div>
               </div>
@@ -641,7 +696,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead>
-                  <TableHead>Placa</TableHead>
+                  <TableHead>PLACA T2</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Cargo</TableHead>
                   <TableHead>Categoría</TableHead>
@@ -667,7 +722,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-gray-500" />
-                          {format(new Date(item.fecha), "dd/MM/yyyy", { locale: es })}
+                          {formatDatePeru(item.fecha)}
                         </div>
                       </TableCell>
                       <TableCell>{item.placa || "-"}</TableCell>
@@ -685,7 +740,13 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                       </TableCell>
                       <TableCell>{item.reembolso || "-"}</TableCell>
                       <TableCell>{item.distrito || "-"}</TableCell>
-                      <TableCell>{item.turno ?? "-"}</TableCell>
+                      <TableCell>{(() => {
+                        const n = Number(item.turno);
+                        if (n === 1) return '1 - Mañana';
+                        if (n === 2) return '2 - Tarde';
+                        if (n === 3) return '3 - Noche';
+                        return item.turno ?? '-';
+                      })()}</TableCell>
                       <TableCell>{item.encargado || "-"}</TableCell>
                       <TableCell>
                         <div className="font-medium">
@@ -702,6 +763,15 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                             aria-label="Editar"
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => handleInfo(item)}
+                            aria-label="Info"
+                          >
+                            <Eye className="h-4 w-4" />
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -787,7 +857,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                 <div>
                   <label className="text-sm font-medium text-gray-500">Fecha</label>
                   <p className="text-sm">
-                    {format(new Date(selectedTesoreria.fecha), "dd/MM/yyyy", { locale: es })}
+                    {formatDatePeru(selectedTesoreria.fecha)}
                   </p>
                 </div>
                 <div>
@@ -816,7 +886,13 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Turno</label>
-                  <p className="text-sm">{selectedTesoreria.turno ?? "-"}</p>
+                  <p className="text-sm">{(() => {
+                    const n = Number(selectedTesoreria.turno);
+                    if (n === 1) return '1 - Mañana';
+                    if (n === 2) return '2 - Tarde';
+                    if (n === 3) return '3 - Noche';
+                    return selectedTesoreria.turno ?? '-';
+                  })()}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Encargado</label>
@@ -835,10 +911,16 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                 <div>
                   <label className="text-sm font-medium text-gray-500">Creado</label>
                   <p className="text-sm">{format(new Date(selectedTesoreria.created_at), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+                  {selectedTesoreria.created_by_nombre && (
+                    <p className="text-xs text-gray-600">Creado por: {selectedTesoreria.created_by_nombre}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Actualizado</label>
                   <p className="text-sm">{format(new Date(selectedTesoreria.updated_at), "dd/MM/yyyy HH:mm", { locale: es })}</p>
+                  {selectedTesoreria.updated_by_nombre && (
+                    <p className="text-xs text-gray-600">Modificado por: {selectedTesoreria.updated_by_nombre}</p>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, FormEvent, ChangeEvent } from "react";
+import Cookies from 'js-cookie';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,6 +79,7 @@ export function ViajeForm({
     fecha: string;
     id_vehiculo: string;
     id_repartidor: string;
+    id_centro: string;
     nro_viaje: string;
     territorios_visitados: string;
     salida_cd: string;
@@ -101,6 +103,7 @@ export function ViajeForm({
     fecha: "",
     id_vehiculo: "",
     id_repartidor: "",
+    id_centro: "",
     nro_viaje: "1",
     territorios_visitados: "",
     salida_cd: "",
@@ -126,8 +129,12 @@ export function ViajeForm({
   const [warnings, setWarnings] = useState<string[]>([]);
   const [searchVehiculo, setSearchVehiculo] = useState("");
   const [searchRepartidor, setSearchRepartidor] = useState("");
+  const [searchCentro, setSearchCentro] = useState("");
   const [showVehiculosDropdown, setShowVehiculosDropdown] = useState(false);
   const [showRepartidoresDropdown, setShowRepartidoresDropdown] = useState(false);
+  const [showCentrosDropdown, setShowCentrosDropdown] = useState(false);
+  const [centros, setCentros] = useState<Array<any>>([]);
+  const [centrosLoading, setCentrosLoading] = useState(false);
 
   // Resetear formulario cuando cambia el viaje o se carga datos
   useEffect(() => {
@@ -170,7 +177,38 @@ export function ViajeForm({
 
       setFormData(newFormData);
     }
-  }, [viaje, vehiculos, repartidores]);
+  }, [viaje, vehiculos, repartidores, centros]);
+
+  // Cargar centros de distribución
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setCentrosLoading(true);
+      try {
+        const API_BASE = (window && (window as any).__env && (window as any).__env.NEXT_PUBLIC_API_URL) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        const token = Cookies.get('auth_token');
+        if (!token) {
+          // No hay token, saltar carga (las rutas requieren autenticación)
+          setCentros([]);
+          return;
+        }
+        const res = await fetch(`${API_BASE}/centros-distribucion`, {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const json = await res.json();
+        if (mounted && json && json.success) setCentros(json.data || []);
+      } catch (err) {
+        // no bloquear el formulario si falla
+      } finally {
+        if (mounted) setCentrosLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
 
   // Función para formatear datetime-local
   const formatDateTimeLocal = (dateTime: string): string => {
@@ -229,6 +267,7 @@ export function ViajeForm({
       fecha: formData.fecha,
       id_vehiculo: parseInt(formData.id_vehiculo),
       id_repartidor: parseInt(formData.id_repartidor),
+      id_centro: formData.id_centro ? parseInt(formData.id_centro) : undefined,
       nro_viaje: parseInt(formData.nro_viaje),
       territorios_visitados: formData.territorios_visitados || undefined,
       salida_cd: formData.salida_cd || undefined,
@@ -261,6 +300,7 @@ export function ViajeForm({
   // Filtrar vehículos y repartidores activos
   const vehiculosActivos = vehiculos.filter((v) => v.activo);
   const repartidoresActivos = repartidores.filter((r) => r.activo);
+  const centrosActivos = centros.filter((c) => c.estado === 'activo');
 
   // Filtrar vehículos y repartidores según la búsqueda
   const filteredVehiculos = vehiculosActivos.filter(
@@ -274,6 +314,13 @@ export function ViajeForm({
     (repartidor) =>
       repartidor.nombre.toLowerCase().includes(searchRepartidor.toLowerCase()) ||
       repartidor.codigo.toLowerCase().includes(searchRepartidor.toLowerCase())
+  );
+
+  const filteredCentros = centrosActivos.filter(
+    (centro) =>
+      centro.codigo.toLowerCase().includes(searchCentro.toLowerCase()) ||
+      centro.nombre.toLowerCase().includes(searchCentro.toLowerCase()) ||
+      (centro.ciudad || '').toLowerCase().includes(searchCentro.toLowerCase())
   );
 
   return (
@@ -446,6 +493,43 @@ export function ViajeForm({
         </div>
       </div>
 
+      {/* Fila 2b: Centro de distribución */}
+      <div className="grid grid-cols-1 gap-4">
+        <div>
+          <Label htmlFor="searchCentro">Centro de distribución</Label>
+          <div className="relative">
+            <Input
+              id="searchCentro"
+              type="text"
+              value={searchCentro}
+              onChange={(e) => { setSearchCentro(e.target.value); if (e.target.value === '') setFormData(prev => ({ ...prev, id_centro: '' })); }}
+              onFocus={() => setShowCentrosDropdown(true)}
+              onBlur={() => setTimeout(() => setShowCentrosDropdown(false), 200)}
+              placeholder={centrosLoading ? 'Cargando centros...' : 'Buscar centro por código o nombre'}
+              className={"bg-white dark:bg-gray-800 text-black dark:text-white"}
+            />
+            {showCentrosDropdown && (
+              <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white dark:bg-gray-800 shadow-lg">
+                {filteredCentros.length > 0 ? (
+                  filteredCentros.map((centro) => (
+                    <div
+                      key={centro.id_centro}
+                      className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-600 last:border-b-0 text-black dark:text-white"
+                      onMouseDown={(e) => { e.preventDefault(); setFormData(prev => ({ ...prev, id_centro: centro.id_centro?.toString() || '' })); setSearchCentro(`${centro.codigo} - ${centro.nombre}`); setShowCentrosDropdown(false); }}
+                    >
+                      <div className="font-medium">{centro.codigo}</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-300">{centro.nombre} {centro.ciudad ? `(${centro.ciudad})` : ''}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-2 text-gray-500 dark:text-gray-400 text-sm">No se encontraron centros</div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Fila 3: Horarios */}
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -495,7 +579,7 @@ export function ViajeForm({
         </div>
       </div>
 
-  {/* Se eliminaron selects duplicados de Tipo de Viaje; conservar el único select al final del formulario */}
+      {/* Se eliminaron selects duplicados de Tipo de Viaje; conservar el único select al final del formulario */}
 
       {/* Sección de Tripulación */}
       <div className="border-t border-gray-200 pt-4 mt-4">

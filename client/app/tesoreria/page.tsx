@@ -30,11 +30,20 @@ import {
   Plus,
 } from "lucide-react";
 import { useTesoreria } from "@/hooks/use-tesoreria";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { SaldoCard } from "@/components/tesoreria/SaldoCard";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 export default function TesoreriaPage() {
   const { tesoreria, loading, createTesoreria, searchTesoreria } = useTesoreria();
   const { toast } = useToast();
+  const { isAdmin, token } = useAuth();
+  const [rolloverLoading, setRolloverLoading] = useState(false);
 
   // UI state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -42,6 +51,23 @@ export default function TesoreriaPage() {
   const [filterCategoria, setFilterCategoria] = useState<string>("");
   const [fecha, setFecha] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"active" | "history" | "trash">("active");
+  const [openFecha, setOpenFecha] = useState(false);
+
+  // Fecha a YYYY-MM-DD sin ajustes de zona: usar componentes del Date seleccionado
+  const toYMD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const formatDatePeru = (value?: string) => {
+    if (!value) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [y, m, d] = value.split("-");
+      return `${d}/${m}/${y}`;
+    }
+    try { return format(new Date(value), "dd/MM/yyyy", { locale: es }); } catch { return value; }
+  };
 
   // Conteo simple para tarjeta fija
   const totalRegistros = tesoreria.length;
@@ -66,6 +92,8 @@ export default function TesoreriaPage() {
       if (searchTerm) params.q = searchTerm;
       if (filterCategoria) params.categoria = filterCategoria;
       if (fecha) {
+        params.fecha = fecha;
+        // por compatibilidad, mantenemos también rango de 1 día
         params.fecha_inicio = fecha;
         params.fecha_fin = fecha;
       }
@@ -94,8 +122,7 @@ export default function TesoreriaPage() {
   useEffect(() => {
     const params = buildParams();
     window.dispatchEvent(new CustomEvent("tesoreria:search", { detail: params }));
-    // También podemos forzar un refresh para modo trash/historial
-    window.dispatchEvent(new Event("tesoreria:refresh"));
+  // Evitar refrescar sin filtros, para no sobreescribir la búsqueda seleccionada
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -156,11 +183,51 @@ export default function TesoreriaPage() {
         </Dialog>
       </div>
 
+      {/* Tarjeta fija de saldo (visible para todos; edición solo por ADMIN en componente) */}
+      <div className="flex justify-end items-center gap-2">
+        <SaldoCard />
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              setRolloverLoading(true);
+              try {
+                const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+                const res = await fetch(`${API_BASE}/tesoreria/saldo/rollover`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: token ? `Bearer ${token}` : "",
+                  },
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                  toast({ title: "Rollover ejecutado", description: data.message || "Snapshot creado" });
+                  window.dispatchEvent(new Event("tesoreria:saldo-changed"));
+                } else {
+                  toast({ title: "Error", description: data.message || "No se pudo ejecutar rollover", variant: "destructive" });
+                }
+              } catch (error) {
+                toast({ title: "Error", description: "Error de conexión con el servidor", variant: "destructive" });
+              } finally {
+                setRolloverLoading(false);
+              }
+            }}
+            disabled={rolloverLoading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCcw className="h-4 w-4" />
+            {rolloverLoading ? "Ejecutando..." : "Ejecutar Rollover"}
+          </Button>
+        )}
+      </div>
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <TabsList>
           <TabsTrigger value="active">Hoy</TabsTrigger>
-          <TabsTrigger value="history">Historial</TabsTrigger>
+          <TabsTrigger value="history">Historial Completo</TabsTrigger>
           <TabsTrigger value="trash">Papelera</TabsTrigger>
         </TabsList>
 
@@ -203,16 +270,29 @@ export default function TesoreriaPage() {
                 </Select>
               </div>
 
-              {/* Filtro por fecha específica */}
-              <div className="relative">
-                <Input
-                  type="date"
-                  value={fecha}
-                  onChange={(e) => setFecha(e.target.value)}
-                  className="w-[180px]"
-                  placeholder="Fecha"
-                />
-              </div>
+              {/* Filtro por fecha específica (dd/mm/aaaa) */}
+              <Popover open={openFecha} onOpenChange={setOpenFecha}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-[200px] justify-start">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {fecha ? formatDatePeru(fecha) : <span className="text-gray-500">dd/mm/aaaa</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={fecha ? new Date(`${fecha}T00:00:00`) : undefined}
+                    onSelect={(d: Date | undefined) => {
+                      if (!d) { setFecha(""); return; }
+                      const ymd = toYMD(d);
+                      setFecha(ymd);
+                      setOpenFecha(false);
+                    }}
+                    initialFocus
+                    locale={es}
+                  />
+                </PopoverContent>
+              </Popover>
 
               <Button variant="outline" onClick={clearFilters} className="flex items-center gap-2">
                 <RefreshCcw className="h-4 w-4" />
@@ -228,7 +308,9 @@ export default function TesoreriaPage() {
         <TabsContent value="active" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Lista de Registros (Hoy)</CardTitle>
+              <CardTitle>
+                {fecha ? `Lista de Registros (Fecha: ${formatDatePeru(fecha)})` : 'Lista de Registros (Hoy)'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <TesoreriaTable variant="simple" mode="active" />
@@ -240,7 +322,9 @@ export default function TesoreriaPage() {
         <TabsContent value="history" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Historial de Registros</CardTitle>
+              <CardTitle>
+                {fecha ? `Historial (Fecha: ${formatDatePeru(fecha)})` : 'Historial de Registros'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <TesoreriaTable variant="simple" mode="history" />
