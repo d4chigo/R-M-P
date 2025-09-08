@@ -44,7 +44,8 @@ function buildWhereAndParams(query) {
   } else {
     // Sin filtros de fecha explícitos: aplicar comportamiento por scope (hoy/histórico)
     if (scope === "history") {
-      where += ` AND t.fecha < ${PERU_TODAY_SQL}`;
+      // Historial muestra TODOS los registros (sin restricción de fecha)
+      // No agregamos filtro de fecha para mostrar el historial completo
     } else if (scope === "active") {
       where += ` AND t.fecha = ${PERU_TODAY_SQL}`;
     }

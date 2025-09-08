@@ -227,7 +227,7 @@ export default function TesoreriaPage() {
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
         <TabsList>
           <TabsTrigger value="active">Hoy</TabsTrigger>
-          <TabsTrigger value="history">Historial</TabsTrigger>
+          <TabsTrigger value="history">Historial Completo</TabsTrigger>
           <TabsTrigger value="trash">Papelera</TabsTrigger>
         </TabsList>
 
