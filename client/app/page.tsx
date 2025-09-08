@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type FC } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Card,
@@ -20,205 +20,86 @@ import {
   Clock,
   Settings,
   DollarSign,
-  BookOpen,
-  FileText,
   CheckCircle2,
   Warehouse,
 } from "lucide-react";
-// NOTE: node_modules may not be available in this environment; provide a small local spotlight
-// fallback so the tutorial button always funciona. The project already lists react-spotlight-tour,
-// but to guarantee behavior we implement a tiny tour here.
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { useTutorial } from "@/contexts/TutorialContext";
 
-type TourStepLocal = { selector: string; title: string; description?: string };
-
-const SimpleSpotlightTour: FC<{
-  steps: TourStepLocal[];
-  isOpen: boolean;
-  initialStep?: number;
-  onClose: () => void;
-  onStepChange?: (s: number) => void;
-}> = ({ steps, isOpen, initialStep = 0, onClose, onStepChange }) => {
-  const [step, setStep] = useState(initialStep);
-
-  useEffect(() => {
-    setStep(initialStep);
-  }, [initialStep]);
-
-  if (!isOpen) return null;
-
-  const current = steps[step];
-  if (!current) return null;
-
-  // Try to find element
-  const el = typeof window !== "undefined" ? document.querySelector(current.selector) as HTMLElement | null : null;
-
-  const next = () => {
-    if (step >= steps.length - 1) {
-      // last step -> close the tour
-      close();
-      return;
-    }
-    const ns = step + 1;
-    setStep(ns);
-    onStepChange?.(ns);
-  };
-
-  const prev = () => {
-    const ns = Math.max(0, step - 1);
-    setStep(ns);
-    onStepChange?.(ns);
-  };
-
-  const close = () => {
-    onClose();
-    setStep(0);
-    onStepChange?.(0);
-  };
-
-  // Compute position
-  const rect = el?.getBoundingClientRect();
-
-  // Highlight target element by applying temporary inline styles and restore on cleanup
-  useEffect(() => {
-    if (!isOpen) return;
-    const target = typeof window !== "undefined" ? document.querySelector(current.selector) as HTMLElement | null : null;
-    if (!target) return;
-
-    const original = {
-      boxShadow: target.style.boxShadow || "",
-      zIndex: target.style.zIndex || "",
-      position: target.style.position || "",
-      transition: target.style.transition || "",
-      background: target.style.background || "",
-    };
-
-  // Ensure element is on top and get a visible highlight in dark or light mode
-    try {
-      if (getComputedStyle(document.documentElement).getPropertyValue("background-color") || document.documentElement.classList.contains("dark")) {
-        // dark mode-ish
-        target.style.boxShadow = "0 8px 30px rgba(99,102,241,0.45), 0 0 0 3px rgba(99,102,241,0.12)";
-      } else {
-        target.style.boxShadow = "0 8px 30px rgba(59,130,246,0.25), 0 0 0 3px rgba(59,130,246,0.08)";
-      }
-  // keep highlight zIndex lower than tooltip container (tooltip container will use zIndex 100000)
-  target.style.zIndex = "9990";
-      if (getComputedStyle(target).position === "static") target.style.position = "relative";
-      target.style.transition = "box-shadow 200ms ease, transform 200ms ease";
-    } catch (e) {
-      // ignore
-    }
-
-    return () => {
-      try {
-        target.style.boxShadow = original.boxShadow;
-        target.style.zIndex = original.zIndex;
-        target.style.position = original.position;
-        target.style.transition = original.transition;
-        target.style.background = original.background;
-      } catch (e) {}
-    };
-  }, [isOpen, step, current.selector]);
-// Dentro del return del SimpleSpotlightTour
-return (
-  <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 100000 }}>
-    {/* Overlay con recorte */}
-    {rect && (
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm pointer-events-auto"
-        style={{
-          // Generamos el hueco en forma rectangular alrededor del elemento
-          clipPath: `polygon(
-            0 0,
-            0 100%,
-            100% 100%,
-            100% 0,
-            0 0,
-            ${rect.left}px ${rect.top}px,
-            ${rect.right}px ${rect.top}px,
-            ${rect.right}px ${rect.bottom}px,
-            ${rect.left}px ${rect.bottom}px,
-            ${rect.left}px ${rect.top}px
-          )`,
-        }}
-        onClick={close}
-      />
-    )}
-
-    {/* Tooltip */}
-    {rect && (
-      <div
-         style={{
-      position: "fixed", // ✅ ahora se adapta al viewport
-      left: rect.left + rect.width / 2, // centrado horizontal
-      top: rect.bottom + 4,             // más pegado al elemento
-      transform: "translateX(-50%)",    // centra el tooltip respecto al target
-      maxWidth: "90vw",                 // no se corta en pantallas pequeñas
-      // aparece debajo del elemento
-        }}
-        className="pointer-events-auto"
-      >
-        <div className="rounded-md border bg-white dark:bg-gray-800 dark:border-gray-700 shadow-lg p-4">
-      <div className="font-semibold text-gray-900 dark:text-gray-100">
-        {current.title}
-      </div>
-      {current.description && (
-        <div className="text-sm text-gray-600 dark:text-gray-300 mt-2">
-          {current.description}
-        </div>
-      )}
-      <div className="flex justify-between gap-2 mt-3">
-        <button
-          onClick={prev}
-          className="px-3 py-1 rounded disabled:opacity-50 
-               bg-gray-100 text-gray-800 hover:bg-gray-200
-               dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600"
-          disabled={step === 0}
-        >
-          Anterior
-        </button>
-        <div className="flex gap-2">
-          <button
-                onClick={close}
-                 className="px-3 py-1 rounded 
-                 bg-red-100 text-red-700 hover:bg-red-200
-                 dark:bg-red-900 dark:text-red-200 dark:hover:bg-red-800"
-          >
-            Cerrar
-          </button>
-          <button
-             onClick={next}
-             className="px-3 py-1 rounded 
-                 bg-blue-600 text-white hover:bg-blue-700
-                 dark:bg-blue-500 dark:hover:bg-blue-400"
-          >
-            {step === steps.length - 1 ? "Finalizar" : "Siguiente"}
-          </button>
-        </div>
-      </div>
-    </div>
-      </div>
-    )}
-  </div>
-);
-};
 export default function HomePage() {
-  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
+  const { hasSeenTutorial, startTutorial } = useTutorial();
 
-  // Tour steps (local type)
-  const tourSteps: TourStepLocal[] = [
-    { selector: "#card-vehiculos", title: "Vehículos", description: "Gestión de flota de vehículos." },
-    { selector: "#card-repartidores", title: "Repartidores", description: "Gestión de conductores y asignaciones." },
-    { selector: "#card-centro-distribucion", title: "Centro de Distribución", description: "Gestión y mapa de centros de distribución." },
-    { selector: "#card-viajes", title: "Viajes", description: "Programación y seguimiento de viajes." },
-    { selector: "#card-tesoreria", title: "Tesorería", description: "Gestión de ingresos y egresos." },
-    { selector: "#card-resumen-rutas", title: "Resumen de Rutas", description: "Reporte principal con métricas de rutas diarias." },
-    { selector: "#card-reportes-cumplimiento-vh", title: "Cumplimiento VH", description: "Visitas: ventana horaria, IDR y puntualidad." },
-  ];
+  // Configuración del tutorial principal
+  const mainTutorialConfig = {
+    id: 'main-dashboard-tutorial',
+    title: 'Tutorial del Dashboard Principal',
+    description: 'Aprende a navegar por los módulos principales del sistema R-M-P',
+    showProgress: true,
+    allowSkip: true,
+    steps: [
+      {
+        id: 'vehiculos',
+        selector: '#card-vehiculos',
+        title: 'Gestión de Vehículos',
+        description: 'Aquí puedes administrar toda tu flota de vehículos, registrar nuevos vehículos, ver su estado y asignar conductores.',
+        position: 'bottom' as const,
+      },
+      {
+        id: 'repartidores',
+        selector: '#card-repartidores',
+        title: 'Gestión de Repartidores',
+        description: 'Gestiona a tus conductores y repartidores, asigna vehículos y controla sus horarios de trabajo.',
+        position: 'bottom' as const,
+      },
+      {
+        id: 'centro-distribucion',
+        selector: '#card-centro-distribucion',
+        title: 'Centro de Distribución',
+        description: 'Administra tus centros de distribución y almacenes, visualiza el mapa de ubicaciones y gestiona inventarios.',
+        position: 'bottom' as const,
+      },
+      {
+        id: 'viajes',
+        selector: '#card-viajes',
+        title: 'Programación de Viajes',
+        description: 'Planifica y programa viajes, asigna rutas a vehículos y realiza seguimiento en tiempo real.',
+        position: 'bottom' as const,
+      },
+      {
+        id: 'tesoreria',
+        selector: '#card-tesoreria',
+        title: 'Tesorería',
+        description: 'Gestiona los ingresos y egresos de la empresa, controla facturación y pagos.',
+        position: 'bottom' as const,
+      },
+      {
+        id: 'resumen-rutas',
+        selector: '#card-resumen-rutas',
+        title: 'Resumen de Rutas',
+        description: 'Visualiza reportes detallados de las rutas diarias, métricas de rendimiento y estadísticas de cumplimiento.',
+        position: 'bottom' as const,
+      },
+      {
+        id: 'cumplimiento-vh',
+        selector: '#card-reportes-cumplimiento-vh',
+        title: 'Cumplimiento VH',
+        description: 'Monitorea el cumplimiento de ventanas horarias, IDR (Índice de Desempeño de Rutas) y puntualidad de visitas.',
+        position: 'bottom' as const,
+      },
+    ],
+  };
 
-  const handleNextStep = () => setCurrentStep((s) => s + 1);
-  const handlePrevStep = () => setCurrentStep((s) => Math.max(0, s - 1));
+  // Auto-iniciar tutorial para usuarios nuevos
+  useEffect(() => {
+    const hasSeenMainTutorial = hasSeenTutorial(mainTutorialConfig.id);
+    if (!hasSeenMainTutorial) {
+      // Pequeño delay para asegurar que la página esté completamente cargada
+      const timer = setTimeout(() => {
+        startTutorial(mainTutorialConfig);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, []); // Remover dependencias para evitar reinicios
 
   // Tus módulos
   const modules = [
@@ -303,19 +184,6 @@ export default function HomePage() {
               de rutas, vehículos y logística
             </p>
           </div>
-
-          {/* header tutorial button removed; use floating button */}
-
-          {/* Spotlight tour */}
-          {isTutorialOpen && (
-            <SimpleSpotlightTour
-              steps={tourSteps}
-              isOpen={isTutorialOpen}
-              initialStep={currentStep}
-              onClose={() => setIsTutorialOpen(false)}
-              onStepChange={(s) => setCurrentStep(s)}
-            />
-          )}
 
           {/* Módulos Principales */}
           <div className="mb-12">
@@ -432,19 +300,6 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Botón flotante de diagnóstico: eliminado */}
-          {/* Botón flotante del tutorial (estilo diagnóstico) */}
-          <div className="fixed bottom-6 right-6 z-40">
-            <button
-              aria-label="Abrir tutorial"
-              onClick={() => setIsTutorialOpen(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full flex items-center gap-3 shadow-lg"
-            >
-              <BookOpen className="w-5 h-5" />
-              <span className="hidden sm:inline">Iniciar Tutorial</span>
-            </button>
           </div>
         </div>
       </div>

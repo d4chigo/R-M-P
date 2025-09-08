@@ -4,7 +4,10 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { TutorialProvider } from "@/contexts/TutorialContext";
 import { Navbar } from "@/components/Navbar";
+import { TutorialTour } from "@/components/TutorialTour";
+import { TutorialFloatingButton } from "@/components/TutorialFloatingButton";
 import { Toaster } from "@/components/ui/toaster";
 import { ErrorBoundary } from "@/components/error-boundary"; // Asegúrate de crear este componente
 
@@ -31,11 +34,15 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            <Navbar />
-            <ErrorBoundary>
-              {children}
-            </ErrorBoundary>
-            <Toaster />
+            <TutorialProvider>
+              <Navbar />
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
+              <TutorialTour />
+              <TutorialFloatingButton />
+              <Toaster />
+            </TutorialProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
