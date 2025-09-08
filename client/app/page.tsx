@@ -99,7 +99,7 @@ export default function HomePage() {
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [hasSeenTutorial, startTutorial]);
+  }, []); // Remover dependencias para evitar reinicios
 
   // Tus módulos
   const modules = [
