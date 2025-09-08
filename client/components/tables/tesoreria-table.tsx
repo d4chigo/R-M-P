@@ -125,13 +125,15 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     };
   }, [fetchActive, fetchHistory, fetchTrash, searchTesoreria, mode]);
 
-  // Carga inicial según el modo
+  // Carga inicial según el modo (solo para variant "full").
+  // En variant "simple" la página externa controla las búsquedas vía evento.
   useEffect(() => {
+    if (variant !== "full") return;
     if (mode === "active") fetchActive();
     if (mode === "history") fetchHistory();
     if (mode === "trash") fetchTrash();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, [mode, variant]);
 
   // Paginación
   const {
