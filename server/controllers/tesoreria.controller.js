@@ -16,20 +16,35 @@ function todayPeruYMD() {
 
 // Helper: construir cláusula WHERE según scope y filtros
 function buildWhereAndParams(query) {
-  const { scope = "active", q, fecha_inicio, fecha_fin, categoria, reembolso, turno, distrito, encargado } = query;
+  const { scope = "active", q, fecha, fecha_inicio, fecha_fin, categoria, reembolso, turno, distrito, encargado } = query;
   let where = "WHERE 1=1";
   const params = [];
   // Normalizar 'hoy' a hora de Lima (Perú) independiente del TZ del servidor
   // Usamos UTC_TIMESTAMP() y convertimos a -05:00, luego tomamos solo la fecha
   const PERU_TODAY_SQL = "DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'))";
 
-  // Scope
+  // Scope + política de fechas
+  const hasDate = (fecha && String(fecha).trim()) || fecha_inicio || fecha_fin;
   if (scope === "trash") {
     where += " AND t.deleted_at IS NOT NULL";
-  } else if (scope === "history") {
-    where += ` AND t.deleted_at IS NULL AND t.fecha < ${PERU_TODAY_SQL}`;
-  } else { // active (default)
-    where += ` AND t.deleted_at IS NULL AND t.fecha = ${PERU_TODAY_SQL}`;
+    // En papelera no imponemos fecha por defecto; aplicar fecha si el cliente la envía
+  } else {
+    where += " AND t.deleted_at IS NULL";
+  }
+  if (hasDate) {
+    if (fecha && String(fecha).trim()) {
+      where += " AND t.fecha = ?"; params.push(String(fecha).trim());
+    } else {
+      if (fecha_inicio) { where += " AND t.fecha >= ?"; params.push(fecha_inicio); }
+      if (fecha_fin) { where += " AND t.fecha <= ?"; params.push(fecha_fin); }
+    }
+  } else {
+    // Sin filtros de fecha explícitos: aplicar comportamiento por scope (hoy/histórico)
+    if (scope === "history") {
+      where += ` AND t.fecha < ${PERU_TODAY_SQL}`;
+    } else if (scope === "active") {
+      where += ` AND t.fecha = ${PERU_TODAY_SQL}`;
+    }
   }
 
   // Búsqueda libre
@@ -40,8 +55,7 @@ function buildWhereAndParams(query) {
   }
 
   // Filtros adicionales
-  if (fecha_inicio) { where += " AND t.fecha >= ?"; params.push(fecha_inicio); }
-  if (fecha_fin) { where += " AND t.fecha <= ?"; params.push(fecha_fin); }
+  // (Rango de fechas ya aplicado arriba si correspondía)
   if (categoria) { where += " AND t.categoria = ?"; params.push(categoria); }
   if (reembolso) { where += " AND t.reembolso = ?"; params.push(reembolso); }
   if (typeof turno !== "undefined" && turno !== "") { where += " AND t.turno = ?"; params.push(turno); }
@@ -576,13 +590,37 @@ const restoreTesoreria = async (req, res) => {
 const searchTesoreria = async (req, res) => {
   try {
     const { where, params } = buildWhereAndParams({ ...req.query });
-    const [rows] = await db.query(
-      `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
-       FROM TESORERIA t
-       ${where}
-       ORDER BY t.fecha DESC, t.id DESC`,
-      params
-    );
+    let rows;
+    try {
+      const [r] = await db.query(
+        `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at, t.created_by, t.updated_by,
+                u1.nombre_completo AS created_by_nombre,
+                u2.nombre_completo AS updated_by_nombre
+         FROM TESORERIA t
+         LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
+         LEFT JOIN USUARIO u1 ON t.created_by = u1.id_usuario
+         LEFT JOIN USUARIO u2 ON t.updated_by = u2.id_usuario
+         ${where}
+         ORDER BY t.fecha DESC, t.id DESC`,
+        params
+      );
+      rows = r;
+    } catch (errQuery) {
+      if (String(errQuery.message).includes('Unknown column') || String(errQuery.code).includes('ER_BAD_FIELD_ERROR')) {
+        const [r2] = await db.query(
+          `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
+           FROM TESORERIA t
+           LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
+           ${where}
+           ORDER BY t.fecha DESC, t.id DESC`,
+          params
+        );
+        rows = r2;
+        rows.forEach(r => { r.created_by_nombre = null; r.updated_by_nombre = null; });
+      } else {
+        throw errQuery;
+      }
+    }
 
     res.json({ success: true, data: rows, count: rows.length, message: `${rows.length} registros de tesorería encontrados` });
   } catch (error) {
