@@ -40,6 +40,45 @@ export const TutorialTour: React.FC<TutorialTourProps> = ({ className }) => {
 
   const overlayRef = useRef<HTMLDivElement>(null);
 
+  // Función para actualizar la posición del elemento objetivo con throttling
+  const updateTargetPosition = React.useCallback(() => {
+    if (!targetElement || !currentTutorial || currentStep >= currentTutorial.steps.length) {
+      return;
+    }
+
+    const rect = targetElement.getBoundingClientRect();
+    setTargetRect(rect);
+    
+    // Calcular posición del tooltip
+    const step = currentTutorial.steps[currentStep];
+    calculateTooltipPosition(rect, step.position || 'bottom');
+  }, [targetElement, currentTutorial, currentStep]);
+
+  // Throttle function para optimizar el rendimiento
+  const throttle = (func: Function, delay: number) => {
+    let timeoutId: NodeJS.Timeout;
+    let lastExecTime = 0;
+    return function (...args: any[]) {
+      const currentTime = Date.now();
+      
+      if (currentTime - lastExecTime > delay) {
+        func.apply(this, args);
+        lastExecTime = currentTime;
+      } else {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          func.apply(this, args);
+          lastExecTime = Date.now();
+        }, delay - (currentTime - lastExecTime));
+      }
+    };
+  };
+
+  const throttledUpdatePosition = React.useMemo(
+    () => throttle(updateTargetPosition, 16), // ~60fps
+    [updateTargetPosition]
+  );
+
   // Buscar y posicionar el elemento objetivo
   useEffect(() => {
     if (!isOpen || !currentTutorial || currentStep >= currentTutorial.steps.length) {
@@ -68,6 +107,39 @@ export const TutorialTour: React.FC<TutorialTourProps> = ({ className }) => {
       setTargetRect(null);
     }
   }, [isOpen, currentTutorial, currentStep]);
+
+  // Escuchar eventos de scroll y resize para actualizar la posición
+  useEffect(() => {
+    if (!isOpen || !targetElement) {
+      return;
+    }
+
+    const handleScroll = () => {
+      throttledUpdatePosition();
+    };
+
+    const handleResize = () => {
+      updateTargetPosition(); // Resize no necesita throttling
+    };
+
+    // Agregar listeners a window y todos los elementos con scroll
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
+    
+    // También escuchar scroll en elementos específicos que puedan tener scroll
+    const scrollableElements = document.querySelectorAll('[style*="overflow"], .overflow-auto, .overflow-scroll, .overflow-y-auto, .overflow-x-auto');
+    scrollableElements.forEach(element => {
+      element.addEventListener('scroll', handleScroll, true);
+    });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+      scrollableElements.forEach(element => {
+        element.removeEventListener('scroll', handleScroll, true);
+      });
+    };
+  }, [isOpen, targetElement, throttledUpdatePosition]);
 
   // Aplicar efectos visuales al elemento objetivo
   useEffect(() => {
