@@ -33,6 +33,11 @@ import { useTesoreria } from "@/hooks/use-tesoreria";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { SaldoCard } from "@/components/tesoreria/SaldoCard";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 export default function TesoreriaPage() {
   const { tesoreria, loading, createTesoreria, searchTesoreria } = useTesoreria();
@@ -46,6 +51,23 @@ export default function TesoreriaPage() {
   const [filterCategoria, setFilterCategoria] = useState<string>("");
   const [fecha, setFecha] = useState<string>("");
   const [activeTab, setActiveTab] = useState<"active" | "history" | "trash">("active");
+  const [openFecha, setOpenFecha] = useState(false);
+
+  // Fecha a YYYY-MM-DD sin ajustes de zona: usar componentes del Date seleccionado
+  const toYMD = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const formatDatePeru = (value?: string) => {
+    if (!value) return "";
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [y, m, d] = value.split("-");
+      return `${d}/${m}/${y}`;
+    }
+    try { return format(new Date(value), "dd/MM/yyyy", { locale: es }); } catch { return value; }
+  };
 
   // Conteo simple para tarjeta fija
   const totalRegistros = tesoreria.length;
@@ -100,8 +122,7 @@ export default function TesoreriaPage() {
   useEffect(() => {
     const params = buildParams();
     window.dispatchEvent(new CustomEvent("tesoreria:search", { detail: params }));
-    // También podemos forzar un refresh para modo trash/historial
-    window.dispatchEvent(new Event("tesoreria:refresh"));
+  // Evitar refrescar sin filtros, para no sobreescribir la búsqueda seleccionada
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -249,16 +270,29 @@ export default function TesoreriaPage() {
                 </Select>
               </div>
 
-              {/* Filtro por fecha específica */}
-              <div className="relative">
-                <Input
-                  type="date"
-                  value={fecha}
-                  onChange={(e) => setFecha(e.target.value)}
-                  className="w-[180px]"
-                  placeholder="Fecha"
-                />
-              </div>
+              {/* Filtro por fecha específica (dd/mm/aaaa) */}
+              <Popover open={openFecha} onOpenChange={setOpenFecha}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-[200px] justify-start">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {fecha ? formatDatePeru(fecha) : <span className="text-gray-500">dd/mm/aaaa</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={fecha ? new Date(`${fecha}T00:00:00`) : undefined}
+                    onSelect={(d: Date | undefined) => {
+                      if (!d) { setFecha(""); return; }
+                      const ymd = toYMD(d);
+                      setFecha(ymd);
+                      setOpenFecha(false);
+                    }}
+                    initialFocus
+                    locale={es}
+                  />
+                </PopoverContent>
+              </Popover>
 
               <Button variant="outline" onClick={clearFilters} className="flex items-center gap-2">
                 <RefreshCcw className="h-4 w-4" />
@@ -274,7 +308,9 @@ export default function TesoreriaPage() {
         <TabsContent value="active" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Lista de Registros (Hoy)</CardTitle>
+              <CardTitle>
+                {fecha ? `Lista de Registros (Fecha: ${formatDatePeru(fecha)})` : 'Lista de Registros (Hoy)'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <TesoreriaTable variant="simple" mode="active" />
@@ -286,7 +322,9 @@ export default function TesoreriaPage() {
         <TabsContent value="history" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Historial de Registros</CardTitle>
+              <CardTitle>
+                {fecha ? `Historial (Fecha: ${formatDatePeru(fecha)})` : 'Historial de Registros'}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <TesoreriaTable variant="simple" mode="history" />
