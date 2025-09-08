@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -31,6 +31,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
+import { useReportes } from "@/hooks/use-reportes";
+import { useVehiculos } from "@/hooks/use-vehiculos";
+import { useViajes } from "@/hooks/use-viajes";
+import { useToast } from "@/hooks/use-toast";
 
 interface CumplimientoVH {
   fecha: string;
@@ -49,69 +53,13 @@ export default function CumplimientoVHPage() {
   const [filtroFecha, setFiltroFecha] = useState("");
   const [filtroPlaca, setFiltroPlaca] = useState("");
   const { theme, setTheme } = useTheme();
+  const { getCumplimientoVHVisitas, loading: loadingReportes } = useReportes();
+  const { vehiculos, fetchVehiculos } = useVehiculos();
+  const { fetchViajes } = useViajes();
+  const { toast } = useToast();
 
-  const [cumplimientoVH] = useState<CumplimientoVH[]>([
-    {
-      fecha: "2024-02-15",
-      placa: "ABC-123",
-      codigo_cliente: "CLI001",
-      cliente: "Distribuidora Central S.A.",
-      open: "08:00",
-      close: "18:00",
-      arrive: "09:30",
-      leave: "10:15",
-      idr: "IDR001",
-      fuera_vh: false,
-    },
-    {
-      fecha: "2024-02-15",
-      placa: "ABC-123",
-      codigo_cliente: "CLI002",
-      cliente: "Comercial Norte EIRL",
-      open: "09:00",
-      close: "17:00",
-      arrive: "18:30",
-      leave: "19:00",
-      idr: "IDR002",
-      fuera_vh: true,
-    },
-    {
-      fecha: "2024-02-15",
-      placa: "DEF-456",
-      codigo_cliente: "CLI003",
-      cliente: "Logística Sur SAC",
-      open: "07:30",
-      close: "16:30",
-      arrive: "11:45",
-      leave: "12:30",
-      idr: "IDR003",
-      fuera_vh: false,
-    },
-    {
-      fecha: "2024-02-15",
-      placa: "DEF-456",
-      codigo_cliente: "CLI004",
-      cliente: "Almacenes del Centro",
-      open: "10:00",
-      close: "19:00",
-      arrive: "08:30",
-      leave: "09:15",
-      idr: "IDR004",
-      fuera_vh: true,
-    },
-    {
-      fecha: "2024-02-16",
-      placa: "ABC-123",
-      codigo_cliente: "CLI005",
-      cliente: "Distribuciones Lima",
-      open: "08:30",
-      close: "17:30",
-      arrive: "14:00",
-      leave: "14:45",
-      idr: "IDR005",
-      fuera_vh: false,
-    },
-  ]);
+  const [cumplimientoVH, setCumplimientoVH] = useState<CumplimientoVH[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const cumplimientoFiltrado = cumplimientoVH.filter((item) => {
     const matchFecha = !filtroFecha || item.fecha.includes(filtroFecha);
@@ -134,8 +82,66 @@ export default function CumplimientoVHPage() {
       : "0";
 
   const exportarExcel = () => {
-    alert("Exportando a Excel...");
+    // Reuse existing CSV export in the other report or keep simple
+    alert("Exportando a Excel... (usa Exportar CSV en la vista de visitas si necesita un CSV real)");
   };
+
+  const formatTimeSafe = (v?: string | null) => {
+    if (!v) return "-";
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(v)) return v.slice(0, 5);
+    try {
+      const dt = new Date(v);
+      const hh = dt.getHours().toString().padStart(2, "0");
+      const mm = dt.getMinutes().toString().padStart(2, "0");
+      return `${hh}:${mm}`;
+    } catch {
+      return v;
+    }
+  };
+
+  const cargar = async () => {
+    try {
+      setLoading(true);
+      // Ensure vehiculos/viajes are loaded for suggestions (best-effort)
+      try {
+        await fetchVehiculos();
+        await fetchViajes();
+      } catch {}
+
+      const args: any = {};
+      if (filtroFecha) args.fecha = filtroFecha;
+      if (filtroPlaca) args.placa = filtroPlaca.trim();
+
+      const rows = await getCumplimientoVHVisitas(args);
+      const mapped: CumplimientoVH[] = (rows || []).map((r: any) => ({
+        fecha: r.Fecha || r.fecha || "",
+        placa: r.Placa || r.placa || r.vehiculo_placa || "",
+        codigo_cliente: r.Codigo_Cliente || r.codigo_cliente || r.codigo || "",
+        cliente: r.Cliente || r.cliente || r.repartidor_nombre || "",
+        open: formatTimeSafe(r.OpenDT || r.Open || r.open),
+        close: formatTimeSafe(r.CloseDT || r.Close || r.close),
+        arrive: formatTimeSafe(r.ArriveDT || r.Arrive || r.arrive),
+        leave: formatTimeSafe(r.LeaveDT || r.Leave || r.leave),
+        idr: r.IDR_Min != null ? String(r.IDR_Min) : r.IDR || r.idr || "",
+        fuera_vh: r.Fuera_VH === 1 || r.Fuera_VH === true || r.fuera_vh === true || false,
+      }));
+
+      setCumplimientoVH(mapped);
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Error", description: "No se pudieron cargar las visitas", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Initial load (today)
+    const hoy = new Date().toISOString().split("T")[0];
+    setFiltroFecha(hoy);
+    cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
