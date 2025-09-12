@@ -197,11 +197,30 @@ ALTER TABLE TESORERIA_SALDO
 
 -- Tabla para histórico diario de saldo (snapshot diario para rollover)
 CREATE TABLE IF NOT EXISTS TESORERIA_SALDO_HISTORY (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    fecha DATE NOT NULL,
-    saldo_final DECIMAL(14,2) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        fecha DATE NOT NULL,
+        saldo_final DECIMAL(14,2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_tesoreria_saldo_history_fecha (fecha)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Asegurar unicidad por fecha para permitir upsert/idempotencia en rollover
+-- MySQL no soporta ADD UNIQUE INDEX IF NOT EXISTS en todas las versiones, así que
+-- usamos una rutina temporal para crear el índice único solo si no existe.
+DELIMITER $$
+CREATE PROCEDURE ensure_idx_tesoreria_saldo_history_fecha()
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'TESORERIA_SALDO_HISTORY' AND INDEX_NAME = 'ux_tesoreria_saldo_history_fecha'
+    ) THEN
+        ALTER TABLE TESORERIA_SALDO_HISTORY ADD UNIQUE INDEX ux_tesoreria_saldo_history_fecha (fecha);
+    END IF;
+END$$
+CALL ensure_idx_tesoreria_saldo_history_fecha()$$
+DROP PROCEDURE ensure_idx_tesoreria_saldo_history_fecha$$
+DELIMITER ;
 
 -- ==============================
 -- CREACIÓN DE ÍNDICES

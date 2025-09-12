@@ -263,6 +263,13 @@ const createTesoreria = async (req, res) => {
         });
       } catch (e) {}
 
+      // Intentar ejecutar rollover automáticamente (no bloquear el flujo si falla)
+      try {
+        await performRollover?.(req);
+      } catch (rrErr) {
+        console.error('Error ejecutando rollover automático tras createTesoreria:', rrErr);
+      }
+
       res.status(201).json({ success: true, data: { id: result.insertId }, message: "Registro de tesorería creado exitosamente" });
     } catch (txErr) {
       console.error('Error en transacción crear tesorería:', txErr);
@@ -373,6 +380,12 @@ const updateTesoreria = async (req, res) => {
         });
       } catch (e) {}
       res.json({ success: true, message: "Registro de tesorería actualizado exitosamente" });
+      // Intentar ejecutar rollover automáticamente (no bloquear si falla)
+      try {
+        await performRollover?.(req);
+      } catch (rrErr) {
+        console.error('Error ejecutando rollover automático tras updateTesoreria:', rrErr);
+      }
     } catch (txErr) {
       await connection.rollback();
       console.error('Error en transacción actualizar tesorería:', txErr);
@@ -722,6 +735,42 @@ const rolloverSaldo = async (req, res) => {
 };
 
 module.exports.rolloverSaldo = rolloverSaldo;
+
+// Helper reutilizable: realiza el rollover (snapshot) de forma idempotente (upsert por fecha)
+const performRollover = async (req) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+    let saldoActual = 0;
+    if (rows.length === 0) {
+      const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (?)', [0]);
+      saldoActual = 0;
+    } else {
+      saldoActual = parseFloat(rows[0].saldo || 0);
+    }
+    const fechaHoy = todayPeruYMD();
+    // Usar upsert (ON DUPLICATE KEY UPDATE) — requiere índice único en la columna `fecha` de la tabla history
+    await connection.query(
+      `INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE saldo_final = VALUES(saldo_final), updated_at = CURRENT_TIMESTAMP`,
+      [fechaHoy, saldoActual]
+    );
+    await connection.commit();
+    try { await logAudit({ req, evento: 'ROLLOVER', entidad: 'TESORERIA_SALDO', entityId: rows[0]?.id || null, detalle: { fecha: fechaHoy, saldo_final: saldoActual } }); } catch(e) {}
+    return { success: true, message: 'Rollover completado (idempotente)', saldo_final: saldoActual };
+  } catch (err) {
+    await connection.rollback();
+    console.error('Error en performRollover:', err);
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
+// Exponer helper para uso interno
+module.exports.performRollover = performRollover;
 
 // =====================
 // Ajustes contables y resumen
