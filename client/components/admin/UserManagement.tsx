@@ -338,7 +338,9 @@ export default function UserManagement() {
 
     setFormValidationError("");
     if (!validateRoleSelectedLocal(formData)) {
-      setFormValidationError("Debe seleccionar un rol para el usuario.");
+      const msg = "Debe seleccionar un rol para el usuario.";
+      setFormValidationError(msg);
+      toast({ title: "Validación", description: msg, variant: "destructive" });
       return;
     }
 
@@ -487,6 +489,7 @@ export default function UserManagement() {
           // show modal with password so admin can copy it (email disabled)
           setLastTemporaryPassword(data.temporaryPassword);
           setTempPasswordModalOpen(true);
+          toast({ title: 'Contraseña temporal', description: 'Se generó una contraseña temporal. Cópiala y entrégala al usuario.', variant: 'default' });
         } else {
           toast({ title: "Contraseña restablecida", description: data.message || "Contraseña restablecida.", variant: "default" });
         }
@@ -521,15 +524,52 @@ export default function UserManagement() {
         if (data.temporaryPassword) {
           setLastTemporaryPassword(data.temporaryPassword);
           setTempPasswordModalOpen(true);
-        } else {
-          toast({ title: 'No hay contraseña temporal', description: data.message || 'No se encontró contraseña temporal para este usuario.', variant: 'destructive' });
+          toast({ title: 'Contraseña temporal', description: 'Se generó una contraseña temporal. Cópiala y entrégala al usuario.', variant: 'default' });
         }
+        // Otherwise remain silent
         setRevealDialogOpen(false);
       } else {
         setRevealError(data.message || 'No autorizado');
       }
     } catch (err) {
       console.error('Error revelando contraseña:', err);
+      setRevealError('Error de conexión');
+    } finally {
+      setRevealSubmitting(false);
+      setRevealAdminPassword("");
+    }
+  };
+
+  // Confirm reset handler: admin re-enters password to confirm a reset
+  const handleConfirmReset = async () => {
+    if (!revealTargetUserId) return;
+    setRevealSubmitting(true);
+    setRevealError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/usuarios/${revealTargetUserId}/reset-password`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ sendEmail: true, adminPassword: revealAdminPassword })
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        // If API returned a temporary password (email disabled/failure), show modal to admin
+        if (data.temporaryPassword) {
+          setLastTemporaryPassword(data.temporaryPassword);
+          setTempPasswordModalOpen(true);
+          toast({ title: 'Contraseña temporal', description: 'Se generó una contraseña temporal. Cópiala y entrégala al usuario.', variant: 'default' });
+        }
+        // Otherwise remain silent
+        setRevealDialogOpen(false);
+      } else {
+        setRevealError(data.message || 'No autorizado');
+      }
+    } catch (err) {
+      console.error('Error confirmando restablecimiento:', err);
       setRevealError('Error de conexión');
     } finally {
       setRevealSubmitting(false);
@@ -820,7 +860,7 @@ export default function UserManagement() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
-                          {/* Eye icon: abrir diálogo para re-autenticación del admin y revelar contraseña temporal */}
+                          {/* Restablecer contraseña: abrir modal para reingresar contraseña admin y confirmar */}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -830,13 +870,6 @@ export default function UserManagement() {
                               setRevealError("");
                               setRevealDialogOpen(true);
                             }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleResetPassword(user.id_usuario)}
                           >
                             <RotateCcw className="h-4 w-4" />
                           </Button>
@@ -1007,29 +1040,29 @@ export default function UserManagement() {
       {/* Reveal password dialog: admin must re-enter their password */}
       <Dialog open={revealDialogOpen} onOpenChange={setRevealDialogOpen}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Confirmar contraseña administrador</DialogTitle>
-            <DialogDescription>
-              Ingresa tu contraseña para verificar que estás autorizado a ver la contraseña temporal.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {revealError && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>{revealError}</AlertDescription>
-              </Alert>
-            )}
-            <div>
-              <Label>Contraseña administrador</Label>
-              <Input type="password" value={revealAdminPassword} onChange={(e) => setRevealAdminPassword(e.target.value)} />
+            <DialogHeader>
+              <DialogTitle>Confirmar restablecimiento</DialogTitle>
+              <DialogDescription>
+                Ingresa tu contraseña para confirmar que estás autorizado a restablecer la contraseña del usuario.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {revealError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{revealError}</AlertDescription>
+                </Alert>
+              )}
+              <div>
+                <Label>Contraseña administrador</Label>
+                <Input type="password" value={revealAdminPassword} onChange={(e) => setRevealAdminPassword(e.target.value)} />
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setRevealDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={handleConfirmReset} disabled={revealSubmitting || !revealAdminPassword}>{revealSubmitting ? 'Verificando...' : 'Confirmar restablecimiento'}</Button>
+              </div>
             </div>
-            <div className="flex justify-end space-x-2">
-              <Button variant="outline" onClick={() => setRevealDialogOpen(false)}>Cancelar</Button>
-              <Button onClick={handleRevealPassword} disabled={revealSubmitting || !revealAdminPassword}>{revealSubmitting ? 'Verificando...' : 'Ver contraseña'}</Button>
-            </div>
-          </div>
-        </DialogContent>
+          </DialogContent>
       </Dialog>
 
       {/* Temporary password modal shown to admin with copy/autoclose */}

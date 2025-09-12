@@ -617,6 +617,8 @@ const resetUserPassword = exports.resetUserPassword = async (req, res) => {
     console.log(`✅ Contraseña restablecida para usuario ${id}`);
 
   // Marcar que el usuario debe cambiar la contraseña en su primer ingreso
+  // y almacenar la última contraseña temporal para que el administrador pueda
+  // revelarla si el email no fue enviado. (Este es el comportamiento previo)
   await db.query("UPDATE USUARIO SET must_change_password = TRUE, last_temporary_password = ? WHERE id_usuario = ?", [tempPassword, id]);
 
   // Enviar contraseña por email si está habilitado
@@ -731,7 +733,7 @@ exports.toggleUsuarioActivo = async (req, res) => {
   }
 };
 
-// Revelar última contraseña temporal de un usuario (requiere re-autenticación del admin)
+// Revelar  ltima contrase f1a temporal de un usuario (requiere re-autenticaci f3n del admin)
 exports.revealUserPassword = async (req, res) => {
   try {
     const { id } = req.params;
@@ -739,10 +741,10 @@ exports.revealUserPassword = async (req, res) => {
     const adminId = req.usuario.id_usuario;
 
     if (!adminPassword) {
-      return res.status(400).json({ success: false, message: 'Se requiere la contraseña del administrador para proceder' });
+      return res.status(400).json({ success: false, message: 'Se requiere la contrase f1a del administrador para proceder' });
     }
 
-    // Verificar contraseña del administrador
+    // Verificar contrase f1a del administrador
     const [adminRows] = await db.query('SELECT password_hash FROM USUARIO WHERE id_usuario = ?', [adminId]);
     if (!adminRows.length) {
       return res.status(404).json({ success: false, message: 'Administrador no encontrado' });
@@ -750,10 +752,10 @@ exports.revealUserPassword = async (req, res) => {
 
     const validAdmin = await bcrypt.compare(adminPassword, adminRows[0].password_hash);
     if (!validAdmin) {
-      return res.status(401).json({ success: false, message: 'Contraseña de administrador incorrecta' });
+      return res.status(401).json({ success: false, message: 'Contrase f1a de administrador incorrecta' });
     }
 
-    // Obtener la última contraseña temporal almacenada
+    // Obtener la  faltima contrase f1a temporal almacenada
     const [rows] = await db.query('SELECT last_temporary_password FROM USUARIO WHERE id_usuario = ?', [id]);
     if (!rows.length) {
       return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
@@ -766,10 +768,10 @@ exports.revealUserPassword = async (req, res) => {
       await db.query('UPDATE USUARIO SET last_temporary_password = NULL WHERE id_usuario = ?', [id]);
     }
 
-    res.json({ success: true, temporaryPassword: temp, message: temp ? 'Contraseña temporal revelada' : 'No hay contraseña temporal disponible' });
+    res.json({ success: true, temporaryPassword: temp, message: temp ? 'Contrase f1a temporal revelada' : 'No hay contrase f1a temporal disponible' });
   } catch (error) {
-    console.error('Error revelando contraseña:', error);
-    res.status(500).json({ success: false, message: 'Error al revelar contraseña' });
+    console.error('Error revelando contrase f1a:', error);
+    res.status(500).json({ success: false, message: 'Error al revelar contrase f1a' });
   }
 };
 
