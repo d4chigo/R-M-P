@@ -70,8 +70,16 @@ export default function LoginPage() {
     }
 
     try {
-      const result = await login(email, password);
+      const result: any = await login(email, password);
       if (result.success) {
+        // If must_change_password flag is set, show forced modal
+        if (result.must_change_password) {
+          // abrir modal forzado
+          // We'll use sessionStorage to pass that the modal should open in the app root or a dedicated component
+          sessionStorage.setItem('forced_change_user', email);
+          router.push('/change-password-forced');
+          return;
+        }
         router.push("/");
       } else {
         setError(result.message || "Error en el login");

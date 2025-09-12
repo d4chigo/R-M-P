@@ -39,6 +39,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+// payload helper removed per request; mapping to role_id is done inline
+function validateRoleSelectedLocal(form: { roles: number[] }) {
+  return Array.isArray(form.roles) && form.roles.length > 0;
+}
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -118,6 +123,14 @@ export default function UserManagement() {
   const [selectedUser, setSelectedUser] = useState<Usuario | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [formValidationError, setFormValidationError] = useState("");
+  const [tempPasswordModalOpen, setTempPasswordModalOpen] = useState(false);
+  const [lastTemporaryPassword, setLastTemporaryPassword] = useState<string | null>(null);
+  const [revealDialogOpen, setRevealDialogOpen] = useState(false);
+  const [revealTargetUserId, setRevealTargetUserId] = useState<number | null>(null);
+  const [revealAdminPassword, setRevealAdminPassword] = useState("");
+  const [revealSubmitting, setRevealSubmitting] = useState(false);
+  const [revealError, setRevealError] = useState("");
 
   // Formulario de datos
   const [formData, setFormData] = useState<UserFormData>({
@@ -130,6 +143,7 @@ export default function UserManagement() {
   });
 
   const { token, isAdmin } = useAuth();
+  const { toast } = useToast();
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
@@ -188,6 +202,10 @@ export default function UserManagement() {
         const data = await response.json();
         if (data.success) {
           setRoles(data.data);
+          // preselect first role for better UX if creating a new user
+          if (data.data && data.data.length > 0) {
+            setFormData((prev) => ({ ...prev, roles: [data.data[0].id_rol] }));
+          }
         }
       }
     } catch (err) {
@@ -235,11 +253,20 @@ export default function UserManagement() {
       sendPassword: true,
     });
     setSubmitError("");
+  setFormValidationError("");
     setSelectedUser(null);
   };
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormValidationError("");
+    if (!validateRoleSelectedLocal(formData)) {
+      const msg = "Debe seleccionar un rol para el usuario.";
+      setFormValidationError(msg);
+      toast({ title: "Validación", description: msg, variant: "destructive" });
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError("");
 
@@ -251,7 +278,15 @@ export default function UserManagement() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+            username: formData.username,
+            nombre_completo: formData.nombre_completo,
+            email: formData.email,
+            telefono: formData.telefono,
+            // send both shapes for backend compatibility
+            role_id: formData.roles[0] || null,
+            roles: formData.roles && formData.roles.length > 0 ? [formData.roles[0]] : [],
+          }),
       });
 
       const data = await response.json();
@@ -260,11 +295,37 @@ export default function UserManagement() {
         await loadUsuarios();
         setIsCreateDialogOpen(false);
         resetForm();
+        toast({ title: "Usuario creado", description: "Usuario creado exitosamente.", variant: "default" });
+        // If API returned temporaryPassword (email disabled), show modal to admin
+        if (data.temporaryPassword) {
+          setLastTemporaryPassword(data.temporaryPassword);
+          setTempPasswordModalOpen(true);
+        }
       } else {
-        setSubmitError(data.message || "Error al crear usuario");
+        const message = data.message || "Error al crear usuario";
+        // backend might return specific error codes/messages, handle duplicate email
+        if (response.status === 409 || /duplicate|unique|email/i.test(message)) {
+          toast({
+            title: "No se pudo crear el usuario",
+            description: "El email ya está registrado. Por favor use otro email.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "No se pudo crear el usuario",
+            description: message,
+            variant: "destructive",
+          });
+        }
+        setSubmitError(message);
       }
     } catch (err) {
       console.error("Error creando usuario:", err);
+      toast({
+        title: "Error de conexión",
+        description: "No se pudo conectar con el servidor al crear usuario.",
+        variant: "destructive",
+      });
       setSubmitError("Error de conexión");
     } finally {
       setIsSubmitting(false);
@@ -274,6 +335,12 @@ export default function UserManagement() {
   const handleEditUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
+
+    setFormValidationError("");
+    if (!validateRoleSelectedLocal(formData)) {
+      setFormValidationError("Debe seleccionar un rol para el usuario.");
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmitError("");
@@ -292,7 +359,9 @@ export default function UserManagement() {
             nombre_completo: formData.nombre_completo,
             email: formData.email,
             telefono: formData.telefono,
-            roles: formData.roles,
+            // keep both shapes for compatibility with current backend
+            role_id: formData.roles[0] || null,
+            roles: formData.roles && formData.roles.length > 0 ? [formData.roles[0]] : [],
           }),
         },
       );
@@ -304,12 +373,32 @@ export default function UserManagement() {
         await loadUsuarios();
         setIsEditDialogOpen(false);
         resetForm();
+        toast({ title: "Usuario actualizado", description: "Usuario actualizado exitosamente.", variant: "default" });
       } else {
+        const message = data.message || "Error al actualizar usuario";
+        if (response.status === 409 || /duplicate|unique|email/i.test(message)) {
+          toast({
+            title: "No se pudo actualizar el usuario",
+            description: "El email ya está registrado. Por favor use otro email.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "No se pudo actualizar el usuario",
+            description: message,
+            variant: "destructive",
+          });
+        }
         console.error('Error actualizando usuario:', data);
-        setSubmitError(data.message || "Error al actualizar usuario");
+        setSubmitError(message);
       }
     } catch (err) {
       console.error("Error actualizando usuario:", err);
+      toast({
+        title: "Error de conexión",
+        description: "No se pudo conectar con el servidor al actualizar usuario.",
+        variant: "destructive",
+      });
       setSubmitError("Error de conexión");
     } finally {
       setIsSubmitting(false);
@@ -331,11 +420,15 @@ export default function UserManagement() {
 
       if (response.ok && data.success) {
         await loadUsuarios();
+        toast({ title: "Usuario eliminado", description: data.message || "Usuario eliminado exitosamente.", variant: "default" });
       } else {
-        setError(data.message || "Error al eliminar usuario");
+        const message = data.message || "Error al eliminar usuario";
+        toast({ title: "No se pudo eliminar usuario", description: message, variant: "destructive" });
+        setError(message);
       }
     } catch (err) {
       console.error("Error eliminando usuario:", err);
+      toast({ title: "Error de conexión", description: "No se pudo conectar al eliminar el usuario.", variant: "destructive" });
       setError("Error de conexión");
     }
   };
@@ -357,11 +450,15 @@ export default function UserManagement() {
 
       if (response.ok && data.success) {
         await loadUsuarios();
+        toast({ title: data.message || "Estado actualizado", description: `Usuario ${data.activo ? 'activado' : 'desactivado'} correctamente.`, variant: "default" });
       } else {
-        setError(data.message || "Error al cambiar estado del usuario");
+        const message = data.message || "Error al cambiar estado del usuario";
+        toast({ title: "No se pudo cambiar estado", description: message, variant: "destructive" });
+        setError(message);
       }
     } catch (err) {
       console.error("Error cambiando estado:", err);
+      toast({ title: "Error de conexión", description: "No se pudo conectar al cambiar estado del usuario.", variant: "destructive" });
       setError("Error de conexión");
     }
   };
@@ -383,17 +480,73 @@ export default function UserManagement() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Mostrar mensaje de éxito
         setError("");
-        alert("Contraseña restablecida y enviada por email");
+        if (data.emailSent) {
+          toast({ title: "Contraseña restablecida", description: "La contraseña temporal fue enviada por email.", variant: "default" });
+        } else if (data.temporaryPassword) {
+          // show modal with password so admin can copy it (email disabled)
+          setLastTemporaryPassword(data.temporaryPassword);
+          setTempPasswordModalOpen(true);
+        } else {
+          toast({ title: "Contraseña restablecida", description: data.message || "Contraseña restablecida.", variant: "default" });
+        }
       } else {
-        setError(data.message || "Error al restablecer contraseña");
+        const message = data.message || "Error al restablecer contraseña";
+        toast({ title: "No se pudo restablecer contraseña", description: message, variant: "destructive" });
+        setError(message);
       }
     } catch (err) {
       console.error("Error restableciendo contraseña:", err);
+      toast({ title: "Error de conexión", description: "No se pudo conectar al restablecer la contraseña.", variant: "destructive" });
       setError("Error de conexión");
     }
   };
+
+  const handleRevealPassword = async () => {
+    if (!revealTargetUserId) return;
+    setRevealSubmitting(true);
+    setRevealError("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/admin/usuarios/${revealTargetUserId}/reveal-password`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ adminPassword: revealAdminPassword })
+      });
+
+      const data = await response.json();
+      if (response.ok && data.success) {
+        if (data.temporaryPassword) {
+          setLastTemporaryPassword(data.temporaryPassword);
+          setTempPasswordModalOpen(true);
+        } else {
+          toast({ title: 'No hay contraseña temporal', description: data.message || 'No se encontró contraseña temporal para este usuario.', variant: 'destructive' });
+        }
+        setRevealDialogOpen(false);
+      } else {
+        setRevealError(data.message || 'No autorizado');
+      }
+    } catch (err) {
+      console.error('Error revelando contraseña:', err);
+      setRevealError('Error de conexión');
+    } finally {
+      setRevealSubmitting(false);
+      setRevealAdminPassword("");
+    }
+  };
+
+  // Auto-close temp password modal after a few seconds
+  useEffect(() => {
+    if (tempPasswordModalOpen && lastTemporaryPassword) {
+      const t = setTimeout(() => {
+        setTempPasswordModalOpen(false);
+        setLastTemporaryPassword(null);
+      }, 10000); // 10s
+      return () => clearTimeout(t);
+    }
+  }, [tempPasswordModalOpen, lastTemporaryPassword]);
 
   const openEditDialog = (user: Usuario) => {
     setSelectedUser(user);
@@ -402,8 +555,10 @@ export default function UserManagement() {
       nombre_completo: user.nombre_completo,
       email: user.email,
       telefono: user.telefono || "",
-      roles: user.role_ids,
-      sendPassword: false,
+  // map role_ids to single selection: keep first role if any
+  roles: user.role_ids && user.role_ids.length > 0 ? [user.role_ids[0]] : [],
+  // when editing, password already exists; we won't toggle sending
+  sendPassword: true,
     });
     setIsEditDialogOpen(true);
   };
@@ -665,6 +820,19 @@ export default function UserManagement() {
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
+                          {/* Eye icon: abrir diálogo para re-autenticación del admin y revelar contraseña temporal */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setRevealTargetUserId(user.id_usuario);
+                              setRevealAdminPassword("");
+                              setRevealError("");
+                              setRevealDialogOpen(true);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -785,56 +953,32 @@ export default function UserManagement() {
             </div>
 
             <div className="space-y-2">
-              <Label>Roles</Label>
-              <div className="space-y-2">
-                {roles.map((role) => (
-                  <div
-                    key={role.id_rol}
-                    className="flex items-center space-x-2"
-                  >
-                    <Checkbox
-                      id={`role-${role.id_rol}`}
-                      checked={formData.roles.includes(role.id_rol)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setFormData({
-                            ...formData,
-                            roles: [...formData.roles, role.id_rol],
-                          });
-                        } else {
-                          setFormData({
-                            ...formData,
-                            roles: formData.roles.filter(
-                              (id) => id !== role.id_rol,
-                            ),
-                          });
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`role-${role.id_rol}`} className="text-sm">
+              <Label>Rol</Label>
+              <Select
+                value={formData.roles[0]?.toString() || "none"}
+                onValueChange={(value: string) =>
+                  setFormData({ ...formData, roles: value && value !== "none" ? [Number(value)] : [] })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione un rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- Ninguno --</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id_rol} value={role.id_rol.toString()}>
                       {role.nombre}
-                      {role.descripcion && (
-                        <span className="text-gray-500 ml-1">
-                          - {role.descripcion}
-                        </span>
-                      )}
-                    </Label>
-                  </div>
-                ))}
-              </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {formValidationError && (
+                <div className="text-sm text-red-600 mt-1">{formValidationError}</div>
+              )}
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="send-password"
-                checked={formData.sendPassword}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, sendPassword: !!checked })
-                }
-              />
-              <Label htmlFor="send-password" className="text-sm">
-                Enviar contraseña por email
-              </Label>
+            <div className="text-sm text-gray-700">
+              La contraseña temporal se enviará automáticamente por email al crear el usuario.
             </div>
 
             <div className="flex justify-end space-x-2 pt-4">
@@ -845,7 +989,7 @@ export default function UserManagement() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || !formData.roles || formData.roles.length === 0}>
                 {isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
@@ -857,6 +1001,55 @@ export default function UserManagement() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reveal password dialog: admin must re-enter their password */}
+      <Dialog open={revealDialogOpen} onOpenChange={setRevealDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirmar contraseña administrador</DialogTitle>
+            <DialogDescription>
+              Ingresa tu contraseña para verificar que estás autorizado a ver la contraseña temporal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {revealError && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{revealError}</AlertDescription>
+              </Alert>
+            )}
+            <div>
+              <Label>Contraseña administrador</Label>
+              <Input type="password" value={revealAdminPassword} onChange={(e) => setRevealAdminPassword(e.target.value)} />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setRevealDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={handleRevealPassword} disabled={revealSubmitting || !revealAdminPassword}>{revealSubmitting ? 'Verificando...' : 'Ver contraseña'}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Temporary password modal shown to admin with copy/autoclose */}
+      <Dialog open={tempPasswordModalOpen} onOpenChange={setTempPasswordModalOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Contraseña temporal</DialogTitle>
+            <DialogDescription>
+              Esta es la contraseña temporal generada para el usuario. Cópiala y entrégasela de forma segura.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-100 rounded">
+              <div className="font-mono break-all">{lastTemporaryPassword}</div>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => { navigator.clipboard.writeText(lastTemporaryPassword || ''); toast({ title: 'Copiado', description: 'Contraseña copiada al portapapeles', variant: 'default' }); }}>Copiar</Button>
+              <Button onClick={() => { setTempPasswordModalOpen(false); setLastTemporaryPassword(null); }}>Cerrar</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -927,46 +1120,25 @@ export default function UserManagement() {
             </div>
 
             <div className="space-y-2">
-              <Label>Roles</Label>
-              <div className="space-y-2">
-                {roles.map((role) => (
-                  <div
-                    key={role.id_rol}
-                    className="flex items-center space-x-2"
-                  >
-                    <Checkbox
-                      id={`edit-role-${role.id_rol}`}
-                      checked={formData.roles.includes(role.id_rol)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setFormData({
-                            ...formData,
-                            roles: [...formData.roles, role.id_rol],
-                          });
-                        } else {
-                          setFormData({
-                            ...formData,
-                            roles: formData.roles.filter(
-                              (id) => id !== role.id_rol,
-                            ),
-                          });
-                        }
-                      }}
-                    />
-                    <Label
-                      htmlFor={`edit-role-${role.id_rol}`}
-                      className="text-sm"
-                    >
+              <Label>Rol</Label>
+              <Select
+                value={formData.roles[0]?.toString() || "none"}
+                onValueChange={(value: string) =>
+                  setFormData({ ...formData, roles: value && value !== "none" ? [Number(value)] : [] })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione un rol" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- Ninguno --</SelectItem>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id_rol} value={role.id_rol.toString()}>
                       {role.nombre}
-                      {role.descripcion && (
-                        <span className="text-gray-500 ml-1">
-                          - {role.descripcion}
-                        </span>
-                      )}
-                    </Label>
-                  </div>
-                ))}
-              </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="flex justify-end space-x-2 pt-4">
@@ -977,7 +1149,7 @@ export default function UserManagement() {
               >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || !formData.roles || formData.roles.length === 0}>
                 {isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>

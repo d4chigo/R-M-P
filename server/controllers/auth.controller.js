@@ -172,8 +172,10 @@ exports.login = async (req, res) => {
       { expiresIn: JWT_EXPIRES_IN }
     );
 
-    // Respuesta exitosa (no incluir contraseña)
-    const { password_hash: _, ...usuarioSinPassword } = user;
+  // Respuesta exitosa (no incluir contraseña)
+  const { password_hash: _, ...usuarioSinPassword } = user;
+  // Ensure must_change_password is returned to client
+  usuarioSinPassword.must_change_password = !!user.must_change_password;
 
     console.log("✅ Login exitoso para:", email, "Roles:", roles);
 
@@ -183,7 +185,8 @@ exports.login = async (req, res) => {
       data: {
         usuario: {
           ...usuarioSinPassword,
-          roles_list: roles
+          roles_list: roles,
+          must_change_password: usuarioSinPassword.must_change_password || false,
         },
         token,
       },
@@ -346,8 +349,8 @@ exports.changePassword = async (req, res) => {
 
     // Actualizar contraseña
     await db.query(
-      "UPDATE USUARIO SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id_usuario = ?",
-      [hashedNewPassword, userId],
+  "UPDATE USUARIO SET password_hash = ?, updated_at = CURRENT_TIMESTAMP, must_change_password = FALSE WHERE id_usuario = ?",
+  [hashedNewPassword, userId],
     );
 
     res.json({
