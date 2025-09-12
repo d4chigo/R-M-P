@@ -44,12 +44,19 @@ export default function ForcedChangePasswordPage() {
     if (!validate()) return;
     setSubmitting(true);
     try {
-      const token = sessionStorage.getItem('auth_token') || null;
+      // The AuthContext saves the token in a cookie named 'auth_token'.
+      // Prefer that cookie for Authorization header; fall back to sessionStorage.
+      const getCookie = (name: string) => {
+        if (typeof document === 'undefined') return null;
+        const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+        return match ? decodeURIComponent(match[2]) : null;
+      };
+      const token = getCookie('auth_token') || sessionStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: token ? `Bearer ${token}` : undefined,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ currentPassword, newPassword }),
       });

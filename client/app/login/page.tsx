@@ -36,7 +36,12 @@ export default function LoginPage() {
   }, [checkUsersExist, router]);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    // If authentication completed and user is authenticated, redirect to
+    // home only when NOT arriving from a forced-change flow. The login
+    // handler sets sessionStorage 'forced_change_user' when a password
+    // change is required; respect that flag to avoid race conditions.
+    const forced = typeof window !== 'undefined' ? sessionStorage.getItem('forced_change_user') : null;
+    if (!isLoading && isAuthenticated && !forced) {
       router.push("/");
     }
   }, [isAuthenticated, isLoading, router]);
