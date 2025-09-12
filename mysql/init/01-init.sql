@@ -14,11 +14,13 @@ CREATE TABLE USUARIO (
     username VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     nombre_completo VARCHAR(150) NOT NULL,
-    email VARCHAR(100) UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
     telefono VARCHAR(20),
     activo BOOLEAN DEFAULT TRUE,
     reset_token VARCHAR(255) DEFAULT NULL,
     reset_token_expires DATETIME DEFAULT NULL,
+    must_change_password BOOLEAN DEFAULT FALSE,
+    last_temporary_password VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -45,7 +47,7 @@ CREATE TABLE USUARIO_ROL (
 -- Nota: para migraciones reales se debería mapear roles antiguos a EMPLEADO cuando aplique
 INSERT INTO ROL (nombre, descripcion) VALUES
 ('ADMINISTRADOR', 'Administrador del sistema con acceso total'),
-('EMPLEADO', 'Usuario con permisos de empleado (crear registros, ver información limitada)');
+('EMPLEADO', 'Usuario con permisos de empleado (crear registros, ver informacion limitada)');
 
 -- Tabla ZONA: áreas geográficas
 CREATE TABLE ZONA (

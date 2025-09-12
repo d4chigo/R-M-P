@@ -131,7 +131,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           sameSite: "strict",
         });
 
-        return { success: true };
+  return { success: true, must_change_password: !!userData.must_change_password } as any;
       } else {
         console.log("AuthContext: Login fallido:", data.message);
         return {
