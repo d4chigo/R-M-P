@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Download, Filter } from "lucide-react";
+import { ArrowLeft, Download, Filter } from "lucide-react";
 import { useReportes } from "@/hooks/use-reportes";
 import { GastosChart } from "./components/GastosChart";
 import { TendenciaChart } from "./components/TendenciaChart";
@@ -59,7 +59,18 @@ export default function TesoreriaReportPage() {
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Reportes de Tesorería</h1>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.history.back()}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver
+          </Button>
+          <h1 className="text-2xl font-bold">Reportes de Tesorería</h1>
+        </div>
         <div className="flex gap-2">
           <Button onClick={() => exportCsv(categoriaRows, 'tesoreria_categoria.csv')}>
             <Download className="w-4 h-4 mr-2" />Exportar Categoría
