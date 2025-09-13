@@ -84,7 +84,6 @@ export default function VehiculosPage() {
   const [showStats, setShowStats] = useState(false);
 
   // Estados de paginación
-  const [pagina, setPagina] = useState(1);
   const [tamanoPagina, setTamanoPagina] = useState(10);
   const [filteredVehiculos, setFilteredVehiculos] = useState<Vehiculo[]>([]);
 
@@ -149,12 +148,6 @@ export default function VehiculosPage() {
     filterVehiculos();
   }, [searchQuery, dateFilter, vehiculos]);
 
-  const totalPaginas = Math.ceil(filteredVehiculos.length / tamanoPagina);
-  const vehiculosPaginados = filteredVehiculos.slice(
-    (pagina - 1) * tamanoPagina,
-    pagina * tamanoPagina
-  );
-
   // Manejo de creación/actualización
   const handleSubmit = async (vehiculoData: Omit<Vehiculo, "id_vehiculo">) => {
     let result;
@@ -182,13 +175,11 @@ export default function VehiculosPage() {
 
   const handleDateFilter = (date: string) => {
     setDateFilter(date);
-    setPagina(1); // Resetear a la primera página al aplicar filtro
   };
 
   const clearFilters = () => {
     setSearchQuery("");
     setDateFilter("");
-    setPagina(1);
   };
 
   const handleDelete = (vehiculo: Vehiculo) => {
@@ -458,30 +449,12 @@ export default function VehiculosPage() {
 
       {/* Table */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <div>
             <CardTitle>Lista de Vehículos</CardTitle>
             <CardDescription>
-              {pagina} de {totalPaginas} páginas • {filteredVehiculos.length} registros
+              {filteredVehiculos.length} registros
             </CardDescription>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagina <= 1}
-              onClick={() => setPagina(pagina - 1)}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagina >= totalPaginas}
-              onClick={() => setPagina(pagina + 1)}
-            >
-              Siguiente
-            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -505,7 +478,7 @@ export default function VehiculosPage() {
             </div>
           ) : (
             <VehiculosTable
-              vehiculos={vehiculosPaginados}
+              vehiculos={filteredVehiculos}
               onEdit={handleEdit}
               onDelete={handleDelete}
               initialPageSize={tamanoPagina}

@@ -102,12 +102,8 @@ export default function ViajesPage() {
     return matchesSearch && matchesDate;
   });
 
-  // Paginación
+  // Paginación (no se calcula viajesPaginados aquí, se pasa el array completo al componente de tabla)
   const totalPaginas = Math.ceil(filteredViajes.length / tamanoPagina);
-  const viajesPaginados = filteredViajes.slice(
-    (pagina - 1) * tamanoPagina,
-    pagina * tamanoPagina
-  );
 
   const handleSubmit = async (viajeData: Omit<Viaje, "id">) => {
     try {
@@ -315,78 +311,81 @@ export default function ViajesPage() {
                 Limpiar
               </Button>
             )}
-           <Button
-  variant="outline"
-  onClick={() => setShowStats(!showStats)}
-  className="flex items-center gap-2"
->
-  <BarChart3 className="h-4 w-4" />
-  Estadísticas
-  {showStats ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-</Button>
-</div>
-</CardContent>
-</Card>
-
-{/* 📊 Estadísticas colapsables de Viajes */}
-{showStats && (
-  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center space-x-2">
-          <BarChart3 className="h-8 w-8 text-blue-600" />
-          <div>
-            <p className="text-2xl font-bold">{viajes.length}</p>
-            <p className="text-sm text-muted-foreground">Total de Viajes</p>
+            <Button
+              variant="outline"
+              onClick={() => setShowStats(!showStats)}
+              className="flex items-center gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Estadísticas
+              {showStats ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
 
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center space-x-2">
-          <CheckCircle className="h-8 w-8 text-green-600" />
-          <div>
-            <p className="text-2xl font-bold">
-              {viajes.filter((v) => v.estado === "completado").length}
-            </p>
-            <p className="text-sm text-muted-foreground">Completados</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      {/* 📊 Estadísticas colapsables de Viajes */}
+      {showStats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <BarChart3 className="h-8 w-8 text-blue-600" />
+                <div>
+                  <p className="text-2xl font-bold">{viajes.length}</p>
+                  <p className="text-sm text-muted-foreground">Total de Viajes</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center space-x-2">
-          <AlertTriangle className="h-8 w-8 text-yellow-600" />
-          <div>
-            <p className="text-2xl font-bold">
-              {viajes.filter((v) => v.estado === "pendiente").length}
-            </p>
-            <p className="text-sm text-muted-foreground">Pendientes</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {viajes.filter((v) => v.estado === "completado").length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Completados</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center space-x-2">
-          <X className="h-8 w-8 text-red-600" />
-          <div>
-            <p className="text-2xl font-bold">
-              {viajes.filter((v) => v.estado === "cancelado").length}
-            </p>
-            <p className="text-sm text-muted-foreground">Cancelados</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-)}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="h-8 w-8 text-yellow-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {viajes.filter((v) => v.estado === "pendiente").length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Pendientes</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <X className="h-8 w-8 text-red-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {viajes.filter((v) => v.estado === "cancelado").length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Cancelados</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Mostrar error */}
       {error && (
@@ -410,10 +409,14 @@ export default function ViajesPage() {
             </div>
           ) : (
             <ViajesTable
-              viajes={viajesPaginados}
+              viajes={filteredViajes}
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
-              initialPageSize={tamanoPagina}
+              page={pagina}
+              pageSize={tamanoPagina}
+              totalCount={filteredViajes.length}
+              onPageChange={setPagina}
+              onPageSizeChange={setTamanoPagina}
             />
           )}
         </CardContent>
