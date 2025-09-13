@@ -291,3 +291,76 @@ GROUP BY
     r.codigo,
     r.nombre;
 
+
+-- ==============================
+-- VISTA: Cumplimiento VH (visitas)
+-- Producción de filas por visita: Fecha, Placa, Codigo_Cliente, Cliente, OpenDT, CloseDT, ArriveDT, LeaveDT, IDR_Min, Fuera_VH
+-- Nota: esta vista asume la existencia de una tabla VISITA con los campos mostrados abajo.
+-- Ajustar nombres de columnas si la implementación real difiere.
+-- Cumplimiento VH removido: la vista y los reportes relacionados fueron eliminados.
+-- Si necesita restaurarla, crear una vista que seleccione desde las tablas
+-- VISITA y CLIENTE (no presentes) o implementar una alternativa basada en
+-- VIAJE/TESORERIA.
+
+-- ==============================
+-- VISTAS: Reportes de TESORERIA (Gastos)
+-- ==============================
+
+-- 1) Monto total por categoría
+CREATE OR REPLACE VIEW v_tesoreria_resumen_categoria AS
+SELECT
+    categoria AS Categoria,
+    COUNT(*) AS Cantidad_Registros,
+    COALESCE(SUM(monto), 0) AS Monto_Total,
+    COALESCE(ROUND(AVG(monto),2), 0) AS Monto_Promedio
+FROM TESORERIA
+WHERE deleted_at IS NULL
+GROUP BY categoria;
+
+-- 2) Monto total por persona (nombre)
+CREATE OR REPLACE VIEW v_tesoreria_por_persona AS
+SELECT
+    nombre AS Persona,
+    COUNT(*) AS Cantidad_Registros,
+    COALESCE(SUM(monto), 0) AS Monto_Total,
+    COALESCE(ROUND(AVG(monto),2), 0) AS Monto_Promedio
+FROM TESORERIA
+WHERE deleted_at IS NULL
+GROUP BY nombre;
+
+-- 3) Monto total por vehiculo (placa)
+CREATE OR REPLACE VIEW v_tesoreria_por_vehiculo AS
+SELECT
+    placa AS Placa,
+    COUNT(*) AS Cantidad_Registros,
+    COALESCE(SUM(monto), 0) AS Monto_Total,
+    COALESCE(ROUND(AVG(monto),2), 0) AS Monto_Promedio
+FROM TESORERIA
+WHERE deleted_at IS NULL AND placa IS NOT NULL
+GROUP BY placa;
+
+-- 4) Monto por centro de distribucion
+CREATE OR REPLACE VIEW v_tesoreria_por_centro AS
+SELECT
+    id_centro AS Id_Centro,
+    COUNT(*) AS Cantidad_Registros,
+    COALESCE(SUM(monto), 0) AS Monto_Total,
+    COALESCE(ROUND(AVG(monto),2), 0) AS Monto_Promedio
+FROM TESORERIA
+WHERE deleted_at IS NULL AND id_centro IS NOT NULL
+GROUP BY id_centro;
+
+-- 5) Tendencia mensual de gastos
+CREATE OR REPLACE VIEW v_tesoreria_tendencia_mensual AS
+SELECT
+    DATE_FORMAT(fecha, '%Y-%m') AS Mes,
+    COUNT(*) AS Cantidad_Registros,
+    COALESCE(SUM(monto), 0) AS Monto_Total,
+    COALESCE(ROUND(AVG(monto),2), 0) AS Monto_Promedio
+FROM TESORERIA
+WHERE deleted_at IS NULL
+GROUP BY DATE_FORMAT(fecha, '%Y-%m')
+ORDER BY Mes DESC;
+
+
+

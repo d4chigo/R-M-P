@@ -14,6 +14,14 @@ const {
   getPerformanceRepartidoresV2,
   getCumplimientoVehiculo,
   getCumplimientoVehiculoDetalle,
+ // getCumplimientoVHVisitas,
+
+  // Tesorería
+  getTesoreriaPorCategoria,
+  getTesoreriaPorPersona,
+  getTesoreriaPorVehiculo,
+  getTesoreriaPorCentro,
+  getTesoreriaTendenciaMensual,
 
   // detalle por viaje
   getResumenRutasPorViaje,
@@ -59,6 +67,21 @@ router.get("/performance/repartidores/v2", getPerformanceRepartidoresV2);
 router.get("/cumplimiento/vh", getCumplimientoVehiculo);
 // GET /api/reportes/cumplimiento/vh/:placa/detalle?umbralDias=30
 router.get("/cumplimiento/vh/:placa/detalle", getCumplimientoVehiculoDetalle);
+// Nota: el endpoint de visitas por Cumplimiento VH fue removido junto con la vista
+// correspondiente. Si se requiere restaurarlo, volver a implementar la vista
+// `v_cumplimiento_vh_visitas` y descomentar la ruta.
+
+// ===== Tesorería - reportes
+// GET /api/reportes/tesoreria/categoria
+router.get('/tesoreria/categoria', getTesoreriaPorCategoria);
+// GET /api/reportes/tesoreria/persona
+router.get('/tesoreria/persona', getTesoreriaPorPersona);
+// GET /api/reportes/tesoreria/vehiculo?placa=ABC-123
+router.get('/tesoreria/vehiculo', getTesoreriaPorVehiculo);
+// GET /api/reportes/tesoreria/centro?idCentro=1
+router.get('/tesoreria/centro', getTesoreriaPorCentro);
+// GET /api/reportes/tesoreria/tendencia?meses=12
+router.get('/tesoreria/tendencia', getTesoreriaTendenciaMensual);
 
 
 // GET /api/reportes/sp/resumen-rutas/:fecha - Usar procedimiento almacenado

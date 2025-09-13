@@ -768,6 +768,75 @@ const getMetricasCumplimiento = async (req, res) => {
   }
 };
 
+// ===== Tesorería: reportes basados en la tabla TESORERIA (vistas creadas en SQL)
+const getTesoreriaPorCategoria = async (req, res) => {
+  try {
+    const [rows] = await db.query(`SELECT Categoria, Cantidad_Registros, Monto_Total, Monto_Promedio FROM v_tesoreria_resumen_categoria ORDER BY Monto_Total DESC`);
+    res.json({ success: true, data: processResponseData(rows), count: rows.length });
+  } catch (error) {
+    console.error('❌ Error getTesoreriaPorCategoria:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener resumen por categoría', error: error.message });
+  }
+};
+
+const getTesoreriaPorPersona = async (req, res) => {
+  try {
+    const [rows] = await db.query(`SELECT Persona, Cantidad_Registros, Monto_Total, Monto_Promedio FROM v_tesoreria_por_persona ORDER BY Monto_Total DESC`);
+    res.json({ success: true, data: processResponseData(rows), count: rows.length });
+  } catch (error) {
+    console.error('❌ Error getTesoreriaPorPersona:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener resumen por persona', error: error.message });
+  }
+};
+
+const getTesoreriaPorVehiculo = async (req, res) => {
+  try {
+    const { placa } = req.query;
+    let q = `SELECT Placa, Cantidad_Registros, Monto_Total, Monto_Promedio FROM v_tesoreria_por_vehiculo`;
+    const params = [];
+    if (placa) {
+      q += ' WHERE Placa = ?';
+      params.push(placa);
+    }
+    q += ' ORDER BY Monto_Total DESC';
+    const [rows] = await db.query(q, params);
+    res.json({ success: true, data: processResponseData(rows), count: rows.length });
+  } catch (error) {
+    console.error('❌ Error getTesoreriaPorVehiculo:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener resumen por vehículo', error: error.message });
+  }
+};
+
+const getTesoreriaPorCentro = async (req, res) => {
+  try {
+    const { idCentro } = req.query;
+    let q = `SELECT Id_Centro, Cantidad_Registros, Monto_Total, Monto_Promedio FROM v_tesoreria_por_centro`;
+    const params = [];
+    if (idCentro) {
+      q += ' WHERE Id_Centro = ?';
+      params.push(idCentro);
+    }
+    q += ' ORDER BY Monto_Total DESC';
+    const [rows] = await db.query(q, params);
+    res.json({ success: true, data: processResponseData(rows), count: rows.length });
+  } catch (error) {
+    console.error('❌ Error getTesoreriaPorCentro:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener resumen por centro', error: error.message });
+  }
+};
+
+const getTesoreriaTendenciaMensual = async (req, res) => {
+  try {
+    const { meses = 12 } = req.query;
+    // Devolver los últimos N meses
+    const [rows] = await db.query(`SELECT Mes, Cantidad_Registros, Monto_Total, Monto_Promedio FROM v_tesoreria_tendencia_mensual ORDER BY Mes DESC LIMIT ?`, [Number(meses)]);
+    res.json({ success: true, data: processResponseData(rows), count: rows.length });
+  } catch (error) {
+    console.error('❌ Error getTesoreriaTendenciaMensual:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener tendencia mensual', error: error.message });
+  }
+};
+
 // Procedimiento almacenado para resumen de rutas
 const getResumenRutasProcedimiento = async (req, res) => {
   try {
@@ -843,6 +912,12 @@ module.exports = {
   getPerformanceRepartidoresV2,
   getCumplimientoVehiculo,
   getCumplimientoVehiculoDetalle,
+  // Tesorería: exports added so routes can use them
+  getTesoreriaPorCategoria,
+  getTesoreriaPorPersona,
+  getTesoreriaPorVehiculo,
+  getTesoreriaPorCentro,
+  getTesoreriaTendenciaMensual,
   // detalle por viaje
   getResumenRutasPorViaje,
   triggerFullResumLoad,
