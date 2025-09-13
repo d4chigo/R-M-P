@@ -140,10 +140,10 @@ export default function TesoreriaReportPage() {
                 </tr>
                 {categoriaRows.map((r, i) => (
                   <tr key={`cat-${i}`} className="border-b hover:bg-muted/20">
-                    <td className="p-2">{r.Categoria}</td>
-                    <td className="p-2">${r.Monto_Total.toFixed(2)}</td>
-                    <td className="p-2">${r.Monto_Promedio.toFixed(2)}</td>
-                    <td className="p-2">{r.Cantidad_Registros}</td>
+                      <td className="p-2">{r.Categoria}</td>
+                      <td className="p-2">${(typeof r.Monto_Total === 'number' ? r.Monto_Total : parseFloat(r.Monto_Total) || 0).toFixed(2)}</td>
+                      <td className="p-2">${(typeof r.Monto_Promedio === 'number' ? r.Monto_Promedio : parseFloat(r.Monto_Promedio) || 0).toFixed(2)}</td>
+                      <td className="p-2">{r.Cantidad_Registros}</td>
                   </tr>
                 ))}
                 <tr className="border-b font-semibold bg-muted/30">
@@ -151,10 +151,10 @@ export default function TesoreriaReportPage() {
                 </tr>
                 {personaRows.map((r, i) => (
                   <tr key={`per-${i}`} className="border-b hover:bg-muted/20">
-                    <td className="p-2">{r.Persona}</td>
-                    <td className="p-2">${r.Monto_Total.toFixed(2)}</td>
-                    <td className="p-2">${r.Monto_Promedio.toFixed(2)}</td>
-                    <td className="p-2">{r.Cantidad_Registros}</td>
+                      <td className="p-2">{r.Persona}</td>
+                      <td className="p-2">${(typeof r.Monto_Total === 'number' ? r.Monto_Total : parseFloat(r.Monto_Total) || 0).toFixed(2)}</td>
+                      <td className="p-2">${(typeof r.Monto_Promedio === 'number' ? r.Monto_Promedio : parseFloat(r.Monto_Promedio) || 0).toFixed(2)}</td>
+                      <td className="p-2">{r.Cantidad_Registros}</td>
                   </tr>
                 ))}
               </tbody>
