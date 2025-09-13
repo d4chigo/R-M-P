@@ -84,7 +84,13 @@ export const TutorialFloatingButton: React.FC<TutorialFloatingButtonProps> = ({
         description: 'Visualiza reportes detallados de las rutas diarias, métricas de rendimiento y estadísticas de cumplimiento.',
         position: 'bottom' as const,
       },
-      // Cumplimiento VH eliminado: paso previamente disponible en el tutorial
+      {
+        id: 'reportes-tesoreria',
+        selector: '#card-reportes-tesoreria',
+        title: 'Reportes de Tesorería',
+        description: 'Analiza los gastos, tendencias y métricas financieras de la empresa con reportes detallados.',
+        position: 'bottom' as const,
+      },
     ],
   };
 

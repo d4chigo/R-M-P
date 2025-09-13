@@ -79,6 +79,13 @@ export default function HomePage() {
         description: 'Visualiza reportes detallados de las rutas diarias, métricas de rendimiento y estadísticas de cumplimiento.',
         position: 'bottom' as const,
       },
+      {
+        id: 'resumen-rutas',
+        selector: '#card-resumen-rutas',
+        title: 'Resumen de Rutas',
+        description: 'Visualiza reportes detallados de las rutas diarias, métricas de rendimiento y estadísticas de cumplimiento.',
+        position: 'bottom' as const,
+      },
       // Cumplimiento VH eliminado
     ],
   };
