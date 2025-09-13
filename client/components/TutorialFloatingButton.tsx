@@ -84,13 +84,7 @@ export const TutorialFloatingButton: React.FC<TutorialFloatingButtonProps> = ({
         description: 'Visualiza reportes detallados de las rutas diarias, métricas de rendimiento y estadísticas de cumplimiento.',
         position: 'bottom' as const,
       },
-      {
-        id: 'cumplimiento-vh',
-        selector: '#card-reportes-cumplimiento-vh',
-        title: 'Cumplimiento VH',
-        description: 'Monitorea el cumplimiento de ventanas horarias, IDR (Índice de Desempeño de Rutas) y puntualidad de visitas.',
-        position: 'bottom' as const,
-      },
+      // Cumplimiento VH eliminado: paso previamente disponible en el tutorial
     ],
   };
 

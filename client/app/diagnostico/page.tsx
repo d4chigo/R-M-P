@@ -51,11 +51,10 @@ export default function DiagnosticoPage() {
     return (
       <div className="container mx-auto py-6">
         <h1 className="text-2xl font-bold">Diagnóstico (Removido)</h1>
-        <p className="mt-2 text-muted-foreground">La herramienta de diagnóstico fue retirada. Para análisis y verificación, utiliza los módulos de <strong>Vehículos</strong> y <strong>Viajes</strong>, y el reporte de <em>Cumplimiento VH</em> que permanece activo.</p>
+        <p className="mt-2 text-muted-foreground">La herramienta de diagnóstico fue retirada. Para análisis y verificación, utiliza los módulos de <strong>Vehículos</strong> y <strong>Viajes</strong>.</p>
         <div className="mt-4 flex gap-4">
           <Link href="/vehiculos">Vehículos</Link>
           <Link href="/viajes">Viajes</Link>
-          <Link href="/reportes/cumplimiento-vh">Cumplimiento VH</Link>
         </div>
       </div>
     );

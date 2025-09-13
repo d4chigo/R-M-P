@@ -79,13 +79,7 @@ export default function HomePage() {
         description: 'Visualiza reportes detallados de las rutas diarias, métricas de rendimiento y estadísticas de cumplimiento.',
         position: 'bottom' as const,
       },
-      {
-        id: 'cumplimiento-vh',
-        selector: '#card-reportes-cumplimiento-vh',
-        title: 'Cumplimiento VH',
-        description: 'Monitorea el cumplimiento de ventanas horarias, IDR (Índice de Desempeño de Rutas) y puntualidad de visitas.',
-        position: 'bottom' as const,
-      },
+      // Cumplimiento VH eliminado
     ],
   };
 
@@ -155,14 +149,14 @@ export default function HomePage() {
       href: "/resumen-rutas",
       color: "bg-emerald-500",
     },
-  // Removed: resumen por viaje, performance vehiculos, performance repartidores
     {
-      title: "Cumplimiento VH",
-      description: "Visitas: ventana horaria, IDR y puntualidad",
-      icon: Clock,
-      href: "/reportes/cumplimiento-vh",
-      color: "bg-violet-500",
+      title: "Reportes de Tesorería",
+      description: "Análisis de gastos, tendencias y métricas financieras",
+      icon: TrendingUp,
+      href: "/reportes/tesoreria",
+      color: "bg-blue-500",
     },
+  // Removed: Cumplimiento VH report (deleted)
   ];
 
   return (
