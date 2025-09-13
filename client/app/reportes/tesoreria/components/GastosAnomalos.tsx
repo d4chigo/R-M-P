@@ -16,7 +16,9 @@ interface GastoAnomaloProps {
 
 export function GastosAnomalos({ data, threshold = 50 }: GastoAnomaloProps) {
   const anomalias = data.filter(item => {
-    const diferenciaPorcentual = ((item.Monto_Total - item.Monto_Promedio) / item.Monto_Promedio) * 100;
+    const montoTotal = typeof item.Monto_Total === 'number' ? item.Monto_Total : parseFloat(item.Monto_Total as any) || 0;
+    const montoPromedio = typeof item.Monto_Promedio === 'number' ? item.Monto_Promedio : parseFloat(item.Monto_Promedio as any) || 0;
+    const diferenciaPorcentual = montoPromedio !== 0 ? ((montoTotal - montoPromedio) / montoPromedio) * 100 : 0;
     return diferenciaPorcentual > threshold;
   });
 
@@ -33,17 +35,21 @@ export function GastosAnomalos({ data, threshold = 50 }: GastoAnomaloProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {anomalias.map((anomalia, index) => (
-          <Alert key={index} variant="warning">
-            <AlertTitle>
-              {anomalia.categoria || anomalia.nombre}
-            </AlertTitle>
-            <AlertDescription>
-              Monto actual (${anomalia.Monto_Total.toFixed(2)}) supera significativamente
-              el promedio histórico (${anomalia.Monto_Promedio.toFixed(2)})
-            </AlertDescription>
-          </Alert>
-        ))}
+        {anomalias.map((anomalia, index) => {
+          const montoTotal = typeof anomalia.Monto_Total === 'number' ? anomalia.Monto_Total : parseFloat(anomalia.Monto_Total as any) || 0;
+          const montoPromedio = typeof anomalia.Monto_Promedio === 'number' ? anomalia.Monto_Promedio : parseFloat(anomalia.Monto_Promedio as any) || 0;
+          return (
+            <Alert key={index} variant="warning">
+              <AlertTitle>
+                {anomalia.categoria || anomalia.nombre}
+              </AlertTitle>
+              <AlertDescription>
+                Monto actual (${montoTotal.toFixed(2)}) supera significativamente
+                el promedio histórico (${montoPromedio.toFixed(2)})
+              </AlertDescription>
+            </Alert>
+          );
+        })}
       </CardContent>
     </Card>
   );
