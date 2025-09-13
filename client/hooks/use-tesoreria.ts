@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useApi } from './use-api';
 
+export interface TesoreriaVehiculo {
+  id_vehiculo: number;
+  placa: string;
+  descripcion: string; // marca + modelo + (placa)
+}
+
+export interface TesoreriaRepartidor {
+  id_repartidor: number;
+  codigo: string;
+  nombre: string;
+  descripcion: string; // nombre + (codigo)
+}
+
 export interface Tesoreria {
   id: number;
   fecha: string; // YYYY-MM-DD
@@ -272,6 +285,54 @@ export const useTesoreria = () => {
     fetchActive();
   }, []);
 
+  const fetchVehiculos = async () => {
+    try {
+      const response = await callApi('/api/tesoreria/dropdown/vehiculos');
+      if (response.success) {
+        return response.data;
+      } else {
+        setError(response.message || 'Error al cargar vehículos');
+        return [];
+      }
+    } catch (err) {
+      setError('Error al cargar vehículos');
+      console.error('Error loading vehiculos:', err);
+      return [];
+    }
+  };
+
+  const fetchRepartidores = async () => {
+    try {
+      const response = await callApi('/api/tesoreria/dropdown/repartidores');
+      if (response.success) {
+        return response.data;
+      } else {
+        setError(response.message || 'Error al cargar repartidores');
+        return [];
+      }
+    } catch (err) {
+      setError('Error al cargar repartidores');
+      console.error('Error loading repartidores:', err);
+      return [];
+    }
+  };
+
+  const fetchAuditInfo = async (id: number) => {
+    try {
+      const response = await callApi(`/api/tesoreria/${id}/audit`);
+      if (response.success) {
+        return response.data;
+      } else {
+        setError(response.message || 'Error al cargar información de auditoría');
+        return null;
+      }
+    } catch (err) {
+      setError('Error al cargar información de auditoría');
+      console.error('Error loading audit info:', err);
+      return null;
+    }
+  };
+
   return {
     tesoreria,
     loading,
@@ -286,5 +347,9 @@ export const useTesoreria = () => {
     deleteTesoreria,
     restoreTesoreria,
     searchTesoreria,
+    // New dropdown and audit methods
+    fetchVehiculos,
+    fetchRepartidores,
+    fetchAuditInfo
   };
 };

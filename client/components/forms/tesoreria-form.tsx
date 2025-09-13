@@ -1,9 +1,14 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useState, useEffect } from "react";
 import Cookies from 'js-cookie';
 import { useForm } from "react-hook-form";
+import { getAPIBase } from "@/lib/api-config";
+import type { TesoreriaVehiculo, TesoreriaRepartidor } from "@/hooks/use-tesoreria";
+import { Combobox } from "@/components/ui/combobox";
 import { zodResolver } from "@hookform/resolvers/zod";
+
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +42,15 @@ import { es } from "date-fns/locale";
 import { Tesoreria, TesoreriaFormData } from "@/hooks/use-tesoreria";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+
+interface FormRenderProps {
+  field: {
+    value: string | number;
+    onChange: (value: string | number) => void;
+    onBlur: () => void;
+    name: string;
+  }
+}
 
 const tesoreriaSchema = z.object({
   fecha: z.string().min(1, "La fecha es requerida"),
@@ -130,19 +144,28 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     tesoreria?.categoria || ""
   );
   const [showConfirm, setShowConfirm] = useState(false);
-  const [centros, setCentros] = useState<Array<any>>([]);
-  const [vehiculos, setVehiculos] = useState<Array<any>>([]);
-  const [searchPlaca, setSearchPlaca] = useState("");
-  const [showPlacas, setShowPlacas] = useState(false);
-  const [searchCentro, setSearchCentro] = useState("");
-  const [showCentros, setShowCentros] = useState(false);
+  const [centros, setCentros] = useState<Array<{
+    id: string;
+    codigo: string;
+    nombre: string;
+    ciudad?: string;
+    id_centro: number;
+  }>>([]);
+  
+  interface FieldRenderProps {
+    field: {
+      value: any;
+      onChange: (value: any) => void;
+      name: string;
+    };
+  }
   const { toast } = useToast();
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
-        const API_BASE = (window && (window as any).__env && (window as any).__env.NEXT_PUBLIC_API_URL) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        const API_BASE = getAPIBase();
         const token = Cookies.get('auth_token');
         if (!token) {
           setCentros([]);
@@ -164,24 +187,57 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     return () => { mounted = false; };
   }, []);
 
-  // Cargar vehiculos activos para selector de placa
+  // Hooks para datos de dropdowns
+  const [vehiculos, setVehiculos] = useState<TesoreriaVehiculo[]>([]);
+  const [repartidores, setRepartidores] = useState<TesoreriaRepartidor[]>([]);
+  const [loadingVehiculos, setLoadingVehiculos] = useState(true);
+  const [loadingRepartidores, setLoadingRepartidores] = useState(true);
+
+  // Type for ComboBox field props
+  interface ComboBoxFieldProps {
+    field: {
+      value: string;
+      onChange: (value: string) => void;
+      name: string;
+    };
+  }
+
+  // Fetch vehicle and employee data
   useEffect(() => {
-    let mounted = true;
-    const loadVeh = async () => {
+    const fetchData = async () => {
       try {
-        const API_BASE = (window && (window as any).__env && (window as any).__env.NEXT_PUBLIC_API_URL) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        const API_BASE = getAPIBase();
         const token = Cookies.get('auth_token');
-        const res = await fetch(`${API_BASE}/vehiculos`, {
+
+        // Fetch vehicles
+        setLoadingVehiculos(true);
+        const resVehiculos = await fetch(`${API_BASE}/tesoreria/dropdown/vehiculos`, {
           headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }
         });
-        const json = await res.json();
-        if (mounted && json && json.success) setVehiculos(json.data || []);
+        const jsonVehiculos = await resVehiculos.json();
+        if (jsonVehiculos.success) {
+          setVehiculos(jsonVehiculos.data);
+        }
+        setLoadingVehiculos(false);
+
+        // Fetch employees
+        setLoadingRepartidores(true);
+        const resRepartidores = await fetch(`${API_BASE}/tesoreria/dropdown/repartidores`, {
+          headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }
+        });
+        const jsonRepartidores = await resRepartidores.json();
+        if (jsonRepartidores.success) {
+          setRepartidores(jsonRepartidores.data);
+        }
+        setLoadingRepartidores(false);
       } catch (err) {
-        // ignore
+        console.error('Error fetching dropdown data:', err);
+        setLoadingVehiculos(false);
+        setLoadingRepartidores(false);
       }
     };
-    loadVeh();
-    return () => { mounted = false; };
+
+    fetchData();
   }, []);
 
   const form = useForm<z.infer<typeof tesoreriaSchema>>({
@@ -219,7 +275,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     // If creating (no tesoreria), validate saldo for all users (admins included).
     if (!tesoreria) {
       try {
-        const API_BASE = (window && (window as any).__env && (window as any).__env.NEXT_PUBLIC_API_URL) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        const API_BASE = getAPIBase();
         const res = await fetch(`${API_BASE}/tesoreria/saldo/actual`);
         const json = await res.json();
         const saldoActual = parseFloat(json?.data?.saldo || 0);
@@ -299,9 +355,20 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                 name="placa"
                 render={({ field }) => (
                   <FormItem>
-        <FormLabel>PLACA T2 / CD *</FormLabel>
+                    <FormLabel>PLACA T2 / CD *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Placa, CD, etc" {...field} />
+                      <Combobox
+                        options={vehiculos.map((v: TesoreriaVehiculo) => ({
+                          label: v.descripcion,
+                          value: v.placa
+                        }))}
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Buscar vehículo..."
+                        emptyText="No se encontraron vehículos."
+                        searchPlaceholder="Buscar por placa, marca o modelo..."
+                        disabled={loadingVehiculos}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -312,9 +379,23 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                 name="nombre"
                 render={({ field }) => (
                   <FormItem>
-        <FormLabel>Nombre *</FormLabel>
+                    <FormLabel>Nombre *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Nombre completo" {...field} />
+                      <Combobox
+                        options={repartidores.map((r: TesoreriaRepartidor) => ({
+                          label: r.descripcion,
+                          value: r.nombre
+                        }))}
+                        value={field.value}
+                        onChange={(value) => {
+                          const repartidor = repartidores.find((r: TesoreriaRepartidor) => r.nombre === value);
+                          field.onChange(value);
+                        }}
+                        placeholder="Buscar repartidor..."
+                        emptyText="No se encontraron repartidores."
+                        searchPlaceholder="Buscar por nombre o código..."
+                        disabled={loadingRepartidores}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -323,46 +404,31 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
             </div>
 
             {/* Centro de distribución (opcional) */}
-            <div>
-              <FormLabel className="mb-2">Centro de distribución (opcional)</FormLabel>
-              <div className="relative">
-                <Input
-                  value={searchCentro}
-                  onChange={(e) => { setSearchCentro(e.target.value); if (e.target.value === '') form.setValue('id_centro', undefined); }}
-                  onFocus={() => setShowCentros(true)}
-                  onBlur={() => setTimeout(() => setShowCentros(false), 200)}
-                  placeholder="Buscar centro por código o nombre"
-                />
-               {showCentros && (
-                    <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border rounded bg-white dark:bg-gray-900 shadow-lg dark:shadow-lg">
-                      {centros.length > 0 ? (
-                        centros.map((c) => (
-                          <div
-                            key={c.id_centro}
-                            className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-900 dark:text-gray-100"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              form.setValue("id_centro", c.id_centro);
-                              setSearchCentro(`${c.codigo} - ${c.nombre}`);
-                              setShowCentros(false);
-                            }}
-                          >
-                            <div className="font-medium">{c.codigo}</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-300">
-                              {c.nombre} {c.ciudad ? `(${c.ciudad})` : ""}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="p-2 text-gray-500 dark:text-gray-400">
-                          No se encontraron centros
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-              </div>
-            </div>
+            <FormField
+              control={form.control}
+              name="id_centro"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Centro de distribución (opcional)</FormLabel>
+                  <FormControl>
+                    <Combobox
+                      options={centros.map(c => ({
+                        label: `${c.codigo} - ${c.nombre}${c.ciudad ? ` (${c.ciudad})` : ''}`,
+                        value: String(c.id_centro)
+                      }))}
+                      value={field.value ? String(field.value) : ""}
+                      onChange={(value) => {
+                        field.onChange(Number(value));
+                      }}
+                      placeholder="Buscar centro de distribución..."
+                      emptyText="No se encontraron centros."
+                      searchPlaceholder="Buscar por código o nombre..."
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Categoría (obligatoria) y Cargo (opcional) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

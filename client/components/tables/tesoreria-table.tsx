@@ -568,6 +568,23 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     <label className="text-sm font-medium text-gray-500">Monto</label>
                     <p className="text-sm font-medium">{formatCurrency(selectedTesoreria.monto)}</p>
                   </div>
+                  {isAdmin && selectedTesoreria.created_by_nombre && (
+                    <div className="col-span-2 mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Información de Auditoría</h4>
+                      <div className="grid grid-cols-1 gap-2 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-500">Creado por:</span>{" "}
+                          {selectedTesoreria.created_by_nombre}
+                        </div>
+                        {selectedTesoreria.created_at && (
+                          <div>
+                            <span className="font-medium text-gray-500">Fecha de creación:</span>{" "}
+                            {format(new Date(selectedTesoreria.created_at), "dd/MM/yyyy HH:mm:ss", { locale: es })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
