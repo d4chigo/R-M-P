@@ -20,6 +20,7 @@ import {
   ChevronUp,
   Activity,
   CheckCircle,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -396,31 +397,37 @@ export default function ViajesPage() {
       )}
 
       {/* Tabla */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Viajes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-4">Cargando viajes...</div>
-          ) : filteredViajes.length === 0 ? (
-            <div className="text-center py-4">
-              No se encontraron viajes que coincidan con los filtros.
-            </div>
-          ) : (
-            <ViajesTable
-              viajes={filteredViajes}
-              onEdit={handleEdit}
-              onDelete={handleDeleteClick}
-              page={pagina}
-              pageSize={tamanoPagina}
-              totalCount={filteredViajes.length}
-              onPageChange={setPagina}
-              onPageSizeChange={setTamanoPagina}
-            />
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de Viajes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-4">Cargando viajes...</div>
+              ) : filteredViajes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <Send className="w-16 h-16 mb-4 text-gray-400 dark:text-gray-500" />
+                  <p className="text-lg font-semibold text-muted-foreground">
+                    No hay viajes registrados
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Usa el botón <strong>"Nuevo Viaje"</strong> para crear uno.
+                  </p>
+                </div>
+              ) : (
+                <ViajesTable
+                  viajes={filteredViajes}
+                  onEdit={handleEdit}
+                  onDelete={handleDeleteClick}
+                  page={pagina}
+                  pageSize={tamanoPagina}
+                  totalCount={filteredViajes.length}
+                  onPageChange={setPagina}
+                  onPageSizeChange={setTamanoPagina}
+                />
+              )}
+            </CardContent>
+          </Card>
 
       {/* Confirmación Eliminar */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
