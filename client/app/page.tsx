@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useTutorial } from "@/contexts/TutorialContext";
+import { TutorialFloatingButton } from "@/components/TutorialFloatingButton";
 
 export default function HomePage() {
   const { hasSeenTutorial, startTutorial } = useTutorial();
@@ -304,6 +305,7 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+      <TutorialFloatingButton />
     </ProtectedRoute>
   );
 }
