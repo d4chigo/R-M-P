@@ -66,6 +66,11 @@ export function SaldoCard() {
       let res, json;
       
       if (mode === 'set') {
+        // No permitir que el admin aumente el saldo desde el modal 'Editar'
+        if (saldo != null && parseFloat(String(value)) > saldo) {
+          toast({ title: 'Acción no permitida', description: 'Para aumentar el saldo use el botón Agregar', variant: 'destructive' });
+          return;
+        }
         // Establecer saldo específico (funcionalidad original)
         res = await fetch(`${API_BASE}/tesoreria/saldo/actual`, {
           method: "PUT",

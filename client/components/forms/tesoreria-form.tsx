@@ -272,8 +272,8 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       turno: data.turno ? Number(data.turno) : undefined,
       reembolso: !data.reembolso || data.reembolso === 'none' || data.reembolso === '' ? undefined : data.reembolso,
     };
-    // If creating (no tesoreria), validate saldo for all users (admins included).
-    if (!tesoreria) {
+  // If creating (no tesoreria), validate saldo for all users (admins included).
+  if (!tesoreria) {
       try {
         const API_BASE = getAPIBase();
         const res = await fetch(`${API_BASE}/tesoreria/saldo/actual`);
@@ -290,6 +290,15 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       // For non-admins, show confirmation modal; for admins proceed immediately
       if (!isAdmin) {
         setShowConfirm(true);
+        return false;
+      }
+    }
+
+    // If editing, prevent increasing the monto (only allow equal or smaller amounts)
+    if (tesoreria) {
+      const oldMonto = tesoreria.monto || 0;
+      if (data.monto > oldMonto) {
+        toast({ title: 'Edición inválida', description: 'No está permitido aumentar el monto al editar. Para sumar nuevo gasto cree un nuevo registro.', variant: 'destructive' });
         return false;
       }
     }

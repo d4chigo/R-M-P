@@ -321,31 +321,35 @@ const updateTesoreria = async (req, res) => {
     try {
       await connection.beginTransaction();
 
-      // Ajustar saldo si cambia el monto
-      if (typeof newMonto !== 'undefined' && newMonto !== null) {
-        const oldMonto = parseFloat(existing[0].monto);
-        const delta = parseFloat(newMonto) - oldMonto; // si >0: restar adicional; si <0: devolver saldo
-        if (delta !== 0) {
-          const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
-          let saldoId, saldoActual;
-          if (saldoRows.length === 0) {
-            const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
-            saldoId = ins.insertId;
-            saldoActual = 0;
-          } else {
-            saldoId = saldoRows[0].id;
-            saldoActual = parseFloat(saldoRows[0].saldo || 0);
-          }
+        // Ajustar saldo si cambia el monto
+        if (typeof newMonto !== 'undefined' && newMonto !== null) {
+          const oldMonto = parseFloat(existing[0].monto);
+          const parsedNewMonto = parseFloat(newMonto);
 
-          if (delta > 0 && delta > saldoActual) {
+          // Política: en edición solo se permiten montos inferiores o iguales al original (no aumentar)
+          if (parsedNewMonto > oldMonto) {
             await connection.rollback();
-            return res.status(400).json({ success: false, message: 'Saldo insuficiente para aumentar el monto' });
+            return res.status(400).json({ success: false, message: 'Edición inválida: no está permitido aumentar el monto original. Para sumar nuevo gasto, cree un nuevo registro.' });
           }
 
-          const nuevoSaldo = saldoActual - delta; // si delta negativo, se suma
-          await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+          const delta = parsedNewMonto - oldMonto; // si <0: devolver saldo (sumar al saldo)
+          if (delta !== 0) {
+            const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+            let saldoId, saldoActual;
+            if (saldoRows.length === 0) {
+              const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
+              saldoId = ins.insertId;
+              saldoActual = 0;
+            } else {
+              saldoId = saldoRows[0].id;
+              saldoActual = parseFloat(saldoRows[0].saldo || 0);
+            }
+
+            // Como ya prevenimos incrementos, aquí delta será negativo y por tanto nuevoSaldo = saldoActual - delta => suma
+            const nuevoSaldo = saldoActual - delta;
+            await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+          }
         }
-      }
 
       // Actualizar registro
       await connection.query(
@@ -452,23 +456,12 @@ const updateSaldo = async (req, res) => {
 
     const id = rows[0].id;
     const beforeSaldo = parseFloat(rows[0].saldo || 0);
-    const providedSaldo = parseFloat(saldo);
+    const afterSaldo = parseFloat(saldo);
+    const delta = afterSaldo - beforeSaldo;
 
-    // Revisar si ya existe un snapshot/histórico para el día actual. Si NO existe,
-    // interpretamos que este es el primer registro del día y sumamos el saldo sobrante
-    // (carryover) al valor que el admin registra como "saldo inicial" para el día.
-    const fechaHoy = todayPeruYMD();
-    const [histRows] = await db.query('SELECT id FROM TESORERIA_SALDO_HISTORY WHERE fecha = ? LIMIT 1', [fechaHoy]);
-    let afterSaldo;
-    let delta;
-    if (histRows.length === 0) {
-      // Primer registro del día: sumar carryover
-      afterSaldo = beforeSaldo + providedSaldo;
-      delta = afterSaldo - beforeSaldo; // será = providedSaldo
-    } else {
-      // Comportamiento legacy: establecer saldo tal cual fue enviado
-      afterSaldo = providedSaldo;
-      delta = afterSaldo - beforeSaldo;
+    // En modo edición (PUT /saldo/actual) solo permitimos disminuir o igualar el saldo actual.
+    if (delta > 0) {
+      return res.status(400).json({ success: false, message: 'No está permitido aumentar el saldo con la acción de "Editar". Use la opción "Agregar" para incrementar el saldo.' });
     }
 
     if (delta === 0) {
@@ -479,8 +472,9 @@ const updateSaldo = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Debe especificar un motivo para ajustar el saldo' });
     }
 
+    // delta < 0: devolver la diferencia al saldo (sumarlo)
     await db.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [afterSaldo, req.usuario ? req.usuario.id_usuario : null, id]);
-    try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: id, detalle: { motivo, before: { saldo: beforeSaldo }, after: { saldo: afterSaldo }, delta, carryover_added: histRows.length === 0 } }); } catch(e) {}
+    try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: id, detalle: { motivo, before: { saldo: beforeSaldo }, after: { saldo: afterSaldo }, delta } }); } catch(e) {}
     res.json({ success: true, data: { id, saldo: afterSaldo }, message: 'Saldo actualizado' });
   } catch (error) {
     console.error('Error actualizando saldo:', error);
