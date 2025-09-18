@@ -110,12 +110,43 @@ export function compareDates(date1: string, date2: string): number {
 }
 
 /**
- * Gets today's date in YYYY-MM-DD format
- * @returns Today's date string
+ * Gets today's date in YYYY-MM-DD format in Lima timezone
+ * @returns Today's date string in Lima timezone
  */
 export function getTodayString(): string {
-  const today = new Date();
-  return today.toISOString().split("T")[0];
+  try {
+    // Use Lima timezone to get the correct date
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Lima',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date());
+  } catch (e) {
+    console.error('Error getting Lima date:', e);
+    // Fallback to UTC
+    return new Date().toISOString().split("T")[0];
+  }
+}
+
+/**
+ * Gets current date in Lima timezone formatted for display
+ * @returns Date string in DD/MM/YYYY format
+ */
+export function getTodayDisplayString(): string {
+  try {
+    return new Intl.DateTimeFormat('es-PE', {
+      timeZone: 'America/Lima',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(new Date());
+  } catch (e) {
+    console.error('Error getting Lima display date:', e);
+    const today = getTodayString();
+    const [year, month, day] = today.split('-');
+    return `${day}/${month}/${year}`;
+  }
 }
 
 /**
