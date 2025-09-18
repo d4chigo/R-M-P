@@ -273,14 +273,6 @@ export default function VehiculosPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={mostrarPropiedadesFecha}
-            title="Debug: Mostrar propiedades de fecha"
-          >
-            <Info className="h-4 w-4" />
-          </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={handleNewVehiculo}>

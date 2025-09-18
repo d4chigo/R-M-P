@@ -79,6 +79,8 @@ export function TablePagination({
   if (totalPages <= 1 && !showPageSizeSelector) {
     return null;
   }
+  // Ocultar completamente la paginación si no hay registros
+  if (totalItems === 0) return null;
 
   return (
     <div

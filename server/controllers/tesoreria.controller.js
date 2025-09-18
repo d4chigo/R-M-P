@@ -440,6 +440,7 @@ const updateSaldo = async (req, res) => {
     }
 
     const [rows] = await db.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1');
+    // Si no existe fila, crearla (como antes)
     if (rows.length === 0) {
       if (typeof motivo === 'undefined' || String(motivo).trim() === '') {
         return res.status(400).json({ success: false, message: 'Debe especificar un motivo para establecer el saldo inicial' });
@@ -451,20 +452,108 @@ const updateSaldo = async (req, res) => {
 
     const id = rows[0].id;
     const beforeSaldo = parseFloat(rows[0].saldo || 0);
-    const afterSaldo = parseFloat(saldo);
-    const delta = afterSaldo - beforeSaldo;
+    const providedSaldo = parseFloat(saldo);
+
+    // Revisar si ya existe un snapshot/histórico para el día actual. Si NO existe,
+    // interpretamos que este es el primer registro del día y sumamos el saldo sobrante
+    // (carryover) al valor que el admin registra como "saldo inicial" para el día.
+    const fechaHoy = todayPeruYMD();
+    const [histRows] = await db.query('SELECT id FROM TESORERIA_SALDO_HISTORY WHERE fecha = ? LIMIT 1', [fechaHoy]);
+    let afterSaldo;
+    let delta;
+    if (histRows.length === 0) {
+      // Primer registro del día: sumar carryover
+      afterSaldo = beforeSaldo + providedSaldo;
+      delta = afterSaldo - beforeSaldo; // será = providedSaldo
+    } else {
+      // Comportamiento legacy: establecer saldo tal cual fue enviado
+      afterSaldo = providedSaldo;
+      delta = afterSaldo - beforeSaldo;
+    }
+
     if (delta === 0) {
       return res.json({ success: true, data: { id, saldo: afterSaldo }, message: 'Saldo sin cambios' });
     }
+
     if (typeof motivo === 'undefined' || String(motivo).trim() === '') {
       return res.status(400).json({ success: false, message: 'Debe especificar un motivo para ajustar el saldo' });
     }
+
     await db.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [afterSaldo, req.usuario ? req.usuario.id_usuario : null, id]);
-    try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: id, detalle: { motivo, before: { saldo: beforeSaldo }, after: { saldo: afterSaldo }, delta } }); } catch(e) {}
-    res.json({ success: true, data: { id, saldo }, message: 'Saldo actualizado' });
+    try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: id, detalle: { motivo, before: { saldo: beforeSaldo }, after: { saldo: afterSaldo }, delta, carryover_added: histRows.length === 0 } }); } catch(e) {}
+    res.json({ success: true, data: { id, saldo: afterSaldo }, message: 'Saldo actualizado' });
   } catch (error) {
     console.error('Error actualizando saldo:', error);
     res.status(500).json({ success: false, message: 'Error al actualizar saldo', error: error.message });
+  }
+};
+
+
+// Obtener historial del día: movimientos, ajustes y auditoría relacionada
+const getSaldoHistorial = async (req, res) => {
+  try {
+    const fecha = req.query.fecha || todayPeruYMD();
+    let movimientos = [];
+    let ajustes = [];
+    let audits = [];
+    try {
+      const [m] = await db.query(
+        `SELECT t.id, t.fecha, t.monto, t.nombre, t.cargo, t.categoria, t.detalle, t.created_at, t.created_by, u.nombre_completo AS created_by_nombre
+         FROM TESORERIA t
+         LEFT JOIN USUARIO u ON t.created_by = u.id_usuario
+         WHERE t.fecha = ?
+         ORDER BY t.created_at ASC`,
+        [fecha]
+      );
+      movimientos = m;
+    } catch (e) {
+      console.warn('Warning: no se pudo leer TESORERIA para historial (tabla ausente?):', e && e.code);
+      movimientos = [];
+    }
+
+    try {
+      const [a] = await db.query(
+        `SELECT a.id, a.fecha, a.tipo, a.monto, a.motivo, a.created_at, a.created_by, u.nombre_completo AS created_by_nombre
+         FROM TESORERIA_AJUSTE a
+         LEFT JOIN USUARIO u ON a.created_by = u.id_usuario
+         WHERE a.fecha = ?
+         ORDER BY a.created_at ASC`,
+        [fecha]
+      );
+      ajustes = a;
+    } catch (e) {
+      console.warn('Warning: no se pudo leer TESORERIA_AJUSTE para historial (tabla ausente?):', e && e.code);
+      ajustes = [];
+    }
+
+    try {
+      const [au] = await db.query(
+        `SELECT id, fecha_evento, evento, entidad, entity_id, user_id, ip, detalle
+         FROM TESORERIA_AUDIT
+         WHERE DATE(CONVERT_TZ(fecha_evento, '+00:00', '-05:00')) = ?
+           AND entidad IN ('TESORERIA','TESORERIA_SALDO')
+         ORDER BY fecha_evento ASC`,
+        [fecha]
+      );
+      audits = au;
+    } catch (e) {
+      console.warn('Warning: no se pudo leer TESORERIA_AUDIT para historial (tabla ausente?):', e && e.code);
+      audits = [];
+    }
+
+    // Si el usuario no es admin, ocultar nombres y detail de auditoría
+    const userRoles = req.userRoles || (req.usuario && req.usuario.roles ? req.usuario.roles.map(r => String(r).toUpperCase()) : []);
+    const isAdmin = Array.isArray(userRoles) && userRoles.includes('ADMINISTRADOR');
+    if (!isAdmin) {
+      movimientos.forEach(m => { m.created_by_nombre = null; m.created_by = null; });
+      ajustes.forEach(a => { a.created_by_nombre = null; a.created_by = null; });
+      audits.forEach(x => { x.user_id = null; x.ip = null; x.detalle = null; });
+    }
+
+    res.json({ success: true, data: { fecha, movimientos, ajustes, audits } });
+  } catch (error) {
+    console.error('Error obteniendo historial de saldo:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener historial de saldo', error: error.message });
   }
 };
 
@@ -771,6 +860,33 @@ const performRollover = async (req) => {
 
 // Exponer helper para uso interno
 module.exports.performRollover = performRollover;
+
+// Export historial
+module.exports.getSaldoHistorial = getSaldoHistorial;
+
+// Endpoints para dropdowns usados por el formulario (vehículos y repartidores)
+const getDropdownVehiculos = async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id_vehiculo as id, placa, marca, modelo FROM VEHICULO WHERE activo = 1 ORDER BY placa LIMIT 500');
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('Error obteniendo vehiculos para dropdown:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener vehiculos', error: error.message });
+  }
+};
+
+const getDropdownRepartidores = async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id_repartidor as id, codigo, nombre FROM REPARTIDOR WHERE activo = 1 ORDER BY nombre LIMIT 500');
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error('Error obteniendo repartidores para dropdown:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener repartidores', error: error.message });
+  }
+};
+
+module.exports.getDropdownVehiculos = getDropdownVehiculos;
+module.exports.getDropdownRepartidores = getDropdownRepartidores;
 
 // =====================
 // Ajustes contables y resumen
