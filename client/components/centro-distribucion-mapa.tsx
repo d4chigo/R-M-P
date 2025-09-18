@@ -140,9 +140,9 @@ export function CentroDistribucionMapa({
   const initializeMap = () => {
     if (!mapRef.current || !window.L) return;
 
-    // Coordenadas por defecto (México)
-    const defaultLat = 19.4326;
-    const defaultLng = -99.1332;
+    // Coordenadas por defecto
+    const defaultLat = -5.1804;
+    const defaultLng = -80.6510;
 
     // Crear mapa
     const map = window.L.map(mapRef.current).setView([defaultLat, defaultLng], 10);
