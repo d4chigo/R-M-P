@@ -27,6 +27,7 @@ interface Vehiculo {
   capacidad_kg?: number;
   capacidad_cajas?: number;
   activo?: boolean;
+  fecha_creacion?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -126,7 +127,7 @@ export function VehiculosTable({
                     </span>
                   </TableCell>
                   <TableCell>
-                    {formatDateForDisplay(vehiculo.created_at)}
+                    {formatDateForDisplay(vehiculo.fecha_creacion || vehiculo.created_at)}
                   </TableCell>
                   {(onEdit || onDelete) && (
                     <TableCell>
