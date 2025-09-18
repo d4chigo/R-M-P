@@ -862,7 +862,13 @@ module.exports.getSaldoHistorial = getSaldoHistorial;
 const getDropdownVehiculos = async (req, res) => {
   try {
     const [rows] = await db.query('SELECT id_vehiculo as id, placa, marca, modelo FROM VEHICULO WHERE activo = 1 ORDER BY placa LIMIT 500');
-    res.json({ success: true, data: rows });
+    // Normalizar a { id, placa, descripcion }
+    const data = (rows || []).map(r => ({
+      id: r.id,
+      placa: r.placa,
+      descripcion: `${r.placa} ${r.marca ? `- ${r.marca}` : ''} ${r.modelo ? ` ${r.modelo}` : ''}`.trim()
+    }));
+    res.json({ success: true, data });
   } catch (error) {
     console.error('Error obteniendo vehiculos para dropdown:', error);
     res.status(500).json({ success: false, message: 'Error al obtener vehiculos', error: error.message });
@@ -872,7 +878,8 @@ const getDropdownVehiculos = async (req, res) => {
 const getDropdownRepartidores = async (req, res) => {
   try {
     const [rows] = await db.query('SELECT id_repartidor as id, codigo, nombre FROM REPARTIDOR WHERE activo = 1 ORDER BY nombre LIMIT 500');
-    res.json({ success: true, data: rows });
+    const data = (rows || []).map(r => ({ id: r.id, nombre: r.nombre, descripcion: `${r.codigo ? `${r.codigo} - ` : ''}${r.nombre}` }));
+    res.json({ success: true, data });
   } catch (error) {
     console.error('Error obteniendo repartidores para dropdown:', error);
     res.status(500).json({ success: false, message: 'Error al obtener repartidores', error: error.message });

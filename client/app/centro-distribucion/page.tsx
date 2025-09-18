@@ -218,18 +218,18 @@ export default function CentroDistribucionPage() {
         </div>
         {/* Delete Confirmation Dialog for Centros */}
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
+              <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>¿Eliminar centro?</AlertDialogTitle>
               <AlertDialogDescription>
                 <div className="space-y-2">
-                  <p>Está a punto de eliminar el centro <strong>{centroToDelete?.codigo}</strong>.</p>
+                  <div>Está a punto de eliminar el centro <strong>{centroToDelete?.codigo}</strong>.</div>
                   <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
-                    <p className="text-sm text-amber-800">
+                    <div className="text-sm text-amber-800">
                       <strong>Importante:</strong> Si este centro tiene registros utilizados por otros módulos, será desactivado en lugar de eliminado para preservar la integridad de los datos históricos.
-                    </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">Solo se eliminará completamente si no tiene registros asociados.</p>
+                  <div className="text-sm text-muted-foreground">Solo se eliminará completamente si no tiene registros asociados.</div>
                 </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
