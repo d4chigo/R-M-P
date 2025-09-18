@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { todayPeruYMD, toPeruYMD, nowPeruTimestamp } = require('../lib/date-utils');
 
 // Obtener todos los usuarios
