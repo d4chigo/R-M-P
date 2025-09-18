@@ -227,7 +227,7 @@ export const useViajes = () => {
   // Obtener viajes por estado (basado en fechas)
   const getViajesByEstado = useCallback(
     (estado: string) => {
-      const hoy = new Date().toISOString().split("T")[0];
+      const hoy = getTodayString();
 
       switch (estado) {
         case "Programado":
@@ -297,7 +297,7 @@ export const useViajes = () => {
   // Obtener estadísticas de viajes
   const getEstadisticasViajes = useCallback(() => {
     const total = viajes.length;
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = getTodayString();
 
     const programados = viajes.filter((v) => v.fecha > hoy).length;
     const enCurso = viajes.filter((v) => v.fecha === hoy).length;
