@@ -288,7 +288,7 @@ export default function ViajesPage() {
         <CardContent>
           <div className="flex gap-4 items-center">
             <Input
-              placeholder="Buscar por vehículo, repartidor o número de viaje..."
+              placeholder="Buscar por vehículo o repartidor ..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="flex-1"
