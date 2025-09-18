@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useSimpleCrud } from "./use-simple-api";
+import { getTodayString } from "@/lib/utils/date";
 
 export interface Viaje {
   estado: string;
@@ -257,19 +258,19 @@ export const useViajes = () => {
 
   // Obtener viajes activos (En Curso) - basado en fecha actual
   const getViajesActivos = useCallback(() => {
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = getTodayString();
     return viajes.filter((viaje) => viaje.fecha === hoy);
   }, [viajes]);
 
   // Obtener viajes programados - basado en fecha futura
   const getViajesProgramados = useCallback(() => {
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = getTodayString();
     return viajes.filter((viaje) => viaje.fecha > hoy);
   }, [viajes]);
 
   // Obtener viajes completados - basado en fecha pasada
   const getViajesCompletados = useCallback(() => {
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = getTodayString();
     return viajes.filter((viaje) => viaje.fecha < hoy);
   }, [viajes]);
 
