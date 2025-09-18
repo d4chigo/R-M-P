@@ -348,6 +348,9 @@ export default function ResumenRutasPage() {
     return zonasString;
   };
 
+  // Helper seguro para obtener la fecha de hoy en formato YYYY-MM-DD
+  const getTodayString = () => new Date().toISOString().split("T")[0];
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
@@ -828,8 +831,8 @@ export default function ResumenRutasPage() {
         </div>
       )}
 
-      {/* Métricas Totales del Día/Rango */}
-      {metricas && (
+  {/* Métricas Totales del Día/Rango (mostrar sólo si hay registros) */}
+  {metricas && resumenData && resumenData.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
