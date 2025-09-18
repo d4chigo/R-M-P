@@ -635,7 +635,7 @@ export default function ResumenRutasPage() {
                     onClick={() => {
                       setFiltros({
                         ...filtros,
-                        fecha: new Date().toISOString().split("T")[0],
+                        fecha: getTodayString(),
                       });
                     }}
                     disabled={loading}
@@ -676,7 +676,7 @@ export default function ResumenRutasPage() {
                   <Button
                     variant="outline"
                     onClick={() => {
-                      const hoy = new Date().toISOString().split("T")[0];
+                      const hoy = getTodayString();
                       const hace7Dias = new Date(
                         Date.now() - 7 * 24 * 60 * 60 * 1000,
                       )

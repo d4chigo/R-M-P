@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { getTodayString } from "@/lib/utils/date";
+
+export default function CumplimientoVhPage() {
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -137,7 +140,7 @@ export default function CumplimientoVHPage() {
 
   useEffect(() => {
     // Initial load (today)
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = getTodayString();
     setFiltroFecha(hoy);
     cargar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
