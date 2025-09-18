@@ -771,6 +771,40 @@ const getMetricasCumplimiento = async (req, res) => {
 // ===== Tesorería: reportes basados en la tabla TESORERIA (vistas creadas en SQL)
 const getTesoreriaPorCategoria = async (req, res) => {
   try {
+    const { fechaInicio, fechaFin, idCentro, categoria } = req.query;
+    // Usar la tabla TESORERIA directamente si se aplican filtros por fecha
+    if (fechaInicio || fechaFin || idCentro || categoria) {
+      const params = [];
+      let q = `SELECT categoria AS Categoria, COUNT(*) AS Cantidad_Registros, COALESCE(SUM(monto),0) AS Monto_Total, COALESCE(ROUND(AVG(monto),2),0) AS Monto_Promedio FROM TESORERIA WHERE deleted_at IS NULL`;
+      if (fechaInicio && fechaFin) {
+        q += ' AND fecha BETWEEN ? AND ?';
+        params.push(fechaInicio, fechaFin);
+      } else if (fechaInicio) {
+        q += ' AND fecha >= ?';
+        params.push(fechaInicio);
+      } else if (fechaFin) {
+        q += ' AND fecha <= ?';
+        params.push(fechaFin);
+      }
+      if (idCentro) {
+        q += ' AND id_centro = ?';
+        params.push(idCentro);
+      }
+      // soporte para filtrar por persona (nombre)
+      if (req.query.persona) {
+        q += ' AND nombre = ?';
+        params.push(req.query.persona);
+      }
+      if (categoria) {
+        q += ' AND categoria = ?';
+        params.push(categoria);
+      }
+      q += ' GROUP BY categoria ORDER BY Monto_Total DESC';
+      const [rows] = await db.query(q, params);
+      return res.json({ success: true, data: processResponseData(rows), count: rows.length });
+    }
+
+    // Si no hay filtros temporales, usar la vista pre-agrupada
     const [rows] = await db.query(`SELECT Categoria, Cantidad_Registros, Monto_Total, Monto_Promedio FROM v_tesoreria_resumen_categoria ORDER BY Monto_Total DESC`);
     res.json({ success: true, data: processResponseData(rows), count: rows.length });
   } catch (error) {
@@ -781,6 +815,35 @@ const getTesoreriaPorCategoria = async (req, res) => {
 
 const getTesoreriaPorPersona = async (req, res) => {
   try {
+    const { fechaInicio, fechaFin, idCentro, persona } = req.query;
+    if (fechaInicio || fechaFin || idCentro || persona || req.query.persona) {
+      const params = [];
+      let q = `SELECT nombre AS Persona, COUNT(*) AS Cantidad_Registros, COALESCE(SUM(monto),0) AS Monto_Total, COALESCE(ROUND(AVG(monto),2),0) AS Monto_Promedio FROM TESORERIA WHERE deleted_at IS NULL`;
+      if (fechaInicio && fechaFin) {
+        q += ' AND fecha BETWEEN ? AND ?';
+        params.push(fechaInicio, fechaFin);
+      } else if (fechaInicio) {
+        q += ' AND fecha >= ?';
+        params.push(fechaInicio);
+      } else if (fechaFin) {
+        q += ' AND fecha <= ?';
+        params.push(fechaFin);
+      }
+      if (idCentro) {
+        q += ' AND id_centro = ?';
+        params.push(idCentro);
+      }
+      // persona en query puede venir como persona o idCentro usada para pasar el repartidor desde UI
+      const personaQuery = persona || req.query.persona;
+      if (personaQuery) {
+        q += ' AND nombre = ?';
+        params.push(personaQuery);
+      }
+      q += ' GROUP BY nombre ORDER BY Monto_Total DESC';
+      const [rows] = await db.query(q, params);
+      return res.json({ success: true, data: processResponseData(rows), count: rows.length });
+    }
+
     const [rows] = await db.query(`SELECT Persona, Cantidad_Registros, Monto_Total, Monto_Promedio FROM v_tesoreria_por_persona ORDER BY Monto_Total DESC`);
     res.json({ success: true, data: processResponseData(rows), count: rows.length });
   } catch (error) {
@@ -791,7 +854,29 @@ const getTesoreriaPorPersona = async (req, res) => {
 
 const getTesoreriaPorVehiculo = async (req, res) => {
   try {
-    const { placa } = req.query;
+    const { placa, fechaInicio, fechaFin } = req.query;
+    if (fechaInicio || fechaFin || placa) {
+      const params = [];
+      let q = `SELECT placa AS Placa, COUNT(*) AS Cantidad_Registros, COALESCE(SUM(monto),0) AS Monto_Total, COALESCE(ROUND(AVG(monto),2),0) AS Monto_Promedio FROM TESORERIA WHERE deleted_at IS NULL AND placa IS NOT NULL`;
+      if (fechaInicio && fechaFin) {
+        q += ' AND fecha BETWEEN ? AND ?';
+        params.push(fechaInicio, fechaFin);
+      } else if (fechaInicio) {
+        q += ' AND fecha >= ?';
+        params.push(fechaInicio);
+      } else if (fechaFin) {
+        q += ' AND fecha <= ?';
+        params.push(fechaFin);
+      }
+      if (placa) {
+        q += ' AND placa = ?';
+        params.push(placa);
+      }
+      q += ' GROUP BY placa ORDER BY Monto_Total DESC';
+      const [rows] = await db.query(q, params);
+      return res.json({ success: true, data: processResponseData(rows), count: rows.length });
+    }
+
     let q = `SELECT Placa, Cantidad_Registros, Monto_Total, Monto_Promedio FROM v_tesoreria_por_vehiculo`;
     const params = [];
     if (placa) {
@@ -827,8 +912,40 @@ const getTesoreriaPorCentro = async (req, res) => {
 
 const getTesoreriaTendenciaMensual = async (req, res) => {
   try {
-    const { meses = 12 } = req.query;
-    // Devolver los últimos N meses
+    const { meses = 12, fechaInicio, fechaFin, idCentro, categoria } = req.query;
+    // Si se pasan filtros temporales, calcular a partir de TESORERIA
+    if (fechaInicio || fechaFin || idCentro || categoria || req.query.persona) {
+      const params = [];
+      let q = `SELECT DATE_FORMAT(fecha,'%Y-%m') AS Mes, COUNT(*) AS Cantidad_Registros, COALESCE(SUM(monto),0) AS Monto_Total, COALESCE(ROUND(AVG(monto),2),0) AS Monto_Promedio FROM TESORERIA WHERE deleted_at IS NULL`;
+      if (fechaInicio && fechaFin) {
+        q += ' AND fecha BETWEEN ? AND ?';
+        params.push(fechaInicio, fechaFin);
+      } else if (fechaInicio) {
+        q += ' AND fecha >= ?';
+        params.push(fechaInicio);
+      } else if (fechaFin) {
+        q += ' AND fecha <= ?';
+        params.push(fechaFin);
+      }
+      if (idCentro) {
+        q += ' AND id_centro = ?';
+        params.push(idCentro);
+      }
+      // filtrar por persona si se pasa
+      if (req.query.persona) {
+        q += ' AND nombre = ?';
+        params.push(req.query.persona);
+      }
+      if (categoria) {
+        q += ' AND categoria = ?';
+        params.push(categoria);
+      }
+      q += ` GROUP BY DATE_FORMAT(fecha,'%Y-%m') ORDER BY Mes DESC LIMIT ?`;
+      params.push(Number(meses));
+      const [rows] = await db.query(q, params);
+      return res.json({ success: true, data: processResponseData(rows), count: rows.length });
+    }
+
     const [rows] = await db.query(`SELECT Mes, Cantidad_Registros, Monto_Total, Monto_Promedio FROM v_tesoreria_tendencia_mensual ORDER BY Mes DESC LIMIT ?`, [Number(meses)]);
     res.json({ success: true, data: processResponseData(rows), count: rows.length });
   } catch (error) {

@@ -176,11 +176,11 @@ interface UseReportesReturn {
   getCumplimientoVehiculo: (placa?: string) => Promise<CumplimientoVehiculo[]>;
   // getCumplimientoVHVisitas removed (endpoint and view deleted)
   // Tesorería
-  getTesoreriaPorCategoria: () => Promise<any[]>;
-  getTesoreriaPorPersona: () => Promise<any[]>;
-  getTesoreriaPorVehiculo: (args?: { placa?: string }) => Promise<any[]>;
-  getTesoreriaPorCentro: (args?: { idCentro?: string }) => Promise<any[]>;
-  getTesoreriaTendenciaMensual: (args?: { meses?: number }) => Promise<any[]>;
+  getTesoreriaPorCategoria: (args?: { fechaInicio?: string; fechaFin?: string; idCentro?: string; categoria?: string; persona?: string }) => Promise<any[]>;
+  getTesoreriaPorPersona: (args?: { fechaInicio?: string; fechaFin?: string; idCentro?: string; persona?: string }) => Promise<any[]>;
+  getTesoreriaPorVehiculo: (args?: { placa?: string; fechaInicio?: string; fechaFin?: string }) => Promise<any[]>;
+  getTesoreriaPorCentro: (args?: { idCentro?: string; fechaInicio?: string; fechaFin?: string }) => Promise<any[]>;
+  getTesoreriaTendenciaMensual: (args?: { meses?: number; fechaInicio?: string; fechaFin?: string; idCentro?: string; categoria?: string }) => Promise<any[]>;
 }
 
 export function useReportes(): UseReportesReturn {
@@ -391,33 +391,55 @@ export function useReportes(): UseReportesReturn {
   };
 
   // ------- Tesorería API calls -------
-  const getTesoreriaPorCategoria = async (): Promise<any[]> => {
-    const url = `${API_BASE}/reportes/tesoreria/categoria`;
+  const getTesoreriaPorCategoria = async (args?: { fechaInicio?: string; fechaFin?: string; idCentro?: string; categoria?: string; persona?: string }): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
+    if (args?.idCentro) params.append('idCentro', args.idCentro);
+    if (args?.persona) params.append('persona', args.persona);
+    if (args?.categoria) params.append('categoria', args.categoria);
+    const qs = params.toString();
+    const url = `${API_BASE}/reportes/tesoreria/categoria${qs ? `?${qs}` : ''}`;
     return handleRequest<any[]>(url);
   };
 
-  const getTesoreriaPorPersona = async (): Promise<any[]> => {
-    const url = `${API_BASE}/reportes/tesoreria/persona`;
+  const getTesoreriaPorPersona = async (args?: { fechaInicio?: string; fechaFin?: string; idCentro?: string; persona?: string }): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
+    if (args?.idCentro) params.append('idCentro', args.idCentro);
+    if (args?.persona) params.append('persona', args.persona);
+    const qs = params.toString();
+    const url = `${API_BASE}/reportes/tesoreria/persona${qs ? `?${qs}` : ''}`;
     return handleRequest<any[]>(url);
   };
 
-  const getTesoreriaPorVehiculo = async (args?: { placa?: string }): Promise<any[]> => {
+  const getTesoreriaPorVehiculo = async (args?: { placa?: string; fechaInicio?: string; fechaFin?: string }): Promise<any[]> => {
     const params = new URLSearchParams();
     if (args?.placa) params.append('placa', args.placa);
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
     const url = `${API_BASE}/reportes/tesoreria/vehiculo${params.toString() ? `?${params}` : ''}`;
     return handleRequest<any[]>(url);
   };
 
-  const getTesoreriaPorCentro = async (args?: { idCentro?: string }): Promise<any[]> => {
+  const getTesoreriaPorCentro = async (args?: { idCentro?: string; fechaInicio?: string; fechaFin?: string }): Promise<any[]> => {
     const params = new URLSearchParams();
     if (args?.idCentro) params.append('idCentro', args.idCentro);
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
     const url = `${API_BASE}/reportes/tesoreria/centro${params.toString() ? `?${params}` : ''}`;
     return handleRequest<any[]>(url);
   };
 
-  const getTesoreriaTendenciaMensual = async (args?: { meses?: number }): Promise<any[]> => {
+  const getTesoreriaTendenciaMensual = async (args?: { meses?: number; fechaInicio?: string; fechaFin?: string; idCentro?: string; categoria?: string; persona?: string }): Promise<any[]> => {
     const params = new URLSearchParams();
     if (args?.meses) params.append('meses', String(args.meses));
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
+    if (args?.idCentro) params.append('idCentro', args.idCentro);
+    if (args?.persona) params.append('persona', args.persona);
+    if (args?.categoria) params.append('categoria', args.categoria);
     const url = `${API_BASE}/reportes/tesoreria/tendencia${params.toString() ? `?${params}` : ''}`;
     return handleRequest<any[]>(url);
   };
