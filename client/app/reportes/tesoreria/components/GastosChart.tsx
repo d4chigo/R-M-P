@@ -1,6 +1,6 @@
 "use client";
 
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface GastosChartProps {
@@ -38,7 +38,8 @@ export function GastosChart({ data, type, title }: GastosChartProps) {
             <Tooltip />
             <Legend />
             <Bar yAxisId="left" dataKey="monto" name="Monto Total" fill="#82ca9d" />
-            <Bar yAxisId="right" dataKey="cantidad" name="Cantidad" fill="#8884d8" />
+            {/* Mostrar 'cantidad' como línea sobre el gráfico de barras para mejor lectura */}
+            <Line yAxisId="right" type="monotone" dataKey="cantidad" name="Cantidad" stroke="#8884d8" dot={{ r: 3 }} />
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
