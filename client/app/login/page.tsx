@@ -21,6 +21,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { login, isAuthenticated, isLoading, checkUsersExist } = useAuth();
@@ -87,6 +89,9 @@ export default function LoginPage() {
         router.push("/");
       } else {
         setError(result.message || "Error en el login");
+        // Propagar attempts/locked info
+        setAttemptsLeft(typeof result.attemptsLeft === 'number' ? result.attemptsLeft : null);
+        setLockedUntil(result.lockedUntil ?? null);
       }
     } catch {
       setError("Error de conexión con el servidor");
@@ -121,6 +126,15 @@ export default function LoginPage() {
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                {lockedUntil && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Su cuenta ha sido bloqueada temporalmente hasta {new Date(lockedUntil).toLocaleString()}.
+                    </AlertDescription>
                   </Alert>
                 )}
 
@@ -193,6 +207,10 @@ export default function LoginPage() {
                   )}
                 </Button>
               </form>
+
+              {attemptsLeft !== null && attemptsLeft >= 0 && (
+                <div className="mt-3 text-sm text-gray-600">Quedan {attemptsLeft} intentos antes del bloqueo temporal.</div>
+              )}
 
               {/* Recuperación de contraseña removida por seguridad */}
             </CardContent>
