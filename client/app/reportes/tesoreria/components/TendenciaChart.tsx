@@ -4,18 +4,14 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tool
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface TendenciaChartProps {
-  data: Array<{
-    Mes: string;
-    Monto_Total: number;
-    Cantidad_Registros: number;
-  }>;
+  data: Array<Record<string, any>>;
 }
 
 export function TendenciaChart({ data }: TendenciaChartProps) {
   const chartData = data.map(item => ({
     mes: item.Mes,
-    monto: item.Monto_Total,
-    cantidad: item.Cantidad_Registros
+    monto: Number(item.Monto_Total ?? item.monto ?? 0) || 0,
+    cantidad: Number(item.Cantidad_Registros ?? item.Cantidad ?? 0) || 0
   }));
 
   return (
