@@ -4,22 +4,24 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface GastosChartProps {
-  data: Array<{
-    categoria?: string;
-    nombre?: string;
-    Monto_Total: number;
-    Cantidad_Registros: number;
-  }>;
+  data: Array<Record<string, any>>;
   type: 'categoria' | 'persona';
   title: string;
 }
 
 export function GastosChart({ data, type, title }: GastosChartProps) {
-  const chartData = data.map(item => ({
-    name: item[type === 'categoria' ? 'categoria' : 'nombre'] || 'N/A',
-    monto: item.Monto_Total,
-    cantidad: item.Cantidad_Registros
-  }));
+  const chartData = data.map(item => {
+    // Normalizar clave del nombre (varias vistas usan mayúsculas)
+    const name = (type === 'categoria'
+      ? (item.categoria ?? item.Categoria ?? item.Categoría ?? item.Categoria ?? 'N/A')
+      : (item.nombre ?? item.Nombre ?? item.Persona ?? item.persona ?? 'N/A')
+    );
+
+    const monto = Number(item.Monto_Total ?? item.monto ?? 0) || 0;
+    const cantidad = Number(item.Cantidad_Registros ?? item.Cantidad ?? 0) || 0;
+
+    return { name, monto, cantidad };
+  });
 
   return (
     <Card className="w-full h-[400px]">
