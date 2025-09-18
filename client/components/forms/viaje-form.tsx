@@ -10,6 +10,7 @@ import { Info as InfoIcon, AlertTriangle } from "lucide-react";
 import type { Viaje } from "@/hooks/use-viajes";
 import { useVehiculos } from "@/hooks/use-vehiculos";
 import { useRepartidores } from "@/hooks/use-repartidores";
+import { getTodayString } from "@/lib/utils/date";
 
 // Type for form data
 interface FormData {
@@ -231,7 +232,7 @@ export function ViajeForm({
   useEffect(() => {
     const newWarnings: string[] = [];
     if (!isEditing && formData.fecha) {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getTodayString();
       if (formData.fecha < today) {
         newWarnings.push("La fecha seleccionada es anterior al día de hoy");
       }
