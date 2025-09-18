@@ -1,4 +1,5 @@
 const db = require("../config/db");
+const { todayPeruYMD, toPeruYMD, nowPeruTimestamp } = require("../lib/date-utils");
 
 // Utility function to format dates consistently
 const formatDateForResponse = (dateValue) => {
@@ -566,7 +567,7 @@ const deleteViaje = async (req, res) => {
       error: error.message,
       details: {
         error_code: error.code || "UNKNOWN",
-        timestamp: new Date().toISOString(),
+        timestamp: nowPeruTimestamp(),
       },
     });
   }
