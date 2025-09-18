@@ -309,7 +309,7 @@ export default function CentroDistribucionPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {centros.reduce((sum, c) => sum + (c.capacidad_almacen || 0), 0).toLocaleString()}
+                  {centros.reduce((sum, c) => sum + (Number(c.capacidad_almacen) || 0), 0).toLocaleString('es-ES')}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   m³ disponibles
@@ -323,7 +323,7 @@ export default function CentroDistribucionPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {centros.reduce((sum, c) => sum + (c.personal_asignado || 0), 0)}
+                  {centros.reduce((sum, c) => sum + (Number(c.personal_asignado) || 0), 0).toLocaleString('es-ES')}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Empleados totales
