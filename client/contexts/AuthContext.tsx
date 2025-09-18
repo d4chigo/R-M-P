@@ -39,9 +39,6 @@ interface AuthContextType {
   checkAuth: () => Promise<boolean>;
   hasRole: (role: string) => boolean;
   checkUsersExist: () => Promise<{ usersExist: boolean; totalUsers: number }>;
-  requestPasswordReset: (
-    email: string,
-  ) => Promise<{ success: boolean; message?: string }>;
 }
 
 // Crear contexto
@@ -265,33 +262,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Función para solicitar restablecimiento de contraseña
-  const requestPasswordReset = async (
-    email: string,
-  ): Promise<{ success: boolean; message?: string }> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      return {
-        success: data.success,
-        message: data.message,
-      };
-    } catch (error) {
-      console.error("Error solicitando restablecimiento:", error);
-      return {
-        success: false,
-        message: "Error de conexión con el servidor",
-      };
-    }
-  };
+  // NOTE: requestPasswordReset removed from client for security reasons
 
   // Verificar autenticación al cargar
   useEffect(() => {
@@ -322,7 +293,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuth,
     hasRole,
     checkUsersExist,
-    requestPasswordReset,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

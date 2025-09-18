@@ -15,7 +15,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, AlertCircle, User } from "lucide-react";
-import ForgotPasswordForm from "@/components/auth/ForgotPasswordForm";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -195,16 +194,7 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              {/* 🔹 Solo bloque de recuperación de contraseña */}
-              <div className="mt-6 text-center">
-                <ForgotPasswordForm
-                  trigger={
-                    <span className="text-blue-600 cursor-pointer hover:underline text-sm">
-                      ¿Olvidaste tu contraseña?
-                    </span>
-                  }
-                />
-              </div>
+              {/* Recuperación de contraseña removida por seguridad */}
             </CardContent>
           </Card>
         </div>
