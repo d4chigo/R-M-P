@@ -118,7 +118,33 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Buscar usuario por email y obtener sus roles en una sola consulta
+    // ===== Rate limiting / intentos fallidos =====
+    // Asegurarnos que exista la tabla LOGIN_ATTEMPT
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS LOGIN_ATTEMPT (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        email VARCHAR(255) NOT NULL,
+        attempts INT DEFAULT 0,
+        last_attempt_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        locked_until DATETIME DEFAULT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_login_email (email)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    // Obtener estado de intentos para este email
+    const [attemptRows] = await db.query('SELECT * FROM LOGIN_ATTEMPT WHERE email = ?', [email]);
+    const attemptRec = attemptRows && attemptRows[0] ? attemptRows[0] : null;
+    const now = new Date();
+    if (attemptRec && attemptRec.locked_until) {
+      const lockedUntil = new Date(attemptRec.locked_until);
+      if (lockedUntil > now) {
+        const diffMs = lockedUntil - now;
+        return res.status(429).json({ success: false, message: 'Demasiados intentos. Intenta más tarde.', lockedUntil: lockedUntil.toISOString(), attemptsLeft: 0 });
+      }
+    }
+
+    // ===== Buscar usuario por email y obtener sus roles en una sola consulta =====
     const [rows] = await db.query(`
       SELECT 
         u.*,
@@ -133,10 +159,24 @@ exports.login = async (req, res) => {
     console.log("🔍 Resultado de búsqueda:", rows.length ? "Usuario encontrado" : "Usuario no encontrado");
 
     if (!rows.length) {
-      return res.status(401).json({
-        success: false,
-        message: "Credenciales inválidas",
-      });
+      // Incrementar contador de intentos fallidos
+      if (attemptRec) {
+        const newAttempts = (attemptRec.attempts || 0) + 1;
+        let lockedUntil = null;
+        if (newAttempts >= 5) {
+          // Bloquear por 30 minutos
+          lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+          await db.query('UPDATE LOGIN_ATTEMPT SET attempts = ?, last_attempt_at = NOW(), locked_until = ? WHERE email = ?', [0, lockedUntil.toISOString().slice(0,19).replace('T',' '), email]);
+          return res.status(429).json({ success: false, message: 'Demasiados intentos. Intenta más tarde.', lockedUntil: lockedUntil.toISOString(), attemptsLeft: 0 });
+        } else {
+          await db.query('UPDATE LOGIN_ATTEMPT SET attempts = ?, last_attempt_at = NOW() WHERE email = ?', [newAttempts, email]);
+          return res.status(401).json({ success: false, message: 'Credenciales inválidas', attemptsLeft: Math.max(0, 5 - newAttempts) });
+        }
+      } else {
+        // Crear registro de intento
+        await db.query('INSERT INTO LOGIN_ATTEMPT (email, attempts, last_attempt_at) VALUES (?, 1, NOW())', [email]);
+        return res.status(401).json({ success: false, message: 'Credenciales inválidas', attemptsLeft: 4 });
+      }
     }
 
     const user = rows[0];
@@ -152,10 +192,21 @@ exports.login = async (req, res) => {
     // Verificar contraseña
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
     if (!passwordMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Credenciales inválidas",
-      });
+      // Manejar intentos fallidos: incrementar contador y posiblemente bloquear
+      if (attemptRec) {
+        const newAttempts = (attemptRec.attempts || 0) + 1;
+        if (newAttempts >= 5) {
+          const lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+          await db.query('UPDATE LOGIN_ATTEMPT SET attempts = ?, last_attempt_at = NOW(), locked_until = ? WHERE email = ?', [0, lockedUntil.toISOString().slice(0,19).replace('T',' '), email]);
+          return res.status(429).json({ success: false, message: 'Demasiados intentos. Intenta más tarde.', lockedUntil: lockedUntil.toISOString(), attemptsLeft: 0 });
+        } else {
+          await db.query('UPDATE LOGIN_ATTEMPT SET attempts = ?, last_attempt_at = NOW() WHERE email = ?', [newAttempts, email]);
+          return res.status(401).json({ success: false, message: 'Credenciales inválidas', attemptsLeft: Math.max(0, 5 - newAttempts) });
+        }
+      } else {
+        await db.query('INSERT INTO LOGIN_ATTEMPT (email, attempts, last_attempt_at) VALUES (?, 1, NOW())', [email]);
+        return res.status(401).json({ success: false, message: 'Credenciales inválidas', attemptsLeft: 4 });
+      }
     }
 
     // Procesar roles del usuario
@@ -191,6 +242,12 @@ exports.login = async (req, res) => {
         token,
       },
     });
+    // Login exitoso -> resetear intentos
+    try {
+      await db.query('DELETE FROM LOGIN_ATTEMPT WHERE email = ?', [email]);
+    } catch (err) {
+      console.warn('No se pudo limpiar LOGIN_ATTEMPT tras login exitoso:', err.message || err);
+    }
   } catch (error) {
     console.error("Error en login:", error);
     res.status(500).json({
