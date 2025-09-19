@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { getTodayString, formatDateForDisplay } from "@/lib/utils/date";
 import { Clock, MapPin, Truck, User, Edit, Trash2 } from "lucide-react";
 import {
   TablePagination,
@@ -66,8 +67,8 @@ export function ViajesTable({
   };
 
   const getEstadoViaje = (fecha: string) => {
-    const hoy = new Date().toISOString().split("T")[0];
-    const fechaViaje = fecha;
+    const hoy = getTodayString();
+    const fechaViaje = (fecha || "").split("T")[0];
 
     if (fechaViaje > hoy) {
       return { estado: "Programado", variant: "secondary" as const };
@@ -84,7 +85,7 @@ export function ViajesTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
+              {/*<TableHead>ID</TableHead>*/}
               <TableHead>Fecha</TableHead>
               <TableHead>N° Viaje</TableHead>
               <TableHead>Vehículo</TableHead>
@@ -101,19 +102,12 @@ export function ViajesTable({
               const { estado, variant } = getEstadoViaje(viaje.fecha);
               return (
                 <TableRow key={viaje.id || viaje.id_viaje}>
-                  <TableCell className="font-mono text-sm">
+                  {/*<TableCell className="font-mono text-sm">
                     #{viaje.id_viaje || viaje.id}
-                  </TableCell>
+                  </TableCell>*/}
                   <TableCell>
                     <div className="space-y-1">
-                      <div className="font-medium">
-                        {new Date(viaje.fecha).toLocaleDateString("es-PE", {
-                          timeZone: "America/Lima",
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                        })}
-                      </div>
+                      <div className="font-medium">{formatDateForDisplay(viaje.fecha)}</div>
                       <Badge variant={variant} className="text-xs">
                         {estado}
                       </Badge>

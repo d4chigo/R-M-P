@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useApi } from './use-api';
 
+export interface TesoreriaVehiculo {
+  id_vehiculo: number;
+  placa: string;
+  descripcion: string; // marca + modelo + (placa)
+}
+
+export interface TesoreriaRepartidor {
+  id_repartidor: number;
+  codigo: string;
+  nombre: string;
+  descripcion: string; // nombre + (codigo)
+}
+
 export interface Tesoreria {
   id: number;
   fecha: string; // YYYY-MM-DD
@@ -11,6 +24,7 @@ export interface Tesoreria {
   detalle?: string | null;
   reembolso?: string | null;
   distrito?: string | null;
+  id_centro?: number | null;
   turno?: number | null; // 0/1 or any small int per backend
   encargado?: string | null;
   monto: number;
@@ -26,6 +40,7 @@ export interface TesoreriaFormData {
   fecha: string;
   placa?: string | null;
   nombre: string;
+  id_centro?: number | null;
   cargo?: string | null;
   categoria: string;
   detalle?: string | null;
@@ -165,9 +180,17 @@ export const useTesoreria = () => {
     setLoading(true);
     setError(null);
     try {
+      // If the client explicitly set id_centro to null, include a header to signal
+      // the backend that it should clear the column. This is a defensive measure
+      // in case intermediaries strip keys.
+      const headers: any = {};
+      if (Object.prototype.hasOwnProperty.call(data, 'id_centro') && data.id_centro === null) {
+        headers['X-Clear-Id-Centro'] = '1';
+      }
       const response = await request(`/tesoreria/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
+        headers,
       });
       if (response.success) {
   await fetchTesoreria(); // Recargar la lista
@@ -272,6 +295,54 @@ export const useTesoreria = () => {
     fetchActive();
   }, []);
 
+  const fetchVehiculos = async () => {
+    try {
+      const response = await callApi('/api/tesoreria/dropdown/vehiculos');
+      if (response.success) {
+        return response.data;
+      } else {
+        setError(response.message || 'Error al cargar vehículos');
+        return [];
+      }
+    } catch (err) {
+      setError('Error al cargar vehículos');
+      console.error('Error loading vehiculos:', err);
+      return [];
+    }
+  };
+
+  const fetchRepartidores = async () => {
+    try {
+      const response = await callApi('/api/tesoreria/dropdown/repartidores');
+      if (response.success) {
+        return response.data;
+      } else {
+        setError(response.message || 'Error al cargar repartidores');
+        return [];
+      }
+    } catch (err) {
+      setError('Error al cargar repartidores');
+      console.error('Error loading repartidores:', err);
+      return [];
+    }
+  };
+
+  const fetchAuditInfo = async (id: number) => {
+    try {
+      const response = await callApi(`/api/tesoreria/${id}/audit`);
+      if (response.success) {
+        return response.data;
+      } else {
+        setError(response.message || 'Error al cargar información de auditoría');
+        return null;
+      }
+    } catch (err) {
+      setError('Error al cargar información de auditoría');
+      console.error('Error loading audit info:', err);
+      return null;
+    }
+  };
+
   return {
     tesoreria,
     loading,
@@ -286,5 +357,9 @@ export const useTesoreria = () => {
     deleteTesoreria,
     restoreTesoreria,
     searchTesoreria,
+    // New dropdown and audit methods
+    fetchVehiculos,
+    fetchRepartidores,
+    fetchAuditInfo
   };
 };

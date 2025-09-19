@@ -1,27 +1,15 @@
 const db = require("../config/db");
 const { logAudit } = require("../lib/audit");
-
-// Utilidad: Hoy en formato YYYY-MM-DD para zona horaria de Lima (Perú)
-function todayPeruYMD() {
-  try {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Lima',
-      year: 'numeric', month: '2-digit', day: '2-digit'
-    }).format(new Date());
-  } catch (e) {
-    // Fallback: ISO (UTC) — puede desfasar 1 día en algunos horarios
-    return new Date().toISOString().split('T')[0];
-  }
-}
+const { getTodayLimaYMD, getLimaTodaySQLClause, getLimaNowSQLClause, isValidYMDDate } = require("../lib/date-lima");
 
 // Helper: construir cláusula WHERE según scope y filtros
 function buildWhereAndParams(query) {
   const { scope = "active", q, fecha, fecha_inicio, fecha_fin, categoria, reembolso, turno, distrito, encargado } = query;
   let where = "WHERE 1=1";
   const params = [];
-  // Normalizar 'hoy' a hora de Lima (Perú) independiente del TZ del servidor
-  // Usamos UTC_TIMESTAMP() y convertimos a -05:00, luego tomamos solo la fecha
-  const PERU_TODAY_SQL = "DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'))";
+  
+  // Usar la nueva utilidad para obtener la fecha de Lima
+  const PERU_TODAY_SQL = getLimaTodaySQLClause();
 
   // Debug: log de parámetros recibidos
   console.log("🔍 buildWhereAndParams - query recibida:", JSON.stringify(query, null, 2));
@@ -36,10 +24,22 @@ function buildWhereAndParams(query) {
   }
   if (hasDate) {
     if (fecha && String(fecha).trim()) {
-      where += " AND t.fecha = ?"; params.push(String(fecha).trim());
+      const fechaStr = String(fecha).trim();
+      if (isValidYMDDate(fechaStr)) {
+        where += " AND t.fecha = ?"; 
+        params.push(fechaStr);
+      } else {
+        console.warn("⚠️ Fecha inválida recibida:", fechaStr);
+      }
     } else {
-      if (fecha_inicio) { where += " AND t.fecha >= ?"; params.push(fecha_inicio); }
-      if (fecha_fin) { where += " AND t.fecha <= ?"; params.push(fecha_fin); }
+      if (fecha_inicio && isValidYMDDate(fecha_inicio)) { 
+        where += " AND t.fecha >= ?"; 
+        params.push(fecha_inicio); 
+      }
+      if (fecha_fin && isValidYMDDate(fecha_fin)) { 
+        where += " AND t.fecha <= ?"; 
+        params.push(fecha_fin); 
+      }
     }
   } else {
     // Sin filtros de fecha explícitos: aplicar comportamiento por scope (hoy/histórico)
@@ -197,7 +197,9 @@ const getTesoreriaById = async (req, res) => {
 // Crear un nuevo registro de tesorería (nuevo esquema)
 const createTesoreria = async (req, res) => {
   try {
-  const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto } = req.body;
+  let { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto } = req.body;
+    // Normalize empty-string id_centro to null so both '' and null mean 'no centro'
+    if (id_centro === '') id_centro = null;
 
     // Validaciones básicas
     if (!fecha || !nombre || !categoria || monto === undefined) {
@@ -208,8 +210,9 @@ const createTesoreria = async (req, res) => {
       return res.status(400).json({ success: false, message: "El monto debe ser mayor a 0" });
     }
 
-    // Si se proporcionó id_centro, validar que exista
-    if (typeof id_centro !== 'undefined' && id_centro !== null) {
+    // Si el cuerpo incluye id_centro, validar que exista (pero permitir '' o null como intención de limpiar)
+    const hasIdCentro = Object.prototype.hasOwnProperty.call(req.body, 'id_centro');
+    if (hasIdCentro && id_centro !== '' && id_centro !== null && typeof id_centro !== 'undefined') {
       const [centroRows] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
       if (centroRows.length === 0) {
         return res.status(400).json({ success: false, message: 'Centro de distribución no encontrado' });
@@ -248,7 +251,7 @@ const createTesoreria = async (req, res) => {
 
       // Restar monto del saldo
       const nuevoSaldo = (saldoActual - parseFloat(monto));
-      await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+      await connection.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
 
       await connection.commit();
 
@@ -262,6 +265,13 @@ const createTesoreria = async (req, res) => {
           detalle: { after: { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto }, saldo_after: nuevoSaldo }
         });
       } catch (e) {}
+
+      // Intentar ejecutar rollover automáticamente (no bloquear el flujo si falla)
+      try {
+        await performRollover?.(req);
+      } catch (rrErr) {
+        console.error('Error ejecutando rollover automático tras createTesoreria:', rrErr);
+      }
 
       res.status(201).json({ success: true, data: { id: result.insertId }, message: "Registro de tesorería creado exitosamente" });
     } catch (txErr) {
@@ -290,11 +300,21 @@ const updateTesoreria = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado } = req.body;
-    const newMonto = req.body.monto;
+  const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado } = req.body;
+  const newMonto = req.body.monto;
+    // Debug: mostrar body recibido para inspección (temporal)
+    try {
+      console.log('tesoreria.update - req.body keys=', Object.keys(req.body || {}), 'body=', req.body);
+    } catch (e) {}
+  // Detectar si el cliente incluyó la clave id_centro en el body. Si la incluyó
+  // con valor null o '', significa intención de "limpiar" el centro.
+  const hasIdCentro = Object.prototype.hasOwnProperty.call(req.body, 'id_centro');
+  // Además, permitir una cabecera opcional que indique intención explícita de limpiar
+  // el centro (útil si algún proxy o serializador omitiera la clave JSON).
+  const clearIdCentroHeader = (req.get && req.get('X-Clear-Id-Centro') || '').toString() === '1';
 
-    // Verificar que el registro existe
-    const [existing] = await db.query("SELECT id, monto, deleted_at FROM TESORERIA WHERE id = ?", [id]);
+  // Verificar que el registro existe (leer también id_centro para preservarlo si el cliente no lo envía)
+  const [existing] = await db.query("SELECT id, monto, deleted_at, id_centro FROM TESORERIA WHERE id = ?", [id]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: "Registro de tesorería no encontrado" });
     }
@@ -302,47 +322,64 @@ const updateTesoreria = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No se puede editar un registro en la papelera' });
     }
 
-    // Si se proporcionó id_centro, validar que exista
-    if (typeof id_centro !== 'undefined' && id_centro !== null) {
+    // Si el body incluye id_centro y su valor NO es vacío/NULL, validar que exista.
+    // Si viene '' o null, lo consideramos intención de limpiar (no validar como existente).
+    if (hasIdCentro && id_centro !== '' && id_centro !== null && typeof id_centro !== 'undefined') {
       const [centroRows] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
       if (centroRows.length === 0) {
         return res.status(400).json({ success: false, message: 'Centro de distribución no encontrado' });
       }
     }
 
+    // Normalizar intención de 'limpiar' cuando cliente envía '' -> convertir a null
+    if (hasIdCentro && id_centro === '') {
+      // marca intención explícita de limpiar
+      // Convertimos a null para que la cláusula id_centro = ? reciba NULL y limpie la columna
+      req.body.id_centro = null; // mantener consistencia con req.body
+    }
+
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
 
-      // Ajustar saldo si cambia el monto
-      if (typeof newMonto !== 'undefined' && newMonto !== null) {
-        const oldMonto = parseFloat(existing[0].monto);
-        const delta = parseFloat(newMonto) - oldMonto; // si >0: restar adicional; si <0: devolver saldo
-        if (delta !== 0) {
-          const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
-          let saldoId, saldoActual;
-          if (saldoRows.length === 0) {
-            const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
-            saldoId = ins.insertId;
-            saldoActual = 0;
-          } else {
-            saldoId = saldoRows[0].id;
-            saldoActual = parseFloat(saldoRows[0].saldo || 0);
-          }
+        // Ajustar saldo si cambia el monto
+        if (typeof newMonto !== 'undefined' && newMonto !== null) {
+          const oldMonto = parseFloat(existing[0].monto);
+          const parsedNewMonto = parseFloat(newMonto);
 
-          if (delta > 0 && delta > saldoActual) {
+          // Política: en edición solo se permiten montos inferiores o iguales al original (no aumentar)
+          if (parsedNewMonto > oldMonto) {
             await connection.rollback();
-            return res.status(400).json({ success: false, message: 'Saldo insuficiente para aumentar el monto' });
+            return res.status(400).json({ success: false, message: 'Edición inválida: no está permitido aumentar el monto original. Para sumar nuevo gasto, cree un nuevo registro.' });
           }
 
-          const nuevoSaldo = saldoActual - delta; // si delta negativo, se suma
-          await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
-        }
-      }
+          const delta = parsedNewMonto - oldMonto; // si <0: devolver saldo (sumar al saldo)
+          if (delta !== 0) {
+            const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+            let saldoId, saldoActual;
+            if (saldoRows.length === 0) {
+              const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
+              saldoId = ins.insertId;
+              saldoActual = 0;
+            } else {
+              saldoId = saldoRows[0].id;
+              saldoActual = parseFloat(saldoRows[0].saldo || 0);
+            }
 
-      // Actualizar registro
-      await connection.query(
-        `UPDATE TESORERIA SET
+            // Como ya prevenimos incrementos, aquí delta será negativo y por tanto nuevoSaldo = saldoActual - delta => suma
+            const nuevoSaldo = saldoActual - delta;
+            await connection.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+          }
+        }
+
+  // Actualizar registro.
+  // Para simplificar y evitar ambigüedades, siempre escribimos el campo `id_centro` con
+  // un parámetro: si el cliente incluyó la clave se usará su valor (null -> limpiar).
+  // Si el cliente NO incluyó la clave, preservamos el valor actual leyendo existing[0].id_centro
+  // y pasándolo como parámetro para que no cambie.
+  const idCentroSetClause = 'id_centro = ?';
+
+      const sql = `UPDATE TESORERIA SET
           fecha = COALESCE(?, fecha),
           placa = COALESCE(?, placa),
           nombre = COALESCE(?, nombre),
@@ -351,15 +388,44 @@ const updateTesoreria = async (req, res) => {
           detalle = COALESCE(?, detalle),
           reembolso = COALESCE(?, reembolso),
           distrito = COALESCE(?, distrito),
-          id_centro = COALESCE(?, id_centro),
+          ${idCentroSetClause},
           turno = COALESCE(?, turno),
           encargado = COALESCE(?, encargado),
           monto = COALESCE(?, monto),
           updated_by = ?,
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?`,
-        [fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro ?? null, turno, encargado, newMonto, req.usuario ? req.usuario.id_usuario : null, id]
-      );
+        WHERE id = ?`;
+
+      // Param order must match the placeholders in the SQL above. If hasIdCentro is true
+      // we pass id_centro (possibly null) in place; otherwise we pass a null/placeholder
+      // so COALESCE behaves as before.
+  // If client signaled clearing (hasIdCentro and id_centro === ''), id_centro was normalized to null above,
+  // so pass null to the DB to set the column to NULL.
+  // Compute idCentroParam: precedence:
+  // 1) If client provided the key (hasIdCentro) use its normalized value (even null).
+  // 2) Else if client sent special header to clear, treat as explicit null.
+  // 3) Otherwise fallback to existing DB value to preserve it.
+  let idCentroParam;
+  if (hasIdCentro) {
+    idCentroParam = id_centro === '' ? null : (id_centro ?? null);
+  } else if (clearIdCentroHeader) {
+    idCentroParam = null; // client signaled to clear the centro via header
+  } else {
+    idCentroParam = existing[0] ? (typeof existing[0].id_centro !== 'undefined' ? existing[0].id_centro : null) : null;
+  }
+
+  if (clearIdCentroHeader) {
+    console.log('tesoreria.update - clearIdCentroHeader detected; will clear id_centro');
+  }
+
+  // Construir array de params de forma explícita para facilitar el logging y evitar desorden
+  const paramsForSql = [fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, idCentroParam, turno, encargado, newMonto, req.usuario ? req.usuario.id_usuario : null, id];
+
+  // Debug temporal: imprimir qué se va a pasar al UPDATE (ayuda a depurar cuando la UI muestra éxito pero no hay cambios)
+  console.log('tesoreria.update - hasIdCentro=', hasIdCentro, 'id_centro(raw)=', id_centro, 'idCentroParam=', idCentroParam);
+  console.log('tesoreria.update - SQL params =', JSON.stringify(paramsForSql));
+
+  await connection.query(sql, paramsForSql);
 
       await connection.commit();
       // Audit
@@ -373,6 +439,12 @@ const updateTesoreria = async (req, res) => {
         });
       } catch (e) {}
       res.json({ success: true, message: "Registro de tesorería actualizado exitosamente" });
+      // Intentar ejecutar rollover automáticamente (no bloquear si falla)
+      try {
+        await performRollover?.(req);
+      } catch (rrErr) {
+        console.error('Error ejecutando rollover automático tras updateTesoreria:', rrErr);
+      }
     } catch (txErr) {
       await connection.rollback();
       console.error('Error en transacción actualizar tesorería:', txErr);
@@ -427,6 +499,7 @@ const updateSaldo = async (req, res) => {
     }
 
     const [rows] = await db.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1');
+    // Si no existe fila, crearla (como antes)
     if (rows.length === 0) {
       if (typeof motivo === 'undefined' || String(motivo).trim() === '') {
         return res.status(400).json({ success: false, message: 'Debe especificar un motivo para establecer el saldo inicial' });
@@ -440,18 +513,96 @@ const updateSaldo = async (req, res) => {
     const beforeSaldo = parseFloat(rows[0].saldo || 0);
     const afterSaldo = parseFloat(saldo);
     const delta = afterSaldo - beforeSaldo;
+
+    // En modo edición (PUT /saldo/actual) solo permitimos disminuir o igualar el saldo actual.
+    if (delta > 0) {
+      return res.status(400).json({ success: false, message: 'No está permitido aumentar el saldo con la acción de "Editar". Use la opción "Agregar" para incrementar el saldo.' });
+    }
+
     if (delta === 0) {
       return res.json({ success: true, data: { id, saldo: afterSaldo }, message: 'Saldo sin cambios' });
     }
+
     if (typeof motivo === 'undefined' || String(motivo).trim() === '') {
       return res.status(400).json({ success: false, message: 'Debe especificar un motivo para ajustar el saldo' });
     }
-    await db.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [afterSaldo, req.usuario ? req.usuario.id_usuario : null, id]);
+
+    // delta < 0: devolver la diferencia al saldo (sumarlo)
+    await db.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [afterSaldo, req.usuario ? req.usuario.id_usuario : null, id]);
     try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: id, detalle: { motivo, before: { saldo: beforeSaldo }, after: { saldo: afterSaldo }, delta } }); } catch(e) {}
-    res.json({ success: true, data: { id, saldo }, message: 'Saldo actualizado' });
+    res.json({ success: true, data: { id, saldo: afterSaldo }, message: 'Saldo actualizado' });
   } catch (error) {
     console.error('Error actualizando saldo:', error);
     res.status(500).json({ success: false, message: 'Error al actualizar saldo', error: error.message });
+  }
+};
+
+
+// Obtener historial del día: movimientos, ajustes y auditoría relacionada
+const getSaldoHistorial = async (req, res) => {
+  try {
+    const fecha = req.query.fecha || getTodayLimaYMD();
+    let movimientos = [];
+    let ajustes = [];
+    let audits = [];
+    try {
+      const [m] = await db.query(
+        `SELECT t.id, t.fecha, t.monto, t.nombre, t.cargo, t.categoria, t.detalle, t.created_at, t.created_by, u.nombre_completo AS created_by_nombre
+         FROM TESORERIA t
+         LEFT JOIN USUARIO u ON t.created_by = u.id_usuario
+         WHERE t.fecha = ?
+         ORDER BY t.created_at ASC`,
+        [fecha]
+      );
+      movimientos = m;
+    } catch (e) {
+      console.warn('Warning: no se pudo leer TESORERIA para historial (tabla ausente?):', e && e.code);
+      movimientos = [];
+    }
+
+    try {
+      const [a] = await db.query(
+        `SELECT a.id, a.fecha, a.tipo, a.monto, a.motivo, a.created_at, a.created_by, u.nombre_completo AS created_by_nombre
+         FROM TESORERIA_AJUSTE a
+         LEFT JOIN USUARIO u ON a.created_by = u.id_usuario
+         WHERE a.fecha = ?
+         ORDER BY a.created_at ASC`,
+        [fecha]
+      );
+      ajustes = a;
+    } catch (e) {
+      console.warn('Warning: no se pudo leer TESORERIA_AJUSTE para historial (tabla ausente?):', e && e.code);
+      ajustes = [];
+    }
+
+    try {
+      const [au] = await db.query(
+        `SELECT id, fecha_evento, evento, entidad, entity_id, user_id, ip, detalle
+         FROM TESORERIA_AUDIT
+         WHERE DATE(CONVERT_TZ(fecha_evento, '+00:00', '-05:00')) = ?
+           AND entidad IN ('TESORERIA','TESORERIA_SALDO')
+         ORDER BY fecha_evento ASC`,
+        [fecha]
+      );
+      audits = au;
+    } catch (e) {
+      console.warn('Warning: no se pudo leer TESORERIA_AUDIT para historial (tabla ausente?):', e && e.code);
+      audits = [];
+    }
+
+    // Si el usuario no es admin, ocultar nombres y detail de auditoría
+    const userRoles = req.userRoles || (req.usuario && req.usuario.roles ? req.usuario.roles.map(r => String(r).toUpperCase()) : []);
+    const isAdmin = Array.isArray(userRoles) && userRoles.includes('ADMINISTRADOR');
+    if (!isAdmin) {
+      movimientos.forEach(m => { m.created_by_nombre = null; m.created_by = null; });
+      ajustes.forEach(a => { a.created_by_nombre = null; a.created_by = null; });
+      audits.forEach(x => { x.user_id = null; x.ip = null; x.detalle = null; });
+    }
+
+    res.json({ success: true, data: { fecha, movimientos, ajustes, audits } });
+  } catch (error) {
+    console.error('Error obteniendo historial de saldo:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener historial de saldo', error: error.message });
   }
 };
 
@@ -700,7 +851,7 @@ const rolloverSaldo = async (req, res) => {
         return res.json({ success: true, message: 'Rollover completado: saldo inicializado a 0' });
       }
       const saldoActual = parseFloat(rows[0].saldo || 0);
-  const fechaHoy = todayPeruYMD();
+  const fechaHoy = getTodayLimaYMD();
   // Insertar snapshot en history
   await connection.query('INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final) VALUES (?, ?)', [fechaHoy, saldoActual]);
   // Política actual: mantener el sobrante para el día siguiente (no resetear el saldo)
@@ -722,6 +873,76 @@ const rolloverSaldo = async (req, res) => {
 };
 
 module.exports.rolloverSaldo = rolloverSaldo;
+
+// Helper reutilizable: realiza el rollover (snapshot) de forma idempotente (upsert por fecha)
+const performRollover = async (req) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [rows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+    let saldoActual = 0;
+    if (rows.length === 0) {
+      const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (?)', [0]);
+      saldoActual = 0;
+    } else {
+      saldoActual = parseFloat(rows[0].saldo || 0);
+    }
+    const fechaHoy = getTodayLimaYMD();
+    // Usar upsert (ON DUPLICATE KEY UPDATE) — requiere índice único en la columna `fecha` de la tabla history
+    await connection.query(
+      `INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE saldo_final = VALUES(saldo_final), updated_at = CURRENT_TIMESTAMP`,
+      [fechaHoy, saldoActual]
+    );
+    await connection.commit();
+    try { await logAudit({ req, evento: 'ROLLOVER', entidad: 'TESORERIA_SALDO', entityId: rows[0]?.id || null, detalle: { fecha: fechaHoy, saldo_final: saldoActual } }); } catch(e) {}
+    return { success: true, message: 'Rollover completado (idempotente)', saldo_final: saldoActual };
+  } catch (err) {
+    await connection.rollback();
+    console.error('Error en performRollover:', err);
+    throw err;
+  } finally {
+    connection.release();
+  }
+};
+
+// Exponer helper para uso interno
+module.exports.performRollover = performRollover;
+
+// Export historial
+module.exports.getSaldoHistorial = getSaldoHistorial;
+
+// Endpoints para dropdowns usados por el formulario (vehículos y repartidores)
+const getDropdownVehiculos = async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id_vehiculo as id, placa, marca, modelo FROM VEHICULO WHERE activo = 1 ORDER BY placa LIMIT 500');
+    // Normalizar a { id, placa, descripcion }
+    const data = (rows || []).map(r => ({
+      id: r.id,
+      placa: r.placa,
+      descripcion: `${r.placa} ${r.marca ? `- ${r.marca}` : ''} ${r.modelo ? ` ${r.modelo}` : ''}`.trim()
+    }));
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error obteniendo vehiculos para dropdown:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener vehiculos', error: error.message });
+  }
+};
+
+const getDropdownRepartidores = async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id_repartidor as id, codigo, nombre FROM REPARTIDOR WHERE activo = 1 ORDER BY nombre LIMIT 500');
+    const data = (rows || []).map(r => ({ id: r.id, nombre: r.nombre, descripcion: `${r.codigo ? `${r.codigo} - ` : ''}${r.nombre}` }));
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Error obteniendo repartidores para dropdown:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener repartidores', error: error.message });
+  }
+};
+
+module.exports.getDropdownVehiculos = getDropdownVehiculos;
+module.exports.getDropdownRepartidores = getDropdownRepartidores;
 
 // =====================
 // Ajustes contables y resumen
@@ -785,12 +1006,12 @@ const createAjuste = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Saldo insuficiente para aplicar el ajuste' });
       }
 
-  const f = fecha && String(fecha).trim() ? fecha : todayPeruYMD();
+  const f = fecha && String(fecha).trim() ? fecha : getTodayLimaYMD();
       const [aj] = await connection.query(
         'INSERT INTO TESORERIA_AJUSTE (fecha, tipo, monto, motivo, created_by) VALUES (?, ?, ?, ?, ?)',
         [f, tipo, amount, String(motivo).trim(), req.usuario ? req.usuario.id_usuario : null]
       );
-      await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+      await connection.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
       await connection.commit();
 
       try { await logAudit({ req, evento: 'AJUSTE', entidad: 'TESORERIA_SALDO', entityId: saldoId, detalle: { ajuste_id: aj.insertId, fecha: f, tipo, monto: amount, motivo, saldo_before: saldoActual, saldo_after: nuevoSaldo } }); } catch(e) {}
@@ -837,7 +1058,7 @@ const listAjustes = async (req, res) => {
 
 const resumenDia = async (req, res) => {
   try {
-  const fecha = (req.query?.fecha && String(req.query.fecha).trim()) || todayPeruYMD();
+  const fecha = (req.query?.fecha && String(req.query.fecha).trim()) || getTodayLimaYMD();
     await ensureAjusteTables();
     // Opening: saldo_final del día anterior (si existe)
     const [openRows] = await db.query('SELECT saldo_final FROM TESORERIA_SALDO_HISTORY WHERE fecha = DATE_SUB(?, INTERVAL 1 DAY) LIMIT 1', [fecha]);

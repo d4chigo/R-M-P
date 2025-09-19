@@ -27,6 +27,7 @@ interface Vehiculo {
   capacidad_kg?: number;
   capacidad_cajas?: number;
   activo?: boolean;
+  fecha_creacion?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -68,7 +69,7 @@ export function VehiculosTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
+              {/*<TableHead>ID</TableHead>*/}
               <TableHead>Placa</TableHead>
               <TableHead>Marca/Modelo</TableHead>
               <TableHead>Año</TableHead>
@@ -92,9 +93,9 @@ export function VehiculosTable({
             ) : (
               paginatedData.map((vehiculo) => (
                 <TableRow key={vehiculo.id_vehiculo}>
-                  <TableCell className="font-medium">
+                  {/*<TableCell className="font-medium">
                     {vehiculo.id_vehiculo}
-                  </TableCell>
+                  </TableCell>*/}
                   <TableCell className="font-semibold">
                     {vehiculo.placa}
                   </TableCell>
@@ -126,7 +127,7 @@ export function VehiculosTable({
                     </span>
                   </TableCell>
                   <TableCell>
-                    {formatDateForDisplay(vehiculo.created_at)}
+                    {formatDateForDisplay(vehiculo.fecha_creacion || vehiculo.created_at)}
                   </TableCell>
                   {(onEdit || onDelete) && (
                     <TableCell>

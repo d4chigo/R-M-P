@@ -14,11 +14,13 @@ CREATE TABLE USUARIO (
     username VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     nombre_completo VARCHAR(150) NOT NULL,
-    email VARCHAR(100) UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,
     telefono VARCHAR(20),
     activo BOOLEAN DEFAULT TRUE,
     reset_token VARCHAR(255) DEFAULT NULL,
     reset_token_expires DATETIME DEFAULT NULL,
+    must_change_password BOOLEAN DEFAULT FALSE,
+    last_temporary_password VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -45,7 +47,7 @@ CREATE TABLE USUARIO_ROL (
 -- Nota: para migraciones reales se debería mapear roles antiguos a EMPLEADO cuando aplique
 INSERT INTO ROL (nombre, descripcion) VALUES
 ('ADMINISTRADOR', 'Administrador del sistema con acceso total'),
-('EMPLEADO', 'Usuario con permisos de empleado (crear registros, ver información limitada)');
+('EMPLEADO', 'Usuario con permisos de empleado (crear registros, ver informacion limitada)');
 
 -- Tabla ZONA: áreas geográficas
 CREATE TABLE ZONA (
@@ -195,11 +197,30 @@ ALTER TABLE TESORERIA_SALDO
 
 -- Tabla para histórico diario de saldo (snapshot diario para rollover)
 CREATE TABLE IF NOT EXISTS TESORERIA_SALDO_HISTORY (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    fecha DATE NOT NULL,
-    saldo_final DECIMAL(14,2) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        fecha DATE NOT NULL,
+        saldo_final DECIMAL(14,2) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_tesoreria_saldo_history_fecha (fecha)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Asegurar unicidad por fecha para permitir upsert/idempotencia en rollover
+-- MySQL no soporta ADD UNIQUE INDEX IF NOT EXISTS en todas las versiones, así que
+-- usamos una rutina temporal para crear el índice único solo si no existe.
+DELIMITER $$
+CREATE PROCEDURE ensure_idx_tesoreria_saldo_history_fecha()
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'TESORERIA_SALDO_HISTORY' AND INDEX_NAME = 'ux_tesoreria_saldo_history_fecha'
+    ) THEN
+        ALTER TABLE TESORERIA_SALDO_HISTORY ADD UNIQUE INDEX ux_tesoreria_saldo_history_fecha (fecha);
+    END IF;
+END$$
+CALL ensure_idx_tesoreria_saldo_history_fecha()$$
+DROP PROCEDURE ensure_idx_tesoreria_saldo_history_fecha$$
+DELIMITER ;
 
 -- ==============================
 -- CREACIÓN DE ÍNDICES
@@ -269,4 +290,77 @@ GROUP BY
     r.id_repartidor,
     r.codigo,
     r.nombre;
+
+
+-- ==============================
+-- VISTA: Cumplimiento VH (visitas)
+-- Producción de filas por visita: Fecha, Placa, Codigo_Cliente, Cliente, OpenDT, CloseDT, ArriveDT, LeaveDT, IDR_Min, Fuera_VH
+-- Nota: esta vista asume la existencia de una tabla VISITA con los campos mostrados abajo.
+-- Ajustar nombres de columnas si la implementación real difiere.
+-- Cumplimiento VH removido: la vista y los reportes relacionados fueron eliminados.
+-- Si necesita restaurarla, crear una vista que seleccione desde las tablas
+-- VISITA y CLIENTE (no presentes) o implementar una alternativa basada en
+-- VIAJE/TESORERIA.
+
+-- ==============================
+-- VISTAS: Reportes de TESORERIA (Gastos)
+-- ==============================
+
+-- 1) Monto total por categoría
+CREATE OR REPLACE VIEW v_tesoreria_resumen_categoria AS
+SELECT
+    categoria AS Categoria,
+    COUNT(*) AS Cantidad_Registros,
+    COALESCE(SUM(monto), 0) AS Monto_Total,
+    COALESCE(ROUND(AVG(monto),2), 0) AS Monto_Promedio
+FROM TESORERIA
+WHERE deleted_at IS NULL
+GROUP BY categoria;
+
+-- 2) Monto total por persona (nombre)
+CREATE OR REPLACE VIEW v_tesoreria_por_persona AS
+SELECT
+    nombre AS Persona,
+    COUNT(*) AS Cantidad_Registros,
+    COALESCE(SUM(monto), 0) AS Monto_Total,
+    COALESCE(ROUND(AVG(monto),2), 0) AS Monto_Promedio
+FROM TESORERIA
+WHERE deleted_at IS NULL
+GROUP BY nombre;
+
+-- 3) Monto total por vehiculo (placa)
+CREATE OR REPLACE VIEW v_tesoreria_por_vehiculo AS
+SELECT
+    placa AS Placa,
+    COUNT(*) AS Cantidad_Registros,
+    COALESCE(SUM(monto), 0) AS Monto_Total,
+    COALESCE(ROUND(AVG(monto),2), 0) AS Monto_Promedio
+FROM TESORERIA
+WHERE deleted_at IS NULL AND placa IS NOT NULL
+GROUP BY placa;
+
+-- 4) Monto por centro de distribucion
+CREATE OR REPLACE VIEW v_tesoreria_por_centro AS
+SELECT
+    id_centro AS Id_Centro,
+    COUNT(*) AS Cantidad_Registros,
+    COALESCE(SUM(monto), 0) AS Monto_Total,
+    COALESCE(ROUND(AVG(monto),2), 0) AS Monto_Promedio
+FROM TESORERIA
+WHERE deleted_at IS NULL AND id_centro IS NOT NULL
+GROUP BY id_centro;
+
+-- 5) Tendencia mensual de gastos
+CREATE OR REPLACE VIEW v_tesoreria_tendencia_mensual AS
+SELECT
+    DATE_FORMAT(fecha, '%Y-%m') AS Mes,
+    COUNT(*) AS Cantidad_Registros,
+    COALESCE(SUM(monto), 0) AS Monto_Total,
+    COALESCE(ROUND(AVG(monto),2), 0) AS Monto_Promedio
+FROM TESORERIA
+WHERE deleted_at IS NULL
+GROUP BY DATE_FORMAT(fecha, '%Y-%m')
+ORDER BY Mes DESC;
+
+
 

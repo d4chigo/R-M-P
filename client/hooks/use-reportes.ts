@@ -174,13 +174,15 @@ interface UseReportesReturn {
     repartidor?: string;
   }) => Promise<PerformanceRepartidorV2[]>;
   getCumplimientoVehiculo: (placa?: string) => Promise<CumplimientoVehiculo[]>;
-  getCumplimientoVHVisitas: (args?: {
-    fecha?: string;
-    fechaInicio?: string;
-    fechaFin?: string;
-    placa?: string;
-    cliente?: string; // código o parte del nombre
-  }) => Promise<any[]>;
+  // getCumplimientoVHVisitas removed (endpoint and view deleted)
+  // Tesorería
+  getTesoreriaPorCategoria: (args?: { fechaInicio?: string; fechaFin?: string; idCentro?: string; categoria?: string; persona?: string }) => Promise<any[]>;
+  getTesoreriaPorPersona: (args?: { fechaInicio?: string; fechaFin?: string; idCentro?: string; persona?: string }) => Promise<any[]>;
+  getTesoreriaPorVehiculo: (args?: { placa?: string; fechaInicio?: string; fechaFin?: string }) => Promise<any[]>;
+  getTesoreriaPorCentro: (args?: { idCentro?: string; fechaInicio?: string; fechaFin?: string }) => Promise<any[]>;
+  getTesoreriaTendenciaMensual: (args?: { meses?: number; fechaInicio?: string; fechaFin?: string; idCentro?: string; categoria?: string }) => Promise<any[]>;
+  getTesoreriaSummary: (args?: { fechaInicio?: string; fechaFin?: string }) => Promise<any>;
+  getTesoreriaDaily: (args?: { fechaInicio?: string; fechaFin?: string }) => Promise<any[]>;
 }
 
 export function useReportes(): UseReportesReturn {
@@ -390,6 +392,76 @@ export function useReportes(): UseReportesReturn {
     return handleRequest<PerformanceRepartidorV2[]>(url);
   };
 
+  // ------- Tesorería API calls -------
+  const getTesoreriaPorCategoria = async (args?: { fechaInicio?: string; fechaFin?: string; idCentro?: string; categoria?: string; persona?: string }): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
+    if (args?.idCentro) params.append('idCentro', args.idCentro);
+    if (args?.persona) params.append('persona', args.persona);
+    if (args?.categoria) params.append('categoria', args.categoria);
+    const qs = params.toString();
+    const url = `${API_BASE}/reportes/tesoreria/categoria${qs ? `?${qs}` : ''}`;
+    return handleRequest<any[]>(url);
+  };
+
+  const getTesoreriaPorPersona = async (args?: { fechaInicio?: string; fechaFin?: string; idCentro?: string; persona?: string }): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
+    if (args?.idCentro) params.append('idCentro', args.idCentro);
+    if (args?.persona) params.append('persona', args.persona);
+    const qs = params.toString();
+    const url = `${API_BASE}/reportes/tesoreria/persona${qs ? `?${qs}` : ''}`;
+    return handleRequest<any[]>(url);
+  };
+
+  const getTesoreriaPorVehiculo = async (args?: { placa?: string; fechaInicio?: string; fechaFin?: string }): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (args?.placa) params.append('placa', args.placa);
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
+    const url = `${API_BASE}/reportes/tesoreria/vehiculo${params.toString() ? `?${params}` : ''}`;
+    return handleRequest<any[]>(url);
+  };
+
+  const getTesoreriaPorCentro = async (args?: { idCentro?: string; fechaInicio?: string; fechaFin?: string }): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (args?.idCentro) params.append('idCentro', args.idCentro);
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
+    const url = `${API_BASE}/reportes/tesoreria/centro${params.toString() ? `?${params}` : ''}`;
+    return handleRequest<any[]>(url);
+  };
+
+  const getTesoreriaTendenciaMensual = async (args?: { meses?: number; fechaInicio?: string; fechaFin?: string; idCentro?: string; categoria?: string; persona?: string }): Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (args?.meses) params.append('meses', String(args.meses));
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
+    if (args?.idCentro) params.append('idCentro', args.idCentro);
+    if (args?.persona) params.append('persona', args.persona);
+    if (args?.categoria) params.append('categoria', args.categoria);
+    const url = `${API_BASE}/reportes/tesoreria/tendencia${params.toString() ? `?${params}` : ''}`;
+    return handleRequest<any[]>(url);
+  };
+
+  const getTesoreriaSummary = async (args?: { fechaInicio?: string; fechaFin?: string }) : Promise<any> => {
+    const params = new URLSearchParams();
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
+    const url = `${API_BASE}/reportes/tesoreria/summary${params.toString() ? `?${params}` : ''}`;
+    return handleRequest<any>(url);
+  };
+
+  const getTesoreriaDaily = async (args?: { fechaInicio?: string; fechaFin?: string }) : Promise<any[]> => {
+    const params = new URLSearchParams();
+    if (args?.fechaInicio) params.append('fechaInicio', args.fechaInicio);
+    if (args?.fechaFin) params.append('fechaFin', args.fechaFin);
+    const url = `${API_BASE}/reportes/tesoreria/daily${params.toString() ? `?${params}` : ''}`;
+    return handleRequest<any[]>(url);
+  };
+
   const getCumplimientoVehiculo = async (
     placa?: string,
   ): Promise<CumplimientoVehiculo[]> => {
@@ -400,25 +472,7 @@ export function useReportes(): UseReportesReturn {
     return handleRequest<CumplimientoVehiculo[]>(url);
   };
 
-  const getCumplimientoVHVisitas = async (
-    args?: {
-      fecha?: string;
-      fechaInicio?: string;
-      fechaFin?: string;
-      placa?: string;
-      cliente?: string; // código o parte del nombre
-    },
-  ): Promise<any[]> => {
-    const params = new URLSearchParams();
-    if (args?.fecha) params.append("fecha", args.fecha);
-    if (args?.fechaInicio) params.append("fechaInicio", args.fechaInicio);
-    if (args?.fechaFin) params.append("fechaFin", args.fechaFin);
-    if (args?.placa) params.append("placa", args.placa);
-    if (args?.cliente) params.append("cliente", args.cliente);
-    const qs = params.toString();
-    const url = `${API_BASE}/reportes/cumplimiento/vh/visitas${qs ? `?${qs}` : ""}`;
-    return handleRequest<any[]>(url);
-  };
+  // Cumplimiento VH visitas: removido (la vista y endpoint fueron eliminados)
 
   return {
     loading,
@@ -436,6 +490,14 @@ export function useReportes(): UseReportesReturn {
     getPerformanceVehiculosV2,
     getPerformanceRepartidoresV2,
     getCumplimientoVehiculo,
-    getCumplimientoVHVisitas,
+    // getCumplimientoVHVisitas removed
+    // Tesorería
+    getTesoreriaPorCategoria,
+    getTesoreriaPorPersona,
+    getTesoreriaPorVehiculo,
+    getTesoreriaPorCentro,
+    getTesoreriaTendenciaMensual,
+    getTesoreriaSummary,
+    getTesoreriaDaily,
   };
 }

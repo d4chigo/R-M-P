@@ -20,6 +20,7 @@ export interface Vehiculo {
   capacidad_kg?: number;
   capacidad_cajas?: number;
   activo?: boolean;
+  fecha_creacion?: string;
   created_at?: string;
   updated_at?: string;
 }

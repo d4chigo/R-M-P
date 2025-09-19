@@ -14,9 +14,12 @@ import { ErrorBoundary } from "@/components/error-boundary"; // Asegúrate de cr
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "R-M-P",
+  title: "R&M Reparto",
   description:
     "Plataforma integral para la administración de vehículos, rutas, clientes y operaciones logísticas",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
@@ -40,7 +43,6 @@ export default function RootLayout({
                 {children}
               </ErrorBoundary>
               <TutorialTour />
-              <TutorialFloatingButton />
               <Toaster />
             </TutorialProvider>
           </AuthProvider>

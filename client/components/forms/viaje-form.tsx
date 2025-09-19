@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Combobox } from "@/components/ui/combobox";
 import { Info as InfoIcon, AlertTriangle } from "lucide-react";
 import type { Viaje } from "@/hooks/use-viajes";
 import { useVehiculos } from "@/hooks/use-vehiculos";
 import { useRepartidores } from "@/hooks/use-repartidores";
+import { getTodayString } from "@/lib/utils/date";
 
 // Type for form data
 interface FormData {
@@ -42,7 +44,7 @@ interface ViajeFormProps {
     id_vehiculo: number;
     id_repartidor: number;
     nro_viaje: number;
-    territorios_visitados?: string;
+    id_centro?: number;
     salida_cd?: string;
     llegada_cd?: string;
     distancia_km?: number;
@@ -85,7 +87,6 @@ export function ViajeForm({
     salida_cd: string;
     llegada_cd: string;
     distancia_km: string;
-    territorios_visitados: string;
     tipo_viaje: string | undefined;
     // Tripulación
     nro_conductores: string;
@@ -100,7 +101,7 @@ export function ViajeForm({
     recojo_cf: string;
     peso_kg: string;
   }>({
-    fecha: "",
+    fecha: getTodayString(),
     id_vehiculo: "",
     id_repartidor: "",
     id_centro: "",
@@ -109,7 +110,7 @@ export function ViajeForm({
     salida_cd: "",
     llegada_cd: "",
     distancia_km: "",
-    territorios_visitados: "0",
+    // territorios_visitados default is empty string (use numeric value only when submitting)
     tipo_viaje: undefined,
     // Valores por defecto para tripulación
     nro_conductores: "1", // Valor por defecto: 1 conductor
@@ -127,12 +128,6 @@ export function ViajeForm({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [searchVehiculo, setSearchVehiculo] = useState("");
-  const [searchRepartidor, setSearchRepartidor] = useState("");
-  const [searchCentro, setSearchCentro] = useState("");
-  const [showVehiculosDropdown, setShowVehiculosDropdown] = useState(false);
-  const [showRepartidoresDropdown, setShowRepartidoresDropdown] = useState(false);
-  const [showCentrosDropdown, setShowCentrosDropdown] = useState(false);
   const [centros, setCentros] = useState<Array<any>>([]);
   const [centrosLoading, setCentrosLoading] = useState(false);
 
@@ -143,8 +138,10 @@ export function ViajeForm({
         fecha: formatDateLocal(viaje.fecha) || "",
         id_vehiculo: viaje.id_vehiculo?.toString() || "",
         id_repartidor: viaje.id_repartidor?.toString() || "",
+        id_centro: viaje.id_centro?.toString() || "",
         nro_viaje: viaje.nro_viaje?.toString() || "1",
-        territorios_visitados: viaje.territorios_visitados || "",
+        // Ensure territorios_visitados is a string for the input. If the source is numeric, convert to string.
+        territorios_visitados: viaje.territorios_visitados != null ? String(viaje.territorios_visitados) : "",
         salida_cd: viaje.salida_cd ? formatDateTimeLocal(viaje.salida_cd) : "",
         llegada_cd: viaje.llegada_cd ? formatDateTimeLocal(viaje.llegada_cd) : "",
         distancia_km: viaje.distancia_km?.toString() || "",
@@ -166,14 +163,6 @@ export function ViajeForm({
       // Establecer los valores de búsqueda basados en los IDs seleccionados
       const vehiculoSeleccionado = vehiculos.find(v => v.id_vehiculo?.toString() === newFormData.id_vehiculo);
       const repartidorSeleccionado = repartidores.find(r => r.id_repartidor?.toString() === newFormData.id_repartidor);
-
-      if (vehiculoSeleccionado) {
-        setSearchVehiculo(`${vehiculoSeleccionado.placa} - ${vehiculoSeleccionado.marca} ${vehiculoSeleccionado.modelo}`);
-      }
-
-      if (repartidorSeleccionado) {
-        setSearchRepartidor(`${repartidorSeleccionado.codigo} - ${repartidorSeleccionado.nombre}`);
-      }
 
       setFormData(newFormData);
     }
@@ -220,18 +209,31 @@ export function ViajeForm({
   // Función para formatear fecha DATE (yyyy-mm-dd)
   const formatDateLocal = (date: string): string => {
     if (!date) return "";
+    // Si ya está en formato YYYY-MM-DD, devolver tal como está
     if (typeof date === "string" && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
       return date;
     }
-    const dateObj = new Date(date);
-    return dateObj.toISOString().split("T")[0];
+    // Si tiene tiempo, extraer solo la fecha
+    if (date.includes("T")) {
+      return date.split("T")[0];
+    }
+    // Para otros casos, intentar parsearlo como fecha local
+    try {
+      const dateObj = new Date(date + "T00:00:00");
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const day = String(dateObj.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    } catch {
+      return date;
+    }
   };
 
   // Validaciones en tiempo real
   useEffect(() => {
     const newWarnings: string[] = [];
     if (!isEditing && formData.fecha) {
-      const today = new Date().toISOString().split("T")[0];
+      const today = getTodayString();
       if (formData.fecha < today) {
         newWarnings.push("La fecha seleccionada es anterior al día de hoy");
       }
@@ -269,11 +271,10 @@ export function ViajeForm({
       id_repartidor: parseInt(formData.id_repartidor),
       id_centro: formData.id_centro ? parseInt(formData.id_centro) : undefined,
       nro_viaje: parseInt(formData.nro_viaje),
-      territorios_visitados: formData.territorios_visitados || undefined,
+  territorios_visitados: formData.territorios_visitados ? parseInt(formData.territorios_visitados) : undefined,
       salida_cd: formData.salida_cd || undefined,
       llegada_cd: formData.llegada_cd || undefined,
       distancia_km: formData.distancia_km ? parseFloat(formData.distancia_km) : undefined,
-      territorios_visitados: formData.territorios_visitados ? parseInt(formData.territorios_visitados) : undefined,
       tipo_viaje: formData.tipo_viaje,
       // Tripulación
       nro_conductores: formData.nro_conductores ? parseInt(formData.nro_conductores) : 1,
@@ -297,31 +298,10 @@ export function ViajeForm({
     }
   };
 
-  // Filtrar vehículos y repartidores activos
+    // Filtrar vehículos y repartidores activos
   const vehiculosActivos = vehiculos.filter((v) => v.activo);
   const repartidoresActivos = repartidores.filter((r) => r.activo);
   const centrosActivos = centros.filter((c) => c.estado === 'activo');
-
-  // Filtrar vehículos y repartidores según la búsqueda
-  const filteredVehiculos = vehiculosActivos.filter(
-    (vehiculo) =>
-      vehiculo.placa.toLowerCase().includes(searchVehiculo.toLowerCase()) ||
-      vehiculo.marca.toLowerCase().includes(searchVehiculo.toLowerCase()) ||
-      vehiculo.modelo.toLowerCase().includes(searchVehiculo.toLowerCase())
-  );
-
-  const filteredRepartidores = repartidoresActivos.filter(
-    (repartidor) =>
-      repartidor.nombre.toLowerCase().includes(searchRepartidor.toLowerCase()) ||
-      repartidor.codigo.toLowerCase().includes(searchRepartidor.toLowerCase())
-  );
-
-  const filteredCentros = centrosActivos.filter(
-    (centro) =>
-      centro.codigo.toLowerCase().includes(searchCentro.toLowerCase()) ||
-      centro.nombre.toLowerCase().includes(searchCentro.toLowerCase()) ||
-      (centro.ciudad || '').toLowerCase().includes(searchCentro.toLowerCase())
-  );
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -386,107 +366,45 @@ export function ViajeForm({
 
       {/* Fila 2: Vehículo y Repartidor */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="relative">
-          <Label htmlFor="searchVehiculo">Vehículo *</Label>
-          <Input
-            id="searchVehiculo"
-            type="text"
-            value={searchVehiculo}
-            onChange={(e) => {
-              setSearchVehiculo(e.target.value);
-              if (e.target.value === "") {
-                handleInputChange("id_vehiculo", "");
-              }
+        <div>
+          <Label htmlFor="id_vehiculo">Vehículo *</Label>
+          <Combobox
+            options={vehiculos.map((v) => ({
+              label: `${v.placa} - ${v.marca} ${v.modelo} (${v.capacidad_kg || 'N/A'}kg)`,
+              value: v.id_vehiculo?.toString() || ""
+            }))}
+            value={formData.id_vehiculo}
+            onChange={(value) => {
+              handleInputChange("id_vehiculo", value);
             }}
-            onFocus={() => setShowVehiculosDropdown(true)}
-            onBlur={() => setTimeout(() => setShowVehiculosDropdown(false), 200)}
-            placeholder="Buscar vehículo por placa, marca o modelo"
-            className={`${errors.id_vehiculo ? "border-red-500" : ""} bg-white dark:bg-gray-800 text-black dark:text-white`}
+            placeholder="Buscar vehículo..."
+            emptyText="No se encontraron vehículos."
+            searchPlaceholder="Buscar por placa, marca o modelo..."
+            disabled={vehiculosLoading}
+            className={errors.id_vehiculo ? "border-red-500" : ""}
           />
-          {showVehiculosDropdown && (
-            <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white dark:bg-gray-800 shadow-lg">
-              {filteredVehiculos.length > 0 ? (
-                filteredVehiculos.map((vehiculo) => (
-                  <div
-                    key={vehiculo.id_vehiculo}
-                    className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-600 last:border-b-0 text-black dark:text-white"
-                    onClick={() => {
-                      handleInputChange("id_vehiculo", vehiculo.id_vehiculo?.toString() || "");
-                      setSearchVehiculo(`${vehiculo.placa} - ${vehiculo.marca} ${vehiculo.modelo}`);
-                      setShowVehiculosDropdown(false);
-                    }}
-                  >
-                    <div className="font-medium">{vehiculo.placa}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-300">
-                      {vehiculo.marca} {vehiculo.modelo}
-                    </div>
-                    {vehiculo.capacidad_kg && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Capacidad: {vehiculo.capacidad_kg}kg
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="p-2 text-gray-500 dark:text-gray-400 text-sm">
-                  No se encontraron vehículos
-                </div>
-              )}
-            </div>
-          )}
           {errors.id_vehiculo && (
             <p className="text-sm text-red-500 mt-1">{errors.id_vehiculo}</p>
           )}
         </div>
 
-        <div className="relative">
-          <Label htmlFor="searchRepartidor">Repartidor *</Label>
-          <Input
-            id="searchRepartidor"
-            type="text"
-            value={searchRepartidor}
-            onChange={(e) => {
-              setSearchRepartidor(e.target.value);
-              if (e.target.value === "") {
-                handleInputChange("id_repartidor", "");
-              }
+        <div>
+          <Label htmlFor="id_repartidor">Repartidor *</Label>
+          <Combobox
+            options={repartidores.map((r) => ({
+              label: `${r.codigo} - ${r.nombre} (${r.telefono || 'Sin teléfono'})`,
+              value: r.id_repartidor?.toString() || ""
+            }))}
+            value={formData.id_repartidor}
+            onChange={(value) => {
+              handleInputChange("id_repartidor", value);
             }}
-            onFocus={() => setShowRepartidoresDropdown(true)}
-            onBlur={() => setTimeout(() => setShowRepartidoresDropdown(false), 200)}
-            placeholder="Buscar repartidor por nombre o código"
-            className={`${errors.id_repartidor ? "border-red-500" : ""} bg-white dark:bg-gray-800 text-black dark:text-white`}
+            placeholder="Buscar repartidor..."
+            emptyText="No se encontraron repartidores."
+            searchPlaceholder="Buscar por código o nombre..."
+            disabled={repartidoresLoading}
+            className={errors.id_repartidor ? "border-red-500" : ""}
           />
-          {showRepartidoresDropdown && (
-            <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white dark:bg-gray-800 shadow-lg">
-              {filteredRepartidores.length > 0 ? (
-                filteredRepartidores.map((repartidor) => (
-                  <div
-                    key={repartidor.id_repartidor}
-                    className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-600 last:border-b-0 text-black dark:text-white"
-                    onClick={() => {
-                      handleInputChange("id_repartidor", repartidor.id_repartidor?.toString() || "");
-                      setSearchRepartidor(`${repartidor.codigo} - ${repartidor.nombre}`);
-                      setShowRepartidoresDropdown(false);
-                    }}
-                  >
-                    <div className="font-medium">{repartidor.codigo}</div>
-                    <div className="text-sm text-gray-600 dark:text-gray-300">
-                      {repartidor.nombre}
-                    </div>
-                    {repartidor.telefono && (
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Tel: {repartidor.telefono}
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="p-2 text-gray-500 dark:text-gray-400 text-sm">
-                  No se encontraron repartidores
-                </div>
-              )}
-            </div>
-          )}
           {errors.id_repartidor && (
             <p className="text-sm text-red-500 mt-1">{errors.id_repartidor}</p>
           )}
@@ -496,37 +414,21 @@ export function ViajeForm({
       {/* Fila 2b: Centro de distribución */}
       <div className="grid grid-cols-1 gap-4">
         <div>
-          <Label htmlFor="searchCentro">Centro de distribución</Label>
-          <div className="relative">
-            <Input
-              id="searchCentro"
-              type="text"
-              value={searchCentro}
-              onChange={(e) => { setSearchCentro(e.target.value); if (e.target.value === '') setFormData(prev => ({ ...prev, id_centro: '' })); }}
-              onFocus={() => setShowCentrosDropdown(true)}
-              onBlur={() => setTimeout(() => setShowCentrosDropdown(false), 200)}
-              placeholder={centrosLoading ? 'Cargando centros...' : 'Buscar centro por código o nombre'}
-              className={"bg-white dark:bg-gray-800 text-black dark:text-white"}
-            />
-            {showCentrosDropdown && (
-              <div className="absolute z-10 w-full mt-1 max-h-60 overflow-y-auto border border-gray-300 rounded bg-white dark:bg-gray-800 shadow-lg">
-                {filteredCentros.length > 0 ? (
-                  filteredCentros.map((centro) => (
-                    <div
-                      key={centro.id_centro}
-                      className="p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 border-b border-gray-200 dark:border-gray-600 last:border-b-0 text-black dark:text-white"
-                      onMouseDown={(e) => { e.preventDefault(); setFormData(prev => ({ ...prev, id_centro: centro.id_centro?.toString() || '' })); setSearchCentro(`${centro.codigo} - ${centro.nombre}`); setShowCentrosDropdown(false); }}
-                    >
-                      <div className="font-medium">{centro.codigo}</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-300">{centro.nombre} {centro.ciudad ? `(${centro.ciudad})` : ''}</div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="p-2 text-gray-500 dark:text-gray-400 text-sm">No se encontraron centros</div>
-                )}
-              </div>
-            )}
-          </div>
+          <Label htmlFor="id_centro">Centro de distribución</Label>
+          <Combobox
+            options={centros.map((c) => ({
+              label: `${c.codigo} - ${c.nombre} ${c.ciudad ? `(${c.ciudad})` : ''}`,
+              value: c.id_centro?.toString() || ""
+            }))}
+            value={formData.id_centro}
+            onChange={(value) => {
+              handleInputChange("id_centro", value);
+            }}
+            placeholder="Buscar centro de distribución..."
+            emptyText="No se encontraron centros."
+            searchPlaceholder="Buscar por código o nombre..."
+            disabled={centrosLoading}
+          />
         </div>
       </div>
 
@@ -570,10 +472,12 @@ export function ViajeForm({
           <Label htmlFor="territorios_visitados">Territorios Visitados</Label>
           <Input
             id="territorios_visitados"
-            type="text"
+            type="number"
+            min="0"
+            step="1"
             value={formData.territorios_visitados}
             onChange={(e) => handleInputChange("territorios_visitados", e.target.value)}
-            placeholder="Ej: Lima Norte, Los Olivos, Comas"
+            placeholder="Ej: 3"
             className={errors.territorios_visitados ? "border-red-500" : ""}
           />
         </div>

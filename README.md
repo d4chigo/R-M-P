@@ -4,35 +4,19 @@
 
 ## 📋 Tabla de Contenidos
 
-- [🎯 Características](#-características)
-- [🏗️ Arquitectura](#️-arquitectura)
-- [🚀 Inicio Rápido](#-inicio-rápido)
-- [🔧 Configuración](#-configuración)
-- [📁 Estructura del Proyecto](#-estructura-del-proyecto)
-- [🐳 Docker](#-docker)
-- [💾 Base de Datos](#-base-de-datos)
-- [🔗 API Endpoints](#-api-endpoints)
-- [🛠️ Desarrollo](#️-desarrollo)
-- [📝 Comandos Útiles](#-comandos-útiles)
-- [📄 Licencia](#-licencia)
 
 ## 🎯 Características
 
-- ✅ **Gestión de Rutas**: Administración completa de rutas de transporte
-- ✅ **Control de Vehículos**: Registro y seguimiento de vehículos y carretas
-- ✅ **Gestión de Clientes**: Administración de clientes y tipos de cliente
-- ✅ **Seguimiento de Viajes**: Control detallado de viajes y visitas
-- ✅ **Panel de Administración**: Interfaz web intuitiva con Next.js
-- ✅ **API RESTful**: Backend robusto para integración
-- ✅ **Base de Datos MySQL**: Almacenamiento confiable y escalable
-- ✅ **Containerización**: Despliegue fácil con Docker
-- ✅ **Interfaz Moderna**: UI/UX con componentes Shadcn/UI y Tailwind CSS
+ - ✅ **Panel de Administración**: Interfaz web intuitiva con Next.js
+ - ✅ **API RESTful**: Backend robusto para integración
+ - ✅ **Base de Datos MySQL**: Almacenamiento confiable y escalable
+ - ✅ **Containerización**: Despliegue fácil con Docker
+ - ✅ **Interfaz Moderna**: UI/UX con componentes Shadcn/UI y Tailwind CSS
 
 ## 🏗️ Arquitectura
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │    Backend      │    │   Database      │
 │   (Next.js)     │◄──►│   (Node.js)     │◄──►│    (MySQL)      │
 │   Port: 3000    │    │   Port: 4000    │    │   Port: 3306    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
@@ -44,6 +28,10 @@
                     └─────────────────┘
 ```
 
+
+---
+
+© {new Date().getFullYear()} R-M-P. Todos los derechos reservados. Desarrollado por d4chigo — Licencia MIT.
 ## 🚀 Inicio Rápido
 
 ### Prerrequisitos

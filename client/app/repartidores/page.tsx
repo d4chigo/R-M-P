@@ -392,24 +392,31 @@ export default function RepartidoresPage() {
       )}
 
       {/* Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Repartidores</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-4">Cargando repartidores...</div>
-          ) : (
-            <RepartidoresTable
-              repartidores={repartidoresFiltrados} // Cambiado a repartidoresFiltrados
-              onEdit={(rep: any) => handleEdit(rep)}
-              onDelete={(rep: any) => openDeleteDialog(rep)}
-              initialPageSize={10}
-            />
-          )}
-        </CardContent>
-      </Card>
-
+            <Card>
+              <CardHeader>
+                <CardTitle>Lista de Repartidores</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loading ? (
+                  <div className="text-center py-4">Cargando repartidores...</div>
+                ) : repartidoresFiltrados.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+                    <User className="h-12 w-12 mb-4 text-gray-400" />
+                    <p className="text-lg font-semibold">No hay repartidores</p>
+                    <p className="text-sm">
+                      Comienza creando tu primer repartidor
+                    </p>
+                  </div>
+                ) : (
+                  <RepartidoresTable
+                    repartidores={repartidoresFiltrados}
+                    onEdit={(rep: any) => handleEdit(rep)}
+                    onDelete={(rep: any) => openDeleteDialog(rep)}
+                    initialPageSize={10}
+                  />
+                )}
+              </CardContent>
+            </Card>
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>

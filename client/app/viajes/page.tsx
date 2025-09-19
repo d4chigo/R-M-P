@@ -20,6 +20,7 @@ import {
   ChevronUp,
   Activity,
   CheckCircle,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,8 +57,15 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ViajesPage() {
-  const { viajes, createViaje, updateViaje, deleteViaje, isLoading, error } =
-    useViajes();
+  const {
+    viajes,
+    createViaje,
+    updateViaje,
+    deleteViaje,
+    getEstadisticasViajes,
+    isLoading,
+    error,
+  } = useViajes();
   const { fetchVehiculos } = useVehiculos();
   const { fetchRepartidores } = useRepartidores();
   const { toast } = useToast();
@@ -78,7 +86,8 @@ export default function ViajesPage() {
   // Normalizar fecha siempre en zona local
   const normalizeDate = (dateString: string) => {
     if (!dateString) return "";
-    const d = new Date(dateString);
+    // Asegura que la fecha se tome como local y solo año-mes-día
+    const d = new Date(dateString + "T00:00:00");
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
@@ -97,17 +106,14 @@ export default function ViajesPage() {
       viaje.repartidor_nombre?.toLowerCase().includes(searchLower);
 
     const matchesDate =
-      dateFilter === "" || normalizeDate(viaje.fecha) === dateFilter;
+      dateFilter === "" ||
+      normalizeDate(viaje.fecha) === normalizeDate(dateFilter);
 
     return matchesSearch && matchesDate;
   });
 
-  // Paginación
+  // Paginación (no se calcula viajesPaginados aquí, se pasa el array completo al componente de tabla)
   const totalPaginas = Math.ceil(filteredViajes.length / tamanoPagina);
-  const viajesPaginados = filteredViajes.slice(
-    (pagina - 1) * tamanoPagina,
-    pagina * tamanoPagina
-  );
 
   const handleSubmit = async (viajeData: Omit<Viaje, "id">) => {
     try {
@@ -231,6 +237,9 @@ export default function ViajesPage() {
     setPagina(1);
   };
 
+  // Obtener estadísticas calculadas correctamente
+  const estadisticas = getEstadisticasViajes();
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
@@ -291,7 +300,7 @@ export default function ViajesPage() {
         <CardContent>
           <div className="flex gap-4 items-center">
             <Input
-              placeholder="Buscar por vehículo, repartidor o número de viaje..."
+              placeholder="Buscar por vehículo o repartidor ..."
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="flex-1"
@@ -315,78 +324,81 @@ export default function ViajesPage() {
                 Limpiar
               </Button>
             )}
-           <Button
-  variant="outline"
-  onClick={() => setShowStats(!showStats)}
-  className="flex items-center gap-2"
->
-  <BarChart3 className="h-4 w-4" />
-  Estadísticas
-  {showStats ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-</Button>
-</div>
-</CardContent>
-</Card>
-
-{/* 📊 Estadísticas colapsables de Viajes */}
-{showStats && (
-  <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center space-x-2">
-          <BarChart3 className="h-8 w-8 text-blue-600" />
-          <div>
-            <p className="text-2xl font-bold">{viajes.length}</p>
-            <p className="text-sm text-muted-foreground">Total de Viajes</p>
+            <Button
+              variant="outline"
+              onClick={() => setShowStats(!showStats)}
+              className="flex items-center gap-2"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Estadísticas
+              {showStats ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
 
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center space-x-2">
-          <CheckCircle className="h-8 w-8 text-green-600" />
-          <div>
-            <p className="text-2xl font-bold">
-              {viajes.filter((v) => v.estado === "completado").length}
-            </p>
-            <p className="text-sm text-muted-foreground">Completados</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+      {/* 📊 Estadísticas colapsables de Viajes */}
+      {showStats && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-in slide-in-from-top-2 duration-200">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <BarChart3 className="h-8 w-8 text-blue-600" />
+                <div>
+                  <p className="text-2xl font-bold">{viajes.length}</p>
+                  <p className="text-sm text-muted-foreground">Total de Viajes</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center space-x-2">
-          <AlertTriangle className="h-8 w-8 text-yellow-600" />
-          <div>
-            <p className="text-2xl font-bold">
-              {viajes.filter((v) => v.estado === "pendiente").length}
-            </p>
-            <p className="text-sm text-muted-foreground">Pendientes</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {estadisticas.completados}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Completados</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-center space-x-2">
-          <X className="h-8 w-8 text-red-600" />
-          <div>
-            <p className="text-2xl font-bold">
-              {viajes.filter((v) => v.estado === "cancelado").length}
-            </p>
-            <p className="text-sm text-muted-foreground">Cancelados</p>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  </div>
-)}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="h-8 w-8 text-yellow-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {estadisticas.programados + estadisticas.enCurso}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Programados + En Curso</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2">
+                <Activity className="h-8 w-8 text-blue-600" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {estadisticas.enCurso}
+                  </p>
+                  <p className="text-sm text-muted-foreground">En Curso (Hoy)</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Mostrar error */}
       {error && (
@@ -397,27 +409,37 @@ export default function ViajesPage() {
       )}
 
       {/* Tabla */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Lista de Viajes</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-4">Cargando viajes...</div>
-          ) : filteredViajes.length === 0 ? (
-            <div className="text-center py-4">
-              No se encontraron viajes que coincidan con los filtros.
-            </div>
-          ) : (
-            <ViajesTable
-              viajes={viajesPaginados}
-              onEdit={handleEdit}
-              onDelete={handleDeleteClick}
-              initialPageSize={tamanoPagina}
-            />
-          )}
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Lista de Viajes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-4">Cargando viajes...</div>
+              ) : filteredViajes.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <Send className="w-16 h-16 mb-4 text-gray-400 dark:text-gray-500" />
+                  <p className="text-lg font-semibold text-muted-foreground">
+                    No hay viajes registrados
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Usa el botón <strong>"Nuevo Viaje"</strong> para crear uno.
+                  </p>
+                </div>
+              ) : (
+                <ViajesTable
+                  viajes={filteredViajes}
+                  onEdit={handleEdit}
+                  onDelete={handleDeleteClick}
+                  page={pagina}
+                  pageSize={tamanoPagina}
+                  totalCount={filteredViajes.length}
+                  onPageChange={setPagina}
+                  onPageSizeChange={setTamanoPagina}
+                />
+              )}
+            </CardContent>
+          </Card>
 
       {/* Confirmación Eliminar */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

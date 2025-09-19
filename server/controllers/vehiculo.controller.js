@@ -16,6 +16,7 @@ const getVehiculos = async (req, res) => {
         capacidad_cajas,
         activo,
         created_at,
+        DATE(CONVERT_TZ(created_at, '+00:00', '-05:00')) AS fecha_creacion,
         updated_at
       FROM VEHICULO
       ORDER BY placa ASC
@@ -57,6 +58,7 @@ const getVehiculoById = async (req, res) => {
         capacidad_cajas,
         activo,
         created_at,
+        DATE(CONVERT_TZ(created_at, '+00:00', '-05:00')) AS fecha_creacion,
         updated_at
       FROM VEHICULO
       WHERE id_vehiculo = ?
@@ -156,6 +158,7 @@ const createVehiculo = async (req, res) => {
         capacidad_cajas,
         activo,
         created_at,
+        DATE(CONVERT_TZ(created_at, '+00:00', '-05:00')) AS fecha_creacion,
         updated_at
       FROM VEHICULO
       WHERE id_vehiculo = ?
@@ -253,6 +256,7 @@ const updateVehiculo = async (req, res) => {
         capacidad_cajas,
         activo,
         created_at,
+        DATE(CONVERT_TZ(created_at, '+00:00', '-05:00')) AS fecha_creacion,
         updated_at
       FROM VEHICULO
       WHERE id_vehiculo = ?
@@ -379,6 +383,7 @@ const searchVehiculos = async (req, res) => {
         capacidad_cajas,
         activo,
         created_at,
+        DATE(CONVERT_TZ(created_at, '+00:00', '-05:00')) AS fecha_creacion,
         updated_at
       FROM VEHICULO
       ${whereClause}

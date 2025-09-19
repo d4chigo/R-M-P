@@ -294,14 +294,44 @@ const deleteCentro = async (req, res) => {
             });
         }
 
-        // Eliminar centro
-        const deleteQuery = 'DELETE FROM CENTRO_DISTRIBUCION WHERE id_centro = ?';
-        await db.execute(deleteQuery, [id]);
+        // Comprobar referencias comunes que impiden la eliminación
+        try {
+            const [rows] = await db.execute(
+                `SELECT (
+                    (SELECT COUNT(*) FROM TESORERIA WHERE id_centro = ?) +
+                    (SELECT COUNT(*) FROM VIAJE WHERE id_centro = ?)
+                ) as refs`,
+                [id, id]
+            );
+            const refs = Number(rows && rows[0] && rows[0].refs ? rows[0].refs : 0);
 
-        res.json({
-            success: true,
-            message: `Centro de distribución ${existingCentros[0].codigo} eliminado exitosamente`
-        });
+            if (refs > 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No se puede eliminar el centro porque tiene registros asociados en otras tablas',
+                    refs
+                });
+            }
+
+            // Si no hay referencias, eliminar
+            const deleteQuery = 'DELETE FROM CENTRO_DISTRIBUCION WHERE id_centro = ?';
+            await db.execute(deleteQuery, [id]);
+
+            return res.json({
+                success: true,
+                message: `Centro de distribución ${existingCentros[0].codigo} eliminado exitosamente`
+            });
+        } catch (innerErr) {
+            // Si hay error por FK a pesar de la comprobación, mapearlo a 400
+            const fkErr = innerErr && (innerErr.errno === 1451 || (innerErr.code && innerErr.code.startsWith('ER_ROW_IS_REFERENCED')));
+            if (fkErr) {
+                console.warn('FK prevented deleteCentro:', innerErr.message || innerErr);
+                return res.status(400).json({ success: false, message: 'No se puede eliminar el centro: existen referencias en otras tablas.' });
+            }
+            // Log el error interno y devolver 500 con detalle para ayudar al debugging
+            console.error('Inner error during deleteCentro refs check:', innerErr);
+            return res.status(500).json({ success: false, message: 'Error interno comprobando referencias al eliminar centro', error: innerErr.message || String(innerErr) });
+        }
     } catch (error) {
         console.error('Error al eliminar centro de distribución:', error);
         res.status(500).json({

@@ -11,7 +11,8 @@ const dbConfig = {
   connectionLimit: 10,
   queueLimit: 0,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  keepAliveInitialDelay: 0,
+  timezone: '-05:00' // Zona horaria de Lima, Perú (UTC-5)
 };
 
 const pool = mysql.createPool(dbConfig);

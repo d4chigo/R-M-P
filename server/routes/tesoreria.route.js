@@ -19,6 +19,11 @@ router.get('/resumen/dia', optionalAuth, getUserRoles, tesoreriaController.resum
 // Saldo (tarjeta fija) - lectura pública, actualización sólo admin
 router.get('/saldo/actual', tesoreriaController.getSaldo);
 router.put('/saldo/actual', authenticateToken, requireAdmin, tesoreriaController.updateSaldo);
+// Historial del saldo por fecha (opcionalmente fecha=YYYY-MM-DD)
+router.get('/saldo/historial', optionalAuth, getUserRoles, tesoreriaController.getSaldoHistorial);
+// Dropdown endpoints para form
+router.get('/dropdown/vehiculos', optionalAuth, getUserRoles, tesoreriaController.getDropdownVehiculos);
+router.get('/dropdown/repartidores', optionalAuth, getUserRoles, tesoreriaController.getDropdownRepartidores);
 // Rollover diario snapshot (solo admin)
 router.post('/saldo/rollover', authenticateToken, requireAdmin, tesoreriaController.rolloverSaldo);
 
