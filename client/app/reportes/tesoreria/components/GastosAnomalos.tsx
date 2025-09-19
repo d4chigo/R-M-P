@@ -44,8 +44,8 @@ export function GastosAnomalos({ data, threshold = 50 }: GastoAnomaloProps) {
                 {anomalia.categoria || anomalia.nombre}
               </AlertTitle>
               <AlertDescription>
-                Monto actual (${montoTotal.toFixed(2)}) supera significativamente
-                el promedio histórico (${montoPromedio.toFixed(2)})
+                Monto actual (S/{montoTotal.toFixed(2)}) supera significativamente
+                el promedio histórico (S/{montoPromedio.toFixed(2)})
               </AlertDescription>
             </Alert>
           );

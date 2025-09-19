@@ -70,8 +70,14 @@ export function Combobox({
             {options.map((option) => (
               <CommandItem
                 key={option.value}
-                value={option.value}
+                // Use label as the internal Command value so the built-in
+                // filtering/search matches the visible text (label) which
+                // may contain placa, marca, modelo or codigo.
+                value={option.label}
                 onSelect={() => {
+                  // When an item is selected, call onChange with the
+                  // canonical option.value (e.g. placa or id) so consumers
+                  // receive the expected value.
                   onChange(option.value)
                   setOpen(false)
                 }}

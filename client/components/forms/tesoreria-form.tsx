@@ -54,7 +54,7 @@ interface FormRenderProps {
 
 const tesoreriaSchema = z.object({
   fecha: z.string().min(1, "La fecha es requerida"),
-  placa: z.string().min(1, "La PLACA T2 es requerida"), // PLACA T2: texto libre, puede ser CD, placa, etc
+  placa: z.string().optional(), // PLACA T2: texto libre, puede ser CD, placa, etc. Ahora opcional
   nombre: z.string().min(1, "El nombre es requerido"),
   id_centro: z.union([z.string(), z.number()]).optional().transform((v) => (v === undefined || v === "" ? undefined : Number(v))),
   cargo: z.string().optional(), // Opcional
@@ -323,13 +323,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <DollarSign className="h-5 w-5" />
-          {tesoreria ? "Editar Registro de Tesorería" : "Nuevo Registro de Tesorería"}
-        </CardTitle>
-      </CardHeader>
+    <Card className="w-full max-w-2xl mx-auto pt-5">
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
@@ -364,15 +358,16 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                 name="placa"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>PLACA T2 / CD *</FormLabel>
+                    <FormLabel>PLACA T2 / CD (opcional)</FormLabel>
                     <FormControl>
                       <Combobox
                         options={vehiculos.map((v: TesoreriaVehiculo) => ({
-                          label: v.descripcion,
+                          // descripcion contiene marca/modelo y posiblemente placa; show it to help search
+                          label: v.descripcion || `${v.placa}`,
                           value: v.placa
                         }))}
-                        value={field.value}
-                        onChange={field.onChange}
+                        value={field.value || ""}
+                        onChange={(val) => field.onChange(val)}
                         placeholder="Buscar vehículo..."
                         emptyText="No se encontraron vehículos."
                         searchPlaceholder="Buscar por placa, marca o modelo..."
