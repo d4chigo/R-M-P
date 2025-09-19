@@ -398,12 +398,6 @@ export default function ResumenRutasPage() {
         </div>
         <div className="flex items-center gap-3">
           <Dialog open={showInfoDialog} onOpenChange={setShowInfoDialog}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Info className="h-4 w-4 mr-2" />
-                Ayuda Métricas
-              </Button>
-            </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">

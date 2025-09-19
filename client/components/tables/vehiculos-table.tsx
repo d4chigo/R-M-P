@@ -69,7 +69,7 @@ export function VehiculosTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
+              {/*<TableHead>ID</TableHead>*/}
               <TableHead>Placa</TableHead>
               <TableHead>Marca/Modelo</TableHead>
               <TableHead>Año</TableHead>
@@ -93,9 +93,9 @@ export function VehiculosTable({
             ) : (
               paginatedData.map((vehiculo) => (
                 <TableRow key={vehiculo.id_vehiculo}>
-                  <TableCell className="font-medium">
+                  {/*<TableCell className="font-medium">
                     {vehiculo.id_vehiculo}
-                  </TableCell>
+                  </TableCell>*/}
                   <TableCell className="font-semibold">
                     {vehiculo.placa}
                   </TableCell>
