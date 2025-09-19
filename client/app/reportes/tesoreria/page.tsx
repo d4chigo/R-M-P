@@ -14,9 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { GastosChart } from "./components/GastosChart";
 import { TendenciaChart } from "./components/TendenciaChart";
 import { GastosAnomalos } from "./components/GastosAnomalos";
+import MetricsSummary from "./components/MetricsSummary";
 
 export default function TesoreriaReportPage() {
-  const { getTesoreriaPorCategoria, getTesoreriaPorPersona, getTesoreriaPorVehiculo, getTesoreriaTendenciaMensual } = useReportes();
+  const { getTesoreriaPorCategoria, getTesoreriaPorPersona, getTesoreriaPorVehiculo, getTesoreriaTendenciaMensual, getTesoreriaSummary } = useReportes();
 
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
@@ -47,6 +48,7 @@ export default function TesoreriaReportPage() {
   const [personaRows, setPersonaRows] = useState<any[]>([]);
   const [vehiculoRows, setVehiculoRows] = useState<any[]>([]);
   const [tendenciaRows, setTendenciaRows] = useState<any[]>([]);
+  const [summary, setSummary] = useState<any | null>(null);
 
   useEffect(() => {
     cargarResumenes();
@@ -99,6 +101,13 @@ export default function TesoreriaReportPage() {
       setVehiculoRows(veh || []);
   const ten = await getTesoreriaTendenciaMensual({ meses: 12, fechaInicio: fechaInicio || undefined, fechaFin: fechaFin || undefined, categoria: categoria || undefined, persona: repartidor || undefined });
       setTendenciaRows(ten || []);
+      // summary
+      try {
+        const s = await getTesoreriaSummary({ fechaInicio: fechaInicio || undefined, fechaFin: fechaFin || undefined });
+        setSummary(s || null);
+      } catch (err) {
+        setSummary(null);
+      }
     } catch (e) {
       // Optionally handle errors
     }
@@ -218,6 +227,13 @@ export default function TesoreriaReportPage() {
 
       {/* Gastos Anómalos */}
       <GastosAnomalos data={[...categoriaRows, ...personaRows]} threshold={50} />
+
+      {/* Metrics summary */}
+      {summary && (
+        <div className="mt-4">
+          <MetricsSummary summary={summary} />
+        </div>
+      )}
 
       {/* Gráficas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
