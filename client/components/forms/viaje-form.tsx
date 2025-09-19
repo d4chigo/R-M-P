@@ -44,7 +44,7 @@ interface ViajeFormProps {
     id_vehiculo: number;
     id_repartidor: number;
     nro_viaje: number;
-    territorios_visitados?: string;
+    id_centro?: number;
     salida_cd?: string;
     llegada_cd?: string;
     distancia_km?: number;
@@ -87,7 +87,6 @@ export function ViajeForm({
     salida_cd: string;
     llegada_cd: string;
     distancia_km: string;
-    territorios_visitados: string;
     tipo_viaje: string | undefined;
     // Tripulación
     nro_conductores: string;
@@ -111,7 +110,7 @@ export function ViajeForm({
     salida_cd: "",
     llegada_cd: "",
     distancia_km: "",
-    territorios_visitados: "0",
+    // territorios_visitados default is empty string (use numeric value only when submitting)
     tipo_viaje: undefined,
     // Valores por defecto para tripulación
     nro_conductores: "1", // Valor por defecto: 1 conductor
@@ -139,8 +138,10 @@ export function ViajeForm({
         fecha: formatDateLocal(viaje.fecha) || "",
         id_vehiculo: viaje.id_vehiculo?.toString() || "",
         id_repartidor: viaje.id_repartidor?.toString() || "",
+        id_centro: viaje.id_centro?.toString() || "",
         nro_viaje: viaje.nro_viaje?.toString() || "1",
-        territorios_visitados: viaje.territorios_visitados || "",
+        // Ensure territorios_visitados is a string for the input. If the source is numeric, convert to string.
+        territorios_visitados: viaje.territorios_visitados != null ? String(viaje.territorios_visitados) : "",
         salida_cd: viaje.salida_cd ? formatDateTimeLocal(viaje.salida_cd) : "",
         llegada_cd: viaje.llegada_cd ? formatDateTimeLocal(viaje.llegada_cd) : "",
         distancia_km: viaje.distancia_km?.toString() || "",
@@ -270,11 +271,10 @@ export function ViajeForm({
       id_repartidor: parseInt(formData.id_repartidor),
       id_centro: formData.id_centro ? parseInt(formData.id_centro) : undefined,
       nro_viaje: parseInt(formData.nro_viaje),
-      territorios_visitados: formData.territorios_visitados || undefined,
+  territorios_visitados: formData.territorios_visitados ? parseInt(formData.territorios_visitados) : undefined,
       salida_cd: formData.salida_cd || undefined,
       llegada_cd: formData.llegada_cd || undefined,
       distancia_km: formData.distancia_km ? parseFloat(formData.distancia_km) : undefined,
-      territorios_visitados: formData.territorios_visitados ? parseInt(formData.territorios_visitados) : undefined,
       tipo_viaje: formData.tipo_viaje,
       // Tripulación
       nro_conductores: formData.nro_conductores ? parseInt(formData.nro_conductores) : 1,
@@ -472,10 +472,12 @@ export function ViajeForm({
           <Label htmlFor="territorios_visitados">Territorios Visitados</Label>
           <Input
             id="territorios_visitados"
-            type="text"
+            type="number"
+            min="0"
+            step="1"
             value={formData.territorios_visitados}
             onChange={(e) => handleInputChange("territorios_visitados", e.target.value)}
-            placeholder="Ej: Lima Norte, Los Olivos, Comas"
+            placeholder="Ej: 3"
             className={errors.territorios_visitados ? "border-red-500" : ""}
           />
         </div>
