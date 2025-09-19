@@ -31,7 +31,7 @@ export const useCentroDistribucion = () => {
   const isLoadingRef = useRef(false);
 
   const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+    process.env.NEXT_PUBLIC_API_URL || "https:api-rmdistribuciones.romac-logistic.shop/api";
 
   // Función simplificada para obtener centros
   const fetchCentros = useCallback(async () => {
