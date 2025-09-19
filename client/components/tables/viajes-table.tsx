@@ -85,7 +85,7 @@ export function ViajesTable({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
+              {/*<TableHead>ID</TableHead>*/}
               <TableHead>Fecha</TableHead>
               <TableHead>N° Viaje</TableHead>
               <TableHead>Vehículo</TableHead>
@@ -102,9 +102,9 @@ export function ViajesTable({
               const { estado, variant } = getEstadoViaje(viaje.fecha);
               return (
                 <TableRow key={viaje.id || viaje.id_viaje}>
-                  <TableCell className="font-mono text-sm">
+                  {/*<TableCell className="font-mono text-sm">
                     #{viaje.id_viaje || viaje.id}
-                  </TableCell>
+                  </TableCell>*/}
                   <TableCell>
                     <div className="space-y-1">
                       <div className="font-medium">{formatDateForDisplay(viaje.fecha)}</div>
