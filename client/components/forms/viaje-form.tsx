@@ -101,7 +101,7 @@ export function ViajeForm({
     recojo_cf: string;
     peso_kg: string;
   }>({
-    fecha: "",
+    fecha: getTodayString(),
     id_vehiculo: "",
     id_repartidor: "",
     id_centro: "",
@@ -221,11 +221,24 @@ export function ViajeForm({
   // Función para formatear fecha DATE (yyyy-mm-dd)
   const formatDateLocal = (date: string): string => {
     if (!date) return "";
+    // Si ya está en formato YYYY-MM-DD, devolver tal como está
     if (typeof date === "string" && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
       return date;
     }
-    const dateObj = new Date(date);
-    return dateObj.toISOString().split("T")[0];
+    // Si tiene tiempo, extraer solo la fecha
+    if (date.includes("T")) {
+      return date.split("T")[0];
+    }
+    // Para otros casos, intentar parsearlo como fecha local
+    try {
+      const dateObj = new Date(date + "T00:00:00");
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, "0");
+      const day = String(dateObj.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    } catch {
+      return date;
+    }
   };
 
   // Validaciones en tiempo real
