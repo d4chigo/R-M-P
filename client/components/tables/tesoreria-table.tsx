@@ -346,19 +346,18 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>PLACA T2</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Cargo</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead>Detalle</TableHead>
-                <TableHead>Reembolso</TableHead>
-                <TableHead>Distrito</TableHead>
-                <TableHead>Turno</TableHead>
-                <TableHead>Encargado</TableHead>
-                <TableHead>Monto</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Placa T2</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Centro de distribución</TableHead>
+                  <TableHead>Cargo</TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead>Distrito</TableHead>
+                  <TableHead>Turno</TableHead>
+                  <TableHead>Encargado</TableHead>
+                  <TableHead>Monto</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
             </TableHeader>
             <TableBody>
               {tesoreria.length === 0 ? (
@@ -382,10 +381,9 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     </TableCell>
                     <TableCell>{item.placa || ""}</TableCell>
                     <TableCell>{item.nombre}</TableCell>
+                    <TableCell>{item.centro_codigo || item.centro_nombre ? `${item.centro_codigo || ''}${item.centro_codigo && item.centro_nombre ? ' - ' : ''}${item.centro_nombre || ''}` : ''}</TableCell>
                     <TableCell>{item.cargo || ""}</TableCell>
                     <TableCell>{item.categoria}</TableCell>
-                    <TableCell>{item.detalle || ""}</TableCell>
-                    <TableCell>{item.reembolso || ""}</TableCell>
                     <TableCell>{item.distrito || ""}</TableCell>
                     <TableCell>{(() => {
                       const n = Number(item.turno);
@@ -532,20 +530,16 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     <p className="text-sm">{selectedTesoreria.nombre}</p>
                   </div>
                   <div>
+                    <label className="text-sm font-medium text-gray-500">Centro de distribución</label>
+                    <p className="text-sm">{selectedTesoreria.centro_codigo || selectedTesoreria.centro_nombre ? `${selectedTesoreria.centro_codigo || ''}${selectedTesoreria.centro_codigo && selectedTesoreria.centro_nombre ? ' - ' : ''}${selectedTesoreria.centro_nombre || ''}` : '-'}</p>
+                  </div>
+                  <div>
                     <label className="text-sm font-medium text-gray-500">Cargo</label>
-                    <p className="text-sm">{selectedTesoreria.cargo || ""}</p>
+                    <p className="text-sm">{selectedTesoreria.cargo || "-"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Categoría</label>
                     <p className="text-sm">{selectedTesoreria.categoria}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Detalle</label>
-                    <p className="text-sm">{selectedTesoreria.detalle || ""}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Reembolso</label>
-                    <p className="text-sm">{selectedTesoreria.reembolso || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Distrito</label>
