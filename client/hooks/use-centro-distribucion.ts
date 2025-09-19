@@ -40,7 +40,6 @@ export const useCentroDistribucion = () => {
       return;
     }
 
-    console.log("🔍 useCentroDistribucion: Iniciando carga de centros...");
     isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -50,7 +49,6 @@ export const useCentroDistribucion = () => {
       const authToken = Cookies.get("auth_token");
 
       if (!authToken) {
-        console.warn("⚠️ useCentroDistribucion: No hay token de autenticación");
         setError("No se ha iniciado sesión");
         return;
       }
@@ -65,19 +63,13 @@ export const useCentroDistribucion = () => {
         },
       });
 
-      console.log("📡 useCentroDistribucion: Response status:", response.status);
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("📊 useCentroDistribucion: Respuesta del servidor:", data);
 
       if (data.success && data.data) {
-        console.log(
-          `✅ useCentroDistribucion: ${data.data.length} centros cargados exitosamente`,
-        );
         setCentros(data.data);
       } else {
         console.error("❌ useCentroDistribucion: Error en respuesta:", data.message);

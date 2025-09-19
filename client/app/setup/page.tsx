@@ -29,13 +29,10 @@ export default function SetupPage() {
     // Verificar si ya existen usuarios en el sistema
     const checkSystemStatus = async () => {
       try {
-        console.log("Iniciando verificación del sistema...");
         setIsLoading(true);
         setError("");
 
-        console.log("Llamando a checkUsersExist...");
         const result = await checkUsersExist();
-        console.log("Resultado de checkUsersExist:", result);
         setUsersExist(result.usersExist);
         setCheckComplete(true);
 
