@@ -27,6 +27,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useReportes } from "@/hooks/use-reportes";
 import { useToast } from "@/hooks/use-toast";
+import { getTodayLimaYMD } from "@/lib/utils/date-lima";
 import {
   Dialog,
   DialogContent,
@@ -73,7 +74,7 @@ export default function ResumenRutasPage() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [filtros, setFiltros] = useState({
-    fecha: new Date().toISOString().split("T")[0],
+    fecha: getTodayLimaYMD(),
     fechaInicio: "",
     fechaFin: "",
     tipoReporte: "dia", // "dia" | "rango"
@@ -348,8 +349,30 @@ export default function ResumenRutasPage() {
     return zonasString;
   };
 
-  // Helper seguro para obtener la fecha de hoy en formato YYYY-MM-DD
-  const getTodayString = () => new Date().toISOString().split("T")[0];
+  // Helper seguro para obtener la fecha de hoy en formato YYYY-MM-DD en zona horaria de Lima
+  const getTodayString = () => getTodayLimaYMD();
+  
+  // Helper para calcular fecha hace N días en Lima
+  const getDateDaysAgo = (days: number) => {
+    const today = new Date();
+    // Obtener la fecha actual en Lima
+    const limaToday = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Lima',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(today);
+    
+    // Crear fecha base y restar días
+    const [year, month, day] = limaToday.split('-').map(Number);
+    const targetDate = new Date(year, month - 1, day - days);
+    
+    const targetYear = targetDate.getFullYear();
+    const targetMonth = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const targetDay = String(targetDate.getDate()).padStart(2, '0');
+    
+    return `${targetYear}-${targetMonth}-${targetDay}`;
+  };
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -680,11 +703,7 @@ export default function ResumenRutasPage() {
                     variant="outline"
                     onClick={() => {
                       const hoy = getTodayString();
-                      const hace7Dias = new Date(
-                        Date.now() - 7 * 24 * 60 * 60 * 1000,
-                      )
-                        .toISOString()
-                        .split("T")[0];
+                      const hace7Dias = getDateDaysAgo(7);
                       setFiltros({
                         ...filtros,
                         fechaInicio: hace7Dias,
