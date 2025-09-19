@@ -12,6 +12,8 @@ export interface Viaje {
   id_vehiculo: number;
   id_repartidor: number;
   nro_viaje: number;
+  id_centro?: number;
+  territorios_visitados?: number;
   salida_cd?: string;
   llegada_cd?: string;
   distancia_km?: number;

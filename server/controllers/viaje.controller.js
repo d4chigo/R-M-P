@@ -48,12 +48,13 @@ const getViajes = async (req, res) => {
     console.log("📋 Obteniendo lista de viajes...");
 
     const [viajes] = await db.query(`
-      SELECT
-        v.id_viaje,
-        DATE_FORMAT(v.fecha, '%Y-%m-%d') as fecha,
-        v.id_vehiculo,
-        v.id_repartidor,
-        v.nro_viaje,
+  SELECT
+    v.id_viaje,
+    DATE_FORMAT(v.fecha, '%Y-%m-%d') as fecha,
+    v.id_vehiculo,
+    v.id_repartidor,
+    v.id_centro,
+    v.nro_viaje,
   v.salida_cd,
   v.llegada_cd,
   v.distancia_km,
@@ -63,7 +64,7 @@ const getViajes = async (req, res) => {
         v.entrega_cf,
         v.recojo_cf,
         v.peso_kg,
-        v.nro_conductores,
+  v.nro_conductores,
         v.nro_liquidadores,
         v.nro_auxiliares,
         v.nro_trip_adicional,
@@ -71,16 +72,17 @@ const getViajes = async (req, res) => {
         v.created_by,
         v.updated_by,
         vh.placa as vehiculo_placa,
-        vh.marca as vehiculo_marca,
+  vh.marca as vehiculo_marca,
         vh.modelo as vehiculo_modelo,
         r.codigo as repartidor_codigo,
         r.nombre as repartidor_nombre,
-        c.codigo as centro_codigo,
-        c.nombre as centro_nombre,
+  c.codigo as centro_codigo,
+  c.nombre as centro_nombre,
         uc.nombre_completo as created_by_name,
         uu.nombre_completo as updated_by_name,
-        v.created_at,
-        v.updated_at
+  v.territorios_visitados,
+  v.created_at,
+  v.updated_at
       FROM VIAJE v
       LEFT JOIN VEHICULO vh ON v.id_vehiculo = vh.id_vehiculo
       LEFT JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
@@ -119,11 +121,12 @@ const getViajeById = async (req, res) => {
 
     const [viaje] = await db.query(
       `
-      SELECT
+  SELECT
         v.id_viaje,
         DATE_FORMAT(v.fecha, '%Y-%m-%d') as fecha,
         v.id_vehiculo,
         v.id_repartidor,
+    v.id_centro,
         v.nro_viaje,
   v.salida_cd,
   v.llegada_cd,
@@ -448,6 +451,7 @@ const updateViaje = async (req, res) => {
         DATE_FORMAT(v.fecha, '%Y-%m-%d') as fecha,
         v.id_vehiculo,
         v.id_repartidor,
+        v.id_centro,
         v.nro_viaje,
         v.territorios_visitados,
         v.salida_cd,
@@ -609,14 +613,15 @@ const searchViajes = async (req, res) => {
 
     const [viajes] = await db.query(
       `
-      SELECT
+  SELECT
         v.id_viaje,
         v.fecha,
         v.id_vehiculo,
         v.id_repartidor,
+    v.id_centro,
         v.nro_viaje,
-        v.salida_cd,
-        v.llegada_cd,
+    v.salida_cd,
+    v.llegada_cd,
   v.distancia_km,
   v.tipo_viaje,
         vh.placa as vehiculo_placa,
@@ -661,14 +666,15 @@ const getViajesByFecha = async (req, res) => {
 
     const [viajes] = await db.query(
       `
-      SELECT
+  SELECT
         v.id_viaje,
         v.fecha,
         v.id_vehiculo,
         v.id_repartidor,
+    v.id_centro,
         v.nro_viaje,
-        v.salida_cd,
-        v.llegada_cd,
+    v.salida_cd,
+    v.llegada_cd,
   v.distancia_km,
   v.tipo_viaje,
         vh.placa as vehiculo_placa,
