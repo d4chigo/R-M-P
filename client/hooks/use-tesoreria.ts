@@ -24,6 +24,7 @@ export interface Tesoreria {
   detalle?: string | null;
   reembolso?: string | null;
   distrito?: string | null;
+  id_centro?: number | null;
   turno?: number | null; // 0/1 or any small int per backend
   encargado?: string | null;
   monto: number;
@@ -39,6 +40,7 @@ export interface TesoreriaFormData {
   fecha: string;
   placa?: string | null;
   nombre: string;
+  id_centro?: number | null;
   cargo?: string | null;
   categoria: string;
   detalle?: string | null;
