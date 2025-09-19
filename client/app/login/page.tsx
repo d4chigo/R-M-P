@@ -15,13 +15,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Eye, EyeOff, AlertCircle, User } from "lucide-react";
-import ForgotPasswordForm from "@/components/auth/ForgotPasswordForm";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
+  const [lockedUntil, setLockedUntil] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { login, isAuthenticated, isLoading, checkUsersExist } = useAuth();
@@ -36,7 +37,12 @@ export default function LoginPage() {
   }, [checkUsersExist, router]);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
+    // If authentication completed and user is authenticated, redirect to
+    // home only when NOT arriving from a forced-change flow. The login
+    // handler sets sessionStorage 'forced_change_user' when a password
+    // change is required; respect that flag to avoid race conditions.
+    const forced = typeof window !== 'undefined' ? sessionStorage.getItem('forced_change_user') : null;
+    if (!isLoading && isAuthenticated && !forced) {
       router.push("/");
     }
   }, [isAuthenticated, isLoading, router]);
@@ -70,11 +76,22 @@ export default function LoginPage() {
     }
 
     try {
-      const result = await login(email, password);
+      const result: any = await login(email, password);
       if (result.success) {
+        // If must_change_password flag is set, show forced modal
+        if (result.must_change_password) {
+          // abrir modal forzado
+          // We'll use sessionStorage to pass that the modal should open in the app root or a dedicated component
+          sessionStorage.setItem('forced_change_user', email);
+          router.push('/change-password-forced');
+          return;
+        }
         router.push("/");
       } else {
         setError(result.message || "Error en el login");
+        // Propagar attempts/locked info
+        setAttemptsLeft(typeof result.attemptsLeft === 'number' ? result.attemptsLeft : null);
+        setLockedUntil(result.lockedUntil ?? null);
       }
     } catch {
       setError("Error de conexión con el servidor");
@@ -109,6 +126,15 @@ export default function LoginPage() {
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                {lockedUntil && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Su cuenta ha sido bloqueada temporalmente hasta {new Date(lockedUntil).toLocaleString()}.
+                    </AlertDescription>
                   </Alert>
                 )}
 
@@ -182,16 +208,11 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              {/* 🔹 Solo bloque de recuperación de contraseña */}
-              <div className="mt-6 text-center">
-                <ForgotPasswordForm
-                  trigger={
-                    <span className="text-blue-600 cursor-pointer hover:underline text-sm">
-                      ¿Olvidaste tu contraseña?
-                    </span>
-                  }
-                />
-              </div>
+              {attemptsLeft !== null && attemptsLeft >= 0 && (
+                <div className="mt-3 text-sm text-gray-600">Quedan {attemptsLeft} intentos antes del bloqueo temporal.</div>
+              )}
+
+              {/* Recuperación de contraseña removida por seguridad */}
             </CardContent>
           </Card>
         </div>

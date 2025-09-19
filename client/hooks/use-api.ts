@@ -47,6 +47,13 @@ export const useApi = <T>(endpoint: string, options: UseApiOptions = {}) => {
             ...options.headers,
           },
         });
+        // Debug: log outgoing request bodies for tesoreria endpoints (temporary)
+        try {
+          const method = (options.method || 'GET').toUpperCase();
+          if (String(url).includes('/tesoreria') && (method === 'PUT' || method === 'POST')) {
+            console.log(`client.api -> ${method} ${url} - body=`, options.body);
+          }
+        } catch (e) {}
 
         if (!response.ok) {
           if (response.status === 401) {

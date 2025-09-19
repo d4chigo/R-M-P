@@ -84,7 +84,6 @@ export default function VehiculosPage() {
   const [showStats, setShowStats] = useState(false);
 
   // Estados de paginación
-  const [pagina, setPagina] = useState(1);
   const [tamanoPagina, setTamanoPagina] = useState(10);
   const [filteredVehiculos, setFilteredVehiculos] = useState<Vehiculo[]>([]);
 
@@ -105,42 +104,17 @@ export default function VehiculosPage() {
 
       // Luego aplicar filtro por fecha si existe
       if (dateFilter) {
-        console.log('Filtrando por fecha:', dateFilter);
-        
-        // Crear fecha en UTC para evitar problemas de zona horaria
-        const selectedDateUTC = new Date(dateFilter + 'T00:00:00Z');
-        console.log('Fecha seleccionada (UTC):', selectedDateUTC.toISOString());
-        
+        // Comparar directamente YYYY-MM-DD, priorizando fecha_creacion normalizada desde backend
         filtered = filtered.filter((vehiculo) => {
-          // Verificar diferentes propiedades de fecha que podrían existir
-          const vehiculoDateStr = vehiculo.fecha_creacion || vehiculo.created_at || vehiculo.fecha_registro || vehiculo.fecha;
-          
-          if (!vehiculoDateStr) {
-            console.log('Vehículo sin fecha:', vehiculo.placa);
-            return false;
-          }
-          
-          try {
-            // Convertir la fecha del vehículo a UTC
-            const vehiculoDate = new Date(vehiculoDateStr);
-            const vehiculoDateUTC = new Date(Date.UTC(
-              vehiculoDate.getUTCFullYear(),
-              vehiculoDate.getUTCMonth(),
-              vehiculoDate.getUTCDate()
-            ));
-            
-            console.log('Fecha vehículo:', vehiculoDateStr, '-> UTC:', vehiculoDateUTC.toISOString());
-            console.log('Comparación:', selectedDateUTC.toISOString(), 'vs', vehiculoDateUTC.toISOString());
-            
-            // Comparar solo año, mes y día en UTC
-            return selectedDateUTC.getTime() === vehiculoDateUTC.getTime();
-          } catch (error) {
-            console.error('Error parsing date:', vehiculoDateStr, error);
-            return false;
-          }
+          const d =
+            (vehiculo as any).fecha_creacion ||
+            (vehiculo as any).created_at ||
+            (vehiculo as any).fecha_registro ||
+            (vehiculo as any).fecha;
+          if (!d) return false;
+          const onlyDate = String(d).split("T")[0];
+          return onlyDate === dateFilter;
         });
-
-        console.log('Vehículos después de filtrar por fecha:', filtered.length);
       }
 
       setFilteredVehiculos(filtered);
@@ -148,12 +122,6 @@ export default function VehiculosPage() {
 
     filterVehiculos();
   }, [searchQuery, dateFilter, vehiculos]);
-
-  const totalPaginas = Math.ceil(filteredVehiculos.length / tamanoPagina);
-  const vehiculosPaginados = filteredVehiculos.slice(
-    (pagina - 1) * tamanoPagina,
-    pagina * tamanoPagina
-  );
 
   // Manejo de creación/actualización
   const handleSubmit = async (vehiculoData: Omit<Vehiculo, "id_vehiculo">) => {
@@ -182,13 +150,11 @@ export default function VehiculosPage() {
 
   const handleDateFilter = (date: string) => {
     setDateFilter(date);
-    setPagina(1); // Resetear a la primera página al aplicar filtro
   };
 
   const clearFilters = () => {
     setSearchQuery("");
     setDateFilter("");
-    setPagina(1);
   };
 
   const handleDelete = (vehiculo: Vehiculo) => {
@@ -239,26 +205,7 @@ export default function VehiculosPage() {
     setIsDialogOpen(true);
   };
 
-  // Función para debugging - mostrar propiedades de fecha disponibles
-  const mostrarPropiedadesFecha = () => {
-    if (vehiculos.length > 0) {
-      console.log('=== DEBUG: PROPIEDADES DE FECHA ===');
-      console.log('Propiedades disponibles en el primer vehículo:', Object.keys(vehiculos[0]));
-      
-      vehiculos.slice(0, 3).forEach((vehiculo, index) => {
-        console.log(`\nVehículo ${index + 1} (${vehiculo.placa}):`);
-        console.log('fecha:', vehiculo.fecha);
-        console.log('fecha_creacion:', vehiculo.fecha_creacion);
-        console.log('created_at:', vehiculo.created_at);
-        console.log('fecha_registro:', vehiculo.fecha_registro);
-        
-        if (vehiculo.fecha_creacion) {
-          const date = new Date(vehiculo.fecha_creacion);
-          console.log('fecha_creacion parsed:', date.toISOString(), 'Local:', date.toLocaleDateString());
-        }
-      });
-    }
-  };
+  //
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -282,14 +229,6 @@ export default function VehiculosPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={mostrarPropiedadesFecha}
-            title="Debug: Mostrar propiedades de fecha"
-          >
-            <Info className="h-4 w-4" />
-          </Button>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={handleNewVehiculo}>
@@ -381,9 +320,7 @@ export default function VehiculosPage() {
             <div className="mt-4 text-sm text-muted-foreground">
               <p>Mostrando {filteredVehiculos.length} de {vehiculos.length} vehículos</p>
               {dateFilter && (
-                <p className="text-xs">
-                  Fecha seleccionada: {dateFilter} (se muestra en UTC para evitar problemas de zona horaria)
-                </p>
+                <p className="text-xs">Fecha seleccionada: {dateFilter}</p>
               )}
             </div>
           )}
@@ -458,30 +395,12 @@ export default function VehiculosPage() {
 
       {/* Table */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader>
           <div>
             <CardTitle>Lista de Vehículos</CardTitle>
             <CardDescription>
-              {pagina} de {totalPaginas} páginas • {filteredVehiculos.length} registros
+              {filteredVehiculos.length} registros
             </CardDescription>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagina <= 1}
-              onClick={() => setPagina(pagina - 1)}
-            >
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pagina >= totalPaginas}
-              onClick={() => setPagina(pagina + 1)}
-            >
-              Siguiente
-            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -505,7 +424,7 @@ export default function VehiculosPage() {
             </div>
           ) : (
             <VehiculosTable
-              vehiculos={vehiculosPaginados}
+              vehiculos={filteredVehiculos}
               onEdit={handleEdit}
               onDelete={handleDelete}
               initialPageSize={tamanoPagina}

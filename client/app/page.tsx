@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { useTutorial } from "@/contexts/TutorialContext";
+import { TutorialFloatingButton } from "@/components/TutorialFloatingButton";
 
 export default function HomePage() {
   const { hasSeenTutorial, startTutorial } = useTutorial();
@@ -80,12 +81,13 @@ export default function HomePage() {
         position: 'bottom' as const,
       },
       {
-        id: 'cumplimiento-vh',
-        selector: '#card-reportes-cumplimiento-vh',
-        title: 'Cumplimiento VH',
-        description: 'Monitorea el cumplimiento de ventanas horarias, IDR (Índice de Desempeño de Rutas) y puntualidad de visitas.',
+        id: 'resumen-rutas',
+        selector: '#card-resumen-rutas',
+        title: 'Resumen de Rutas',
+        description: 'Visualiza reportes detallados de las rutas diarias, métricas de rendimiento y estadísticas de cumplimiento.',
         position: 'bottom' as const,
       },
+      // Cumplimiento VH eliminado
     ],
   };
 
@@ -155,14 +157,14 @@ export default function HomePage() {
       href: "/resumen-rutas",
       color: "bg-emerald-500",
     },
-  // Removed: resumen por viaje, performance vehiculos, performance repartidores
     {
-      title: "Cumplimiento VH",
-      description: "Visitas: ventana horaria, IDR y puntualidad",
-      icon: Clock,
-      href: "/reportes/cumplimiento-vh",
-      color: "bg-violet-500",
+      title: "Reportes de Tesorería",
+      description: "Análisis de gastos, tendencias y métricas financieras",
+      icon: TrendingUp,
+      href: "/reportes/tesoreria",
+      color: "bg-blue-500",
     },
+  // Removed: Cumplimiento VH report (deleted)
   ];
 
   return (
@@ -285,7 +287,7 @@ export default function HomePage() {
                   Procedimientos Almacenados
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">
-                  sp_resumen_rutas_fecha y sp_metricas_dia
+                  sp_resumen_rutas_fecha y sp_metricas_dia — procedimientos almacenados para generación rápida de resúmenes y métricas diarias
                 </div>
               </div>
               <div className="text-center">
@@ -303,6 +305,20 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+      <TutorialFloatingButton />
+      <AppFooter />
     </ProtectedRoute>
+  );
+}
+
+// Footer añadido: derechos reservados
+function AppFooter() {
+  return (
+    <footer className="bg-gray-100 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 mt-8">
+      <div className="container mx-auto px-4 py-6 text-center text-sm text-gray-600 dark:text-gray-400">
+        © {new Date().getFullYear()} R-M-P. Todos los derechos reservados.
+        <div className="mt-1">Desarrollado por un grupo de estudiantes SENATINOS, de la carrera de Ing. de Software  — Licencia MIT</div>
+      </div>
+    </footer>
   );
 }

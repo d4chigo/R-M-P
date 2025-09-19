@@ -275,7 +275,7 @@ const createUser = exports.createUser = async (req, res) => {
 
       const userId = userResult.insertId;
 
-      // Asignar roles si se especificaron
+  // Asignar roles si se especificaron
       if (roles && roles.length > 0) {
         for (const roleId of roles) {
           await db.query(
@@ -301,7 +301,10 @@ const createUser = exports.createUser = async (req, res) => {
 
       console.log(`✅ Usuario creado con ID: ${userId}`);
 
-      // Enviar contraseña por email si está habilitado
+  // Marcar que el usuario debe cambiar la contraseña en su primer ingreso
+  await db.query("UPDATE USUARIO SET must_change_password = TRUE WHERE id_usuario = ?", [userId]);
+
+  // Enviar contraseña por email si está habilitado
       let emailResult = { success: true, message: "Email no enviado (deshabilitado)" };
       if (sendPassword) {
         emailResult = await emailService.sendNewPassword(
@@ -613,7 +616,12 @@ const resetUserPassword = exports.resetUserPassword = async (req, res) => {
 
     console.log(`✅ Contraseña restablecida para usuario ${id}`);
 
-    // Enviar contraseña por email si está habilitado
+  // Marcar que el usuario debe cambiar la contraseña en su primer ingreso
+  // y almacenar la última contraseña temporal para que el administrador pueda
+  // revelarla si el email no fue enviado. (Este es el comportamiento previo)
+  await db.query("UPDATE USUARIO SET must_change_password = TRUE, last_temporary_password = ? WHERE id_usuario = ?", [tempPassword, id]);
+
+  // Enviar contraseña por email si está habilitado
     let emailResult = { success: true, message: "Email no enviado (deshabilitado)" };
     if (sendEmail && userData.email) {
       emailResult = await emailService.sendNewPassword(
@@ -722,6 +730,48 @@ exports.toggleUsuarioActivo = async (req, res) => {
       message: "Error al cambiar estado del usuario",
       error: error.message,
     });
+  }
+};
+
+// Revelar  ltima contrase f1a temporal de un usuario (requiere re-autenticaci f3n del admin)
+exports.revealUserPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminPassword } = req.body;
+    const adminId = req.usuario.id_usuario;
+
+    if (!adminPassword) {
+      return res.status(400).json({ success: false, message: 'Se requiere la contrase f1a del administrador para proceder' });
+    }
+
+    // Verificar contrase f1a del administrador
+    const [adminRows] = await db.query('SELECT password_hash FROM USUARIO WHERE id_usuario = ?', [adminId]);
+    if (!adminRows.length) {
+      return res.status(404).json({ success: false, message: 'Administrador no encontrado' });
+    }
+
+    const validAdmin = await bcrypt.compare(adminPassword, adminRows[0].password_hash);
+    if (!validAdmin) {
+      return res.status(401).json({ success: false, message: 'Contrase f1a de administrador incorrecta' });
+    }
+
+    // Obtener la  faltima contrase f1a temporal almacenada
+    const [rows] = await db.query('SELECT last_temporary_password FROM USUARIO WHERE id_usuario = ?', [id]);
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+    }
+
+    const temp = rows[0].last_temporary_password || null;
+
+    // Clear stored temporary password after revealing for security
+    if (temp) {
+      await db.query('UPDATE USUARIO SET last_temporary_password = NULL WHERE id_usuario = ?', [id]);
+    }
+
+    res.json({ success: true, temporaryPassword: temp, message: temp ? 'Contrase f1a temporal revelada' : 'No hay contrase f1a temporal disponible' });
+  } catch (error) {
+    console.error('Error revelando contrase f1a:', error);
+    res.status(500).json({ success: false, message: 'Error al revelar contrase f1a' });
   }
 };
 

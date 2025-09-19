@@ -1,14 +1,9 @@
 "use client";
 
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  ReactNode,
-} from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
+import SessionTimeoutDialog from "@/components/SessionTimeoutDialog";
 
 // Tipos actualizados para la nueva estructura
 interface Usuario {
@@ -22,6 +17,7 @@ interface Usuario {
   updated_at?: string;
   roles_list?: string[];
   role_ids?: number[];
+  must_change_password?: boolean;
 }
 
 interface AuthContextType {
@@ -31,17 +27,11 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   userRoles: string[];
-  login: (
-    email: string,
-    password: string,
-  ) => Promise<{ success: boolean; message?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string; must_change_password?: boolean; attemptsLeft?: number | null; lockedUntil?: string | null }>;
   logout: () => void;
   checkAuth: () => Promise<boolean>;
   hasRole: (role: string) => boolean;
   checkUsersExist: () => Promise<{ usersExist: boolean; totalUsers: number }>;
-  requestPasswordReset: (
-    email: string,
-  ) => Promise<{ success: boolean; message?: string }>;
 }
 
 // Crear contexto
@@ -67,8 +57,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
   // Verificar si está autenticado
   const isAuthenticated = !!usuario && !!token;
@@ -85,66 +74,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Función para hacer login
-  const login = async (
-    email: string,
-    password: string,
-  ): Promise<{ success: boolean; message?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; message?: string; must_change_password?: boolean; attemptsLeft?: number | null; lockedUntil?: string | null }> => {
     try {
       console.log("AuthContext: Iniciando login para usuario:", email);
       setIsLoading(true);
 
       const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
       console.log("AuthContext: Respuesta del servidor:", response.status);
       const data = await response.json();
-      console.log("AuthContext: Datos recibidos:", {
-        success: data.success,
-        hasData: !!data.data,
-        message: data.message
-      });
 
       if (response.ok && data.success) {
         const { usuario: userData, token: userToken } = data.data;
-        console.log("AuthContext: Datos del usuario:", {
-          id: userData.id_usuario,
-          email: userData.email,
-          roles: userData.roles_list
-        });
 
         // Guardar en estado
         setUsuario(userData);
         setToken(userToken);
 
         // Guardar token en cookies (expira en 24 horas)
-        Cookies.set("auth_token", userToken, {
-          expires: 1, // 1 día
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "strict",
-        });
+        Cookies.set("auth_token", userToken, { expires: 1, secure: process.env.NODE_ENV === "production", sameSite: "strict" });
 
-        return { success: true };
+        // Dispatch user-activity to reset session timers
+        window.dispatchEvent(new Event('user-activity'));
+
+        return { success: true, must_change_password: !!userData.must_change_password };
       } else {
-        console.log("AuthContext: Login fallido:", data.message);
-        return {
-          success: false,
-          message: data.message || "Error en el login",
-        };
+        // If backend provides attemptsLeft and lockedUntil, propagate them to the caller
+        const attemptsLeft = data.attemptsLeft ?? (data.data && data.data.attemptsLeft) ?? null;
+        const lockedUntil = data.lockedUntil ?? (data.data && data.data.lockedUntil) ?? null;
+        return { success: false, message: data.message || 'Error en el login', attemptsLeft, lockedUntil };
       }
     } catch (error) {
       console.error("AuthContext: Error en login:", error);
-      return {
-        success: false,
-        message: "Error de conexión con el servidor",
-      };
+      return { success: false, message: "Error de conexión con el servidor" };
     } finally {
       setIsLoading(false);
     }
@@ -158,44 +124,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     router.push("/login");
   };
 
+  // Función usada por el diálogo de timeout forzado
+  const handleForcedLogout = () => {
+    logout();
+  };
+
   // Función para verificar autenticación
   const checkAuth = async (): Promise<boolean> => {
     try {
-      console.log("AuthContext: Verificando autenticación...");
       const savedToken = Cookies.get("auth_token");
+      if (!savedToken) { setIsLoading(false); return false; }
 
-      if (!savedToken) {
-        console.log("AuthContext: No se encontró token guardado");
-        setIsLoading(false);
-        return false;
-      }
-
-      console.log("AuthContext: Token encontrado, verificando con el servidor...");
-      const response = await fetch(`${API_BASE_URL}/auth/me`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${savedToken}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      console.log("AuthContext: Respuesta del servidor:", response.status);
+      const response = await fetch(`${API_BASE_URL}/auth/me`, { method: 'GET', headers: { Authorization: `Bearer ${savedToken}`, 'Content-Type': 'application/json' } });
       if (response.ok) {
         const data = await response.json();
-        console.log("AuthContext: Datos recibidos:", {
-          success: data.success,
-          hasData: !!data.data,
-          hasUser: !!data.data?.usuario
-        });
-
         if (data.success && data.data && data.data.usuario) {
-          // Obtener roles del usuario
-          console.log("AuthContext: Obteniendo roles del usuario...");
-          const userWithRoles = await getUserRoles(
-            data.data.usuario,
-            savedToken,
-          );
-          console.log("AuthContext: Roles obtenidos:", userWithRoles.roles_list);
+          const userWithRoles = data.data.usuario;
           setUsuario(userWithRoles);
           setToken(savedToken);
           setIsLoading(false);
@@ -203,8 +147,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       }
 
-      console.log("AuthContext: Token inválido o expirado");
-      // Si llegamos aquí, el token no es válido
       Cookies.remove("auth_token");
       setUsuario(null);
       setToken(null);
@@ -220,110 +162,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Función para obtener roles del usuario
+  // Función para obtener roles del usuario (placeholder)
   const getUserRoles = async (userData: Usuario, authToken: string) => {
-    try {
-      console.log("AuthContext: Obteniendo roles para usuario:", userData.email);
-      // Aquí podrías hacer una llamada adicional para obtener roles
-      // Por ahora, asumimos que vienen en la respuesta de verificación
-      console.log("AuthContext: Roles del usuario:", {
-        rolesList: userData.roles_list,
-        roleIds: userData.role_ids
-      });
-      return userData;
-    } catch (error) {
-      console.error("AuthContext: Error obteniendo roles:", error);
-      return userData;
-    }
+    return userData;
   };
 
   // Función para verificar si existen usuarios en el sistema
-  const checkUsersExist = async (): Promise<{
-    usersExist: boolean;
-    totalUsers: number;
-  }> => {
+  const checkUsersExist = async (): Promise<{ usersExist: boolean; totalUsers: number }> => {
     try {
-      console.log("AuthContext: Verificando existencia de usuarios...");
       const response = await fetch(`${API_BASE_URL}/admin/check-users`);
-      console.log("AuthContext: Respuesta del servidor:", response.status);
       const data = await response.json();
-      console.log("AuthContext: Datos recibidos:", data);
-
-      if (data.success) {
-        console.log("AuthContext: Usuarios encontrados:", data.data);
-        return {
-          usersExist: data.data.usersExist,
-          totalUsers: data.data.totalUsers,
-        };
-      }
-
-      console.log("AuthContext: Sin éxito, retornando valores por defecto");
+      if (data.success) return { usersExist: data.data.usersExist, totalUsers: data.data.totalUsers };
       return { usersExist: true, totalUsers: 0 };
     } catch (error) {
-      console.error("Error verificando usuarios:", error);
       return { usersExist: true, totalUsers: 0 };
-    }
-  };
-
-  // Función para solicitar restablecimiento de contraseña
-  const requestPasswordReset = async (
-    email: string,
-  ): Promise<{ success: boolean; message?: string }> => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      return {
-        success: data.success,
-        message: data.message,
-      };
-    } catch (error) {
-      console.error("Error solicitando restablecimiento:", error);
-      return {
-        success: false,
-        message: "Error de conexión con el servidor",
-      };
     }
   };
 
   // Verificar autenticación al cargar
+  useEffect(() => { let mounted = true; const initAuth = async () => { if (mounted) await checkAuth(); }; initAuth(); return () => { mounted = false; }; }, []);
+
+  // Manejo de actividad del usuario para timer de sesión
   useEffect(() => {
-    let mounted = true;
-
-    const initAuth = async () => {
-      if (mounted) {
-        await checkAuth();
-      }
-    };
-
-    initAuth();
-
-    return () => {
-      mounted = false;
-    };
+    const handleActivity = () => window.dispatchEvent(new Event('user-activity'));
+    const events = ['mousemove','keydown','mousedown','touchstart','scroll'];
+    events.forEach(e => window.addEventListener(e, handleActivity));
+    return () => events.forEach(e => window.removeEventListener(e, handleActivity));
   }, []);
 
-  const value: AuthContextType = {
-    usuario,
-    token,
-    isLoading,
-    isAuthenticated,
-    isAdmin,
-    userRoles,
-    login,
-    logout,
-    checkAuth,
-    hasRole,
-    checkUsersExist,
-    requestPasswordReset,
-  };
+  const value: AuthContextType = { usuario, token, isLoading, isAuthenticated, isAdmin, userRoles, login, logout, checkAuth, hasRole, checkUsersExist };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <SessionTimeoutDialog timeoutMs={60 * 60 * 1000} warningMs={10 * 1000} onLogout={handleForcedLogout} />
+    </AuthContext.Provider>
+  );
 };

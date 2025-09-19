@@ -321,7 +321,7 @@ export function CentroDistribucionForm({
             id="ciudad"
             value={formData.ciudad}
             onChange={(e) => handleInputChange("ciudad", e.target.value)}
-            placeholder="Ciudad de México"
+            placeholder="Piura"
             className={errors.ciudad ? "border-red-500" : ""}
           />
           {errors.ciudad && (
@@ -407,7 +407,7 @@ export function CentroDistribucionForm({
             id="telefono"
             value={formData.telefono}
             onChange={(e) => handleInputChange("telefono", e.target.value)}
-            placeholder="+52 55 1234 5678"
+            placeholder="+51 73 123 4567"
             className={errors.telefono ? "border-red-500" : ""}
           />
           {errors.telefono && (
@@ -448,7 +448,7 @@ export function CentroDistribucionForm({
             step="any"
             value={formData.latitud}
             onChange={(e) => handleInputChange("latitud", e.target.value)}
-            placeholder="19.4326"
+            placeholder="-5.1955"
             className={errors.latitud ? "border-red-500" : ""}
           />
           {errors.latitud && (
@@ -468,7 +468,7 @@ export function CentroDistribucionForm({
             step="any"
             value={formData.longitud}
             onChange={(e) => handleInputChange("longitud", e.target.value)}
-            placeholder="-99.1332"
+            placeholder="-80.6328"
             className={errors.longitud ? "border-red-500" : ""}
           />
           {errors.longitud && (

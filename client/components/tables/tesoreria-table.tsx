@@ -198,7 +198,15 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
 
   const handleUpdate = async (data: any) => {
   if (!selectedTesoreria) return false;
-    const success = await updateTesoreria(selectedTesoreria.id, data);
+    // Defensive: always include the id_centro key so backend can detect clearing intent
+    const payload = { ...data };
+    if (!Object.prototype.hasOwnProperty.call(payload, 'id_centro')) {
+      payload.id_centro = null;
+    } else {
+      if (payload.id_centro === '') payload.id_centro = null;
+      if (typeof payload.id_centro === 'string' && payload.id_centro !== null && payload.id_centro !== '') payload.id_centro = Number(payload.id_centro);
+    }
+    const success = await updateTesoreria(selectedTesoreria.id, payload);
     if (success) {
       toast({
         title: "Éxito",
@@ -346,19 +354,18 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>PLACA T2</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Cargo</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead>Detalle</TableHead>
-                <TableHead>Reembolso</TableHead>
-                <TableHead>Distrito</TableHead>
-                <TableHead>Turno</TableHead>
-                <TableHead>Encargado</TableHead>
-                <TableHead>Monto</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Placa T2</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Centro de distribución</TableHead>
+                  <TableHead>Cargo</TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead>Distrito</TableHead>
+                  <TableHead>Turno</TableHead>
+                  <TableHead>Encargado</TableHead>
+                  <TableHead>Monto</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
             </TableHeader>
             <TableBody>
               {tesoreria.length === 0 ? (
@@ -382,10 +389,9 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     </TableCell>
                     <TableCell>{item.placa || ""}</TableCell>
                     <TableCell>{item.nombre}</TableCell>
+                    <TableCell>{item.centro_codigo || item.centro_nombre ? `${item.centro_codigo || ''}${item.centro_codigo && item.centro_nombre ? ' - ' : ''}${item.centro_nombre || ''}` : ''}</TableCell>
                     <TableCell>{item.cargo || ""}</TableCell>
                     <TableCell>{item.categoria}</TableCell>
-                    <TableCell>{item.detalle || ""}</TableCell>
-                    <TableCell>{item.reembolso || ""}</TableCell>
                     <TableCell>{item.distrito || ""}</TableCell>
                     <TableCell>{(() => {
                       const n = Number(item.turno);
@@ -532,20 +538,16 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     <p className="text-sm">{selectedTesoreria.nombre}</p>
                   </div>
                   <div>
+                    <label className="text-sm font-medium text-gray-500">Centro de distribución</label>
+                    <p className="text-sm">{selectedTesoreria.centro_codigo || selectedTesoreria.centro_nombre ? `${selectedTesoreria.centro_codigo || ''}${selectedTesoreria.centro_codigo && selectedTesoreria.centro_nombre ? ' - ' : ''}${selectedTesoreria.centro_nombre || ''}` : '-'}</p>
+                  </div>
+                  <div>
                     <label className="text-sm font-medium text-gray-500">Cargo</label>
-                    <p className="text-sm">{selectedTesoreria.cargo || ""}</p>
+                    <p className="text-sm">{selectedTesoreria.cargo || "-"}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Categoría</label>
                     <p className="text-sm">{selectedTesoreria.categoria}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Detalle</label>
-                    <p className="text-sm">{selectedTesoreria.detalle || ""}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Reembolso</label>
-                    <p className="text-sm">{selectedTesoreria.reembolso || ""}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Distrito</label>
@@ -568,6 +570,23 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     <label className="text-sm font-medium text-gray-500">Monto</label>
                     <p className="text-sm font-medium">{formatCurrency(selectedTesoreria.monto)}</p>
                   </div>
+                  {isAdmin && selectedTesoreria.created_by_nombre && (
+                    <div className="col-span-2 mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                      <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Información de Auditoría</h4>
+                      <div className="grid grid-cols-1 gap-2 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-500">Creado por:</span>{" "}
+                          {selectedTesoreria.created_by_nombre}
+                        </div>
+                        {selectedTesoreria.created_at && (
+                          <div>
+                            <span className="font-medium text-gray-500">Fecha de creación:</span>{" "}
+                            {format(new Date(selectedTesoreria.created_at), "dd/MM/yyyy HH:mm:ss", { locale: es })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

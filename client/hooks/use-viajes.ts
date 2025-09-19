@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useSimpleCrud } from "./use-simple-api";
+import { getTodayString } from "@/lib/utils/date";
 
 export interface Viaje {
   estado: string;
@@ -11,6 +12,8 @@ export interface Viaje {
   id_vehiculo: number;
   id_repartidor: number;
   nro_viaje: number;
+  id_centro?: number;
+  territorios_visitados?: number;
   salida_cd?: string;
   llegada_cd?: string;
   distancia_km?: number;
@@ -226,7 +229,7 @@ export const useViajes = () => {
   // Obtener viajes por estado (basado en fechas)
   const getViajesByEstado = useCallback(
     (estado: string) => {
-      const hoy = new Date().toISOString().split("T")[0];
+      const hoy = getTodayString();
 
       switch (estado) {
         case "Programado":
@@ -257,19 +260,19 @@ export const useViajes = () => {
 
   // Obtener viajes activos (En Curso) - basado en fecha actual
   const getViajesActivos = useCallback(() => {
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = getTodayString();
     return viajes.filter((viaje) => viaje.fecha === hoy);
   }, [viajes]);
 
   // Obtener viajes programados - basado en fecha futura
   const getViajesProgramados = useCallback(() => {
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = getTodayString();
     return viajes.filter((viaje) => viaje.fecha > hoy);
   }, [viajes]);
 
   // Obtener viajes completados - basado en fecha pasada
   const getViajesCompletados = useCallback(() => {
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = getTodayString();
     return viajes.filter((viaje) => viaje.fecha < hoy);
   }, [viajes]);
 
@@ -296,7 +299,7 @@ export const useViajes = () => {
   // Obtener estadísticas de viajes
   const getEstadisticasViajes = useCallback(() => {
     const total = viajes.length;
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = getTodayString();
 
     const programados = viajes.filter((v) => v.fecha > hoy).length;
     const enCurso = viajes.filter((v) => v.fecha === hoy).length;

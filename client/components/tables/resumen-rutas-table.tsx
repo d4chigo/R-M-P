@@ -59,6 +59,17 @@ export function ResumenRutasTable({
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
     try {
+      // If the backend sends a date-only string like 'YYYY-MM-DD', treat it as a local
+      // date in Peru (no time component). Constructing a Date from 'YYYY-MM-DD'
+      // will interpret it as UTC and can shift the day when converted to America/Lima.
+      // Detect the pattern and format manually to avoid timezone shifts.
+      const isoDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateString);
+      if (isoDateOnly) {
+        const [y, m, d] = dateString.split("-");
+        return `${d}/${m}/${y}`;
+      }
+
+      // Fallback: parse full datetime and format in America/Lima timezone
       return new Date(dateString).toLocaleDateString("es-PE", {
         timeZone: "America/Lima",
         day: "2-digit",
