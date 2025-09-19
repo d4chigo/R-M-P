@@ -180,9 +180,17 @@ export const useTesoreria = () => {
     setLoading(true);
     setError(null);
     try {
+      // If the client explicitly set id_centro to null, include a header to signal
+      // the backend that it should clear the column. This is a defensive measure
+      // in case intermediaries strip keys.
+      const headers: any = {};
+      if (Object.prototype.hasOwnProperty.call(data, 'id_centro') && data.id_centro === null) {
+        headers['X-Clear-Id-Centro'] = '1';
+      }
       const response = await request(`/tesoreria/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
+        headers,
       });
       if (response.success) {
   await fetchTesoreria(); // Recargar la lista

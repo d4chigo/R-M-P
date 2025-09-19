@@ -198,7 +198,15 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
 
   const handleUpdate = async (data: any) => {
   if (!selectedTesoreria) return false;
-    const success = await updateTesoreria(selectedTesoreria.id, data);
+    // Defensive: always include the id_centro key so backend can detect clearing intent
+    const payload = { ...data };
+    if (!Object.prototype.hasOwnProperty.call(payload, 'id_centro')) {
+      payload.id_centro = null;
+    } else {
+      if (payload.id_centro === '') payload.id_centro = null;
+      if (typeof payload.id_centro === 'string' && payload.id_centro !== null && payload.id_centro !== '') payload.id_centro = Number(payload.id_centro);
+    }
+    const success = await updateTesoreria(selectedTesoreria.id, payload);
     if (success) {
       toast({
         title: "Éxito",

@@ -197,7 +197,9 @@ const getTesoreriaById = async (req, res) => {
 // Crear un nuevo registro de tesorería (nuevo esquema)
 const createTesoreria = async (req, res) => {
   try {
-  const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto } = req.body;
+  let { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto } = req.body;
+    // Normalize empty-string id_centro to null so both '' and null mean 'no centro'
+    if (id_centro === '') id_centro = null;
 
     // Validaciones básicas
     if (!fecha || !nombre || !categoria || monto === undefined) {
@@ -208,8 +210,9 @@ const createTesoreria = async (req, res) => {
       return res.status(400).json({ success: false, message: "El monto debe ser mayor a 0" });
     }
 
-    // Si se proporcionó id_centro, validar que exista
-    if (typeof id_centro !== 'undefined' && id_centro !== null) {
+    // Si el cuerpo incluye id_centro, validar que exista (pero permitir '' o null como intención de limpiar)
+    const hasIdCentro = Object.prototype.hasOwnProperty.call(req.body, 'id_centro');
+    if (hasIdCentro && id_centro !== '' && id_centro !== null && typeof id_centro !== 'undefined') {
       const [centroRows] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
       if (centroRows.length === 0) {
         return res.status(400).json({ success: false, message: 'Centro de distribución no encontrado' });
@@ -297,11 +300,21 @@ const updateTesoreria = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado } = req.body;
-    const newMonto = req.body.monto;
+  const { fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado } = req.body;
+  const newMonto = req.body.monto;
+    // Debug: mostrar body recibido para inspección (temporal)
+    try {
+      console.log('tesoreria.update - req.body keys=', Object.keys(req.body || {}), 'body=', req.body);
+    } catch (e) {}
+  // Detectar si el cliente incluyó la clave id_centro en el body. Si la incluyó
+  // con valor null o '', significa intención de "limpiar" el centro.
+  const hasIdCentro = Object.prototype.hasOwnProperty.call(req.body, 'id_centro');
+  // Además, permitir una cabecera opcional que indique intención explícita de limpiar
+  // el centro (útil si algún proxy o serializador omitiera la clave JSON).
+  const clearIdCentroHeader = (req.get && req.get('X-Clear-Id-Centro') || '').toString() === '1';
 
-    // Verificar que el registro existe
-    const [existing] = await db.query("SELECT id, monto, deleted_at FROM TESORERIA WHERE id = ?", [id]);
+  // Verificar que el registro existe (leer también id_centro para preservarlo si el cliente no lo envía)
+  const [existing] = await db.query("SELECT id, monto, deleted_at, id_centro FROM TESORERIA WHERE id = ?", [id]);
     if (existing.length === 0) {
       return res.status(404).json({ success: false, message: "Registro de tesorería no encontrado" });
     }
@@ -309,12 +322,20 @@ const updateTesoreria = async (req, res) => {
       return res.status(400).json({ success: false, message: 'No se puede editar un registro en la papelera' });
     }
 
-    // Si se proporcionó id_centro, validar que exista
-    if (typeof id_centro !== 'undefined' && id_centro !== null) {
+    // Si el body incluye id_centro y su valor NO es vacío/NULL, validar que exista.
+    // Si viene '' o null, lo consideramos intención de limpiar (no validar como existente).
+    if (hasIdCentro && id_centro !== '' && id_centro !== null && typeof id_centro !== 'undefined') {
       const [centroRows] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
       if (centroRows.length === 0) {
         return res.status(400).json({ success: false, message: 'Centro de distribución no encontrado' });
       }
+    }
+
+    // Normalizar intención de 'limpiar' cuando cliente envía '' -> convertir a null
+    if (hasIdCentro && id_centro === '') {
+      // marca intención explícita de limpiar
+      // Convertimos a null para que la cláusula id_centro = ? reciba NULL y limpie la columna
+      req.body.id_centro = null; // mantener consistencia con req.body
     }
 
     const connection = await db.getConnection();
@@ -351,9 +372,14 @@ const updateTesoreria = async (req, res) => {
           }
         }
 
-      // Actualizar registro
-      await connection.query(
-        `UPDATE TESORERIA SET
+  // Actualizar registro.
+  // Para simplificar y evitar ambigüedades, siempre escribimos el campo `id_centro` con
+  // un parámetro: si el cliente incluyó la clave se usará su valor (null -> limpiar).
+  // Si el cliente NO incluyó la clave, preservamos el valor actual leyendo existing[0].id_centro
+  // y pasándolo como parámetro para que no cambie.
+  const idCentroSetClause = 'id_centro = ?';
+
+      const sql = `UPDATE TESORERIA SET
           fecha = COALESCE(?, fecha),
           placa = COALESCE(?, placa),
           nombre = COALESCE(?, nombre),
@@ -362,15 +388,44 @@ const updateTesoreria = async (req, res) => {
           detalle = COALESCE(?, detalle),
           reembolso = COALESCE(?, reembolso),
           distrito = COALESCE(?, distrito),
-          id_centro = COALESCE(?, id_centro),
+          ${idCentroSetClause},
           turno = COALESCE(?, turno),
           encargado = COALESCE(?, encargado),
           monto = COALESCE(?, monto),
           updated_by = ?,
           updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?`,
-        [fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro ?? null, turno, encargado, newMonto, req.usuario ? req.usuario.id_usuario : null, id]
-      );
+        WHERE id = ?`;
+
+      // Param order must match the placeholders in the SQL above. If hasIdCentro is true
+      // we pass id_centro (possibly null) in place; otherwise we pass a null/placeholder
+      // so COALESCE behaves as before.
+  // If client signaled clearing (hasIdCentro and id_centro === ''), id_centro was normalized to null above,
+  // so pass null to the DB to set the column to NULL.
+  // Compute idCentroParam: precedence:
+  // 1) If client provided the key (hasIdCentro) use its normalized value (even null).
+  // 2) Else if client sent special header to clear, treat as explicit null.
+  // 3) Otherwise fallback to existing DB value to preserve it.
+  let idCentroParam;
+  if (hasIdCentro) {
+    idCentroParam = id_centro === '' ? null : (id_centro ?? null);
+  } else if (clearIdCentroHeader) {
+    idCentroParam = null; // client signaled to clear the centro via header
+  } else {
+    idCentroParam = existing[0] ? (typeof existing[0].id_centro !== 'undefined' ? existing[0].id_centro : null) : null;
+  }
+
+  if (clearIdCentroHeader) {
+    console.log('tesoreria.update - clearIdCentroHeader detected; will clear id_centro');
+  }
+
+  // Construir array de params de forma explícita para facilitar el logging y evitar desorden
+  const paramsForSql = [fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, idCentroParam, turno, encargado, newMonto, req.usuario ? req.usuario.id_usuario : null, id];
+
+  // Debug temporal: imprimir qué se va a pasar al UPDATE (ayuda a depurar cuando la UI muestra éxito pero no hay cambios)
+  console.log('tesoreria.update - hasIdCentro=', hasIdCentro, 'id_centro(raw)=', id_centro, 'idCentroParam=', idCentroParam);
+  console.log('tesoreria.update - SQL params =', JSON.stringify(paramsForSql));
+
+  await connection.query(sql, paramsForSql);
 
       await connection.commit();
       // Audit

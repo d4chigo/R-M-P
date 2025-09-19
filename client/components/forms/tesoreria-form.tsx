@@ -57,7 +57,17 @@ const tesoreriaSchema = z.object({
   fecha: z.string().min(1, "La fecha es requerida"),
   placa: z.string().optional(), // PLACA T2: texto libre, puede ser CD, placa, etc. Ahora opcional
   nombre: z.string().min(1, "El nombre es requerido"),
-  id_centro: z.union([z.string(), z.number()]).optional().transform((v) => (v === undefined || v === "" ? undefined : Number(v))),
+  id_centro: z.preprocess((val) => {
+    // preserve the key and normalize empty strings to null so downstream code
+    // can detect explicit clearing intent
+    if (val === undefined) return null;
+    if (val === '') return null;
+    if (typeof val === 'string') {
+      const n = Number(val);
+      return isNaN(n) ? null : n;
+    }
+    return val;
+  }, z.number().nullable()),
   cargo: z.string().optional(), // Opcional
   categoria: z.string().min(1, "La categoría es requerida"),
   detalle: z.string().optional(),
@@ -65,7 +75,10 @@ const tesoreriaSchema = z.object({
   distrito: z.string().min(1, "El distrito es requerido"),
   turno: z.string().min(1, "El turno es requerido"),
   encargado: z.string().min(1, "El encargado es requerido"),
-  monto: z.number().min(0.01, "El monto debe ser mayor a 0"),
+  // Monto: keep as number in the schema to avoid runtime transform issues.
+  // We validate positivity in the submit handler to provide clear UX and
+  // avoid zod runtime errors with chained transforms in the current bundle.
+  monto: z.number(),
 });
 
 interface TesoreriaFormProps {
@@ -303,6 +316,14 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       turno: data.turno ? Number(data.turno) : undefined,
       reembolso: !data.reembolso || data.reembolso === 'none' || data.reembolso === '' ? undefined : data.reembolso,
     };
+    // Ensure monto is a number (defensive)
+    if (typeof payload.monto === 'string') {
+      const parsed = parseFloat(String(payload.monto).replace(/,/g, '.'));
+      payload.monto = isNaN(parsed) ? 0 : parsed;
+    }
+    // Normalize id_centro: '' -> undefined, string -> number
+  if (payload.id_centro === '') payload.id_centro = null; // send explicit null to indicate clearing
+  if (typeof payload.id_centro === 'string' && payload.id_centro !== '') payload.id_centro = Number(payload.id_centro);
   // If creating (no tesoreria), validate saldo for all users (admins included).
   if (!tesoreria) {
       try {
@@ -334,8 +355,26 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       }
     }
 
+    // Ensure monto is positive
+    if (typeof payload.monto !== 'number' || Number(payload.monto) <= 0) {
+      toast({ title: 'Monto inválido', description: 'El monto debe ser mayor a 0', variant: 'destructive' });
+      return false;
+    }
+
     // For admins or when editing, proceed to submit directly
     try {
+      // If we're editing (tesoreria exists) always include the id_centro key in the payload
+      // so the server can detect the client's intent to clear it (send null) or set it.
+      if (tesoreria) {
+        if (!Object.prototype.hasOwnProperty.call(payload, 'id_centro')) {
+          payload.id_centro = null;
+        } else {
+          // normalize values consistently
+          if (payload.id_centro === '') payload.id_centro = null;
+          if (typeof payload.id_centro === 'string' && payload.id_centro !== null) payload.id_centro = Number(payload.id_centro);
+        }
+      }
+
       const success = await onSubmit(payload as any);
       if (success) {
         form.reset();
@@ -357,7 +396,19 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     <Card className="w-full max-w-2xl mx-auto pt-5">
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form noValidate onSubmit={(e) => {
+            e.preventDefault();
+            const values = form.getValues();
+            // Coerce monto to number if needed before validation
+            if (typeof values.monto === 'string') {
+              const p = parseFloat(String(values.monto).replace(/,/g, '.'));
+              form.setValue('monto', isNaN(p) ? 0 : p);
+            }
+            // Normalize empty centro to '' so schema transform can pick it up as undefined
+            if (values.id_centro === undefined) form.setValue('id_centro', '');
+            // Now run react-hook-form submit (this will call zodResolver)
+            form.handleSubmit(handleSubmit)();
+          }} className="space-y-6">
       {/* Campos obligatorios */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
@@ -391,22 +442,20 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                   <FormItem>
                     <FormLabel>PLACA T2 / CD (opcional)</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder="Ingrese placa o CD..."
-                        list="vehiculos-list"
-                        className="w-full"
+                      <Combobox
+                        options={[
+                          { label: '(Vacío)', value: '' },
+                          { label: 'CD - Centro de Distribución', value: 'CD' },
+                          ...vehiculos.map((v: TesoreriaVehiculo) => ({ label: `${v.placa} - ${v.descripcion}`, value: v.placa }))
+                        ]}
+                        value={field.value || ''}
+                        onChange={(value) => field.onChange(value === '' ? '' : value)}
+                        placeholder="Seleccione o ingrese placa..."
+                        emptyText="No se encontraron vehículos"
+                        searchPlaceholder="Buscar placa o descripción..."
+                        disabled={loadingVehiculos}
                       />
                     </FormControl>
-                    {/* Lista de sugerencias para autocompletado */}
-                    <datalist id="vehiculos-list">
-                      {vehiculos.map((v: TesoreriaVehiculo) => (
-                        <option key={v.id_vehiculo} value={v.placa}>
-                          {v.descripcion}
-                        </option>
-                      ))}
-                      <option value="CD">Centro de Distribución</option>
-                    </datalist>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -449,13 +498,14 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                   <FormLabel>Centro de distribución (opcional)</FormLabel>
                   <FormControl>
                     <Combobox
-                      options={centros.map(c => ({
+                      options={[{ label: '(Vacío)', value: '' }, ...centros.map(c => ({
                         label: `${c.codigo} - ${c.nombre}${c.ciudad ? ` (${c.ciudad})` : ''}`,
                         value: String(c.id_centro)
-                      }))}
+                      }))]}
                       value={field.value ? String(field.value) : ""}
                       onChange={(value) => {
-                        field.onChange(Number(value));
+                        // Keep empty string in form state for the empty option; schema transform will turn '' -> undefined
+                        field.onChange(value === '' ? '' : value);
                       }}
                       placeholder="Buscar centro de distribución..."
                       emptyText="No se encontraron centros."
@@ -600,7 +650,6 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                         <Input
                           type="text"
                           inputMode="decimal"
-                          pattern="[0-9]*[.,]?[0-9]*"
                           placeholder="0.00"
                           className="pl-10"
                           value={montoInput}
@@ -704,6 +753,13 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                         onClick={async () => {
                           // Leer los valores actuales del formulario y enviar
                           const values = form.getValues();
+                          // Coerce monto to number and normalize id_centro before sending
+                          if (typeof values.monto === 'string') {
+                            const p = parseFloat(String(values.monto).replace(/,/g, '.'));
+                            values.monto = isNaN(p) ? 0 : p;
+                          }
+                          if (values.id_centro === '') values.id_centro = null;
+                          if (typeof values.id_centro === 'string' && values.id_centro !== '') values.id_centro = Number(values.id_centro);
                           const success = await onSubmit({ ...values, turno: values.turno ? Number(values.turno) : undefined } as any);
                           if (success) {
                             form.reset();
