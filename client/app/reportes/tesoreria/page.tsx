@@ -15,12 +15,17 @@ import { GastosChart } from "./components/GastosChart";
 import { TendenciaChart } from "./components/TendenciaChart";
 import { GastosAnomalos } from "./components/GastosAnomalos";
 import MetricsSummary from "./components/MetricsSummary";
+import { getTodayLimaYMD, formatDateForPeru } from "@/lib/utils/date-lima";
 
 export default function TesoreriaReportPage() {
   const { getTesoreriaPorCategoria, getTesoreriaPorPersona, getTesoreriaPorVehiculo, getTesoreriaTendenciaMensual, getTesoreriaSummary } = useReportes();
 
-  const [fechaInicio, setFechaInicio] = useState('');
-  const [fechaFin, setFechaFin] = useState('');
+  // Inicializar fechas con rango del mes actual en Lima
+  const todayLima = getTodayLimaYMD();
+  const firstDayOfMonth = todayLima.substring(0, 8) + '01'; // YYYY-MM-01
+  
+  const [fechaInicio, setFechaInicio] = useState(firstDayOfMonth);
+  const [fechaFin, setFechaFin] = useState(todayLima);
   const [placa, setPlaca] = useState('');
   const [repartidor, setRepartidor] = useState('');
   const [categoria, setCategoria] = useState('');

@@ -42,6 +42,7 @@ import { es } from "date-fns/locale";
 import { Tesoreria, TesoreriaFormData } from "@/hooks/use-tesoreria";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { getTodayLimaYMD, formatDateForPeru } from "@/lib/utils/date-lima";
 
 interface FormRenderProps {
   field: {
@@ -122,19 +123,7 @@ const subcategorias = {
 
 export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: TesoreriaFormProps) {
   const { isAdmin } = useAuth();
-  // Fecha local Lima (Perú) en formato YYYY-MM-DD
-  const todayPeruYMD = () => {
-    try {
-      return new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/Lima",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(new Date());
-    } catch {
-      return new Date().toISOString().split("T")[0];
-    }
-  };
+  
   // Formateador de números con 2 decimales sin símbolo (mostramos prefijo S/ aparte)
   const formatNumberPretty = (n: number) =>
     new Intl.NumberFormat("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
@@ -243,7 +232,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
   const form = useForm<z.infer<typeof tesoreriaSchema>>({
     resolver: zodResolver(tesoreriaSchema),
     defaultValues: {
-  fecha: (tesoreria?.fecha && /^\d{4}-\d{2}-\d{2}$/.test(tesoreria.fecha) ? tesoreria.fecha : tesoreria?.fecha) || todayPeruYMD(),
+  fecha: (tesoreria?.fecha && /^\d{4}-\d{2}-\d{2}$/.test(tesoreria.fecha) ? tesoreria.fecha : tesoreria?.fecha) || getTodayLimaYMD(),
   placa: tesoreria?.placa || "",
       nombre: tesoreria?.nombre || "",
       cargo: tesoreria?.cargo || "",
