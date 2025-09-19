@@ -49,17 +49,6 @@ INSERT INTO ROL (nombre, descripcion) VALUES
 ('ADMINISTRADOR', 'Administrador del sistema con acceso total'),
 ('EMPLEADO', 'Usuario con permisos de empleado (crear registros, ver informacion limitada)');
 
--- Tabla ZONA: áreas geográficas
-CREATE TABLE ZONA (
-    id_zona INT PRIMARY KEY AUTO_INCREMENT,
-    codigo VARCHAR(20) NOT NULL UNIQUE,
-    descripcion TEXT,
-    latitud DECIMAL(10, 8),
-    longitud DECIMAL(11, 8),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
 -- Tabla VEHICULO: unidades de transporte
 CREATE TABLE VEHICULO (
     id_vehiculo INT PRIMARY KEY AUTO_INCREMENT,
