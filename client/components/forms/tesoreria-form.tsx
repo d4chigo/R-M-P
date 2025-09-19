@@ -42,7 +42,7 @@ import { es } from "date-fns/locale";
 import { Tesoreria, TesoreriaFormData } from "@/hooks/use-tesoreria";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { getTodayLimaYMD, formatDateForPeru } from "@/lib/utils/date-lima";
+import { getTodayLimaYMD, formatDateForPeru, peruDateToYMD } from "@/lib/utils/date-lima";
 
 interface FormRenderProps {
   field: {
@@ -232,7 +232,18 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
   const form = useForm<z.infer<typeof tesoreriaSchema>>({
     resolver: zodResolver(tesoreriaSchema),
     defaultValues: {
-  fecha: (tesoreria?.fecha && /^\d{4}-\d{2}-\d{2}$/.test(tesoreria.fecha) ? tesoreria.fecha : tesoreria?.fecha) || getTodayLimaYMD(),
+  fecha: (function () {
+    const f = tesoreria?.fecha;
+    if (!f) return getTodayLimaYMD();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f; // already YYYY-MM-DD
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(f)) return peruDateToYMD(f); // convert DD/MM/YYYY
+    // fallback: try to parse ISO-ish and extract YYYY-MM-DD
+    try {
+      return new Date(f).toISOString().split('T')[0];
+    } catch (e) {
+      return getTodayLimaYMD();
+    }
+  })(),
   placa: tesoreria?.placa || "",
       nombre: tesoreria?.nombre || "",
       cargo: tesoreria?.cargo || "",
@@ -242,6 +253,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
   distrito: tesoreria?.distrito || "",
   turno: tesoreria?.turno ? String(tesoreria.turno) : "",
   encargado: tesoreria?.encargado || "",
+  id_centro: tesoreria?.id_centro ? String(tesoreria.id_centro) : "",
       monto: tesoreria?.monto || 0,
     },
   });
@@ -253,6 +265,36 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     setMontoInput(formatNumberPretty(form.getValues("monto") || 0));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tesoreria?.monto]);
+
+  // Cuando la prop `tesoreria` cambia (abrir modal editar), resetear el formulario
+  useEffect(() => {
+    if (!tesoreria) return;
+    const normalizeFecha = (f: any) => {
+      if (!f) return getTodayLimaYMD();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f;
+      if (/^\d{2}\/\d{2}\/\d{4}$/.test(f)) return peruDateToYMD(f);
+      try { return new Date(f).toISOString().split('T')[0]; } catch { return getTodayLimaYMD(); }
+    };
+
+    const vals: any = {
+      fecha: normalizeFecha(tesoreria.fecha),
+      placa: tesoreria.placa || "",
+      nombre: tesoreria.nombre || "",
+      cargo: tesoreria.cargo || "",
+      categoria: tesoreria.categoria || "",
+      detalle: tesoreria.detalle || "",
+      reembolso: tesoreria.reembolso || undefined,
+      distrito: tesoreria.distrito || "",
+      turno: tesoreria.turno ? String(tesoreria.turno) : "",
+      encargado: tesoreria.encargado || "",
+      id_centro: tesoreria.id_centro ? String((tesoreria as any).id_centro) : "",
+      monto: tesoreria.monto || 0,
+    };
+
+    form.reset(vals);
+    setMontoInput(formatNumberPretty(vals.monto || 0));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tesoreria]);
 
   const handleSubmit = async (data: z.infer<typeof tesoreriaSchema>) => {
     // Normalizar payload (turno como número, reembolso vacío a undefined)
