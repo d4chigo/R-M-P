@@ -349,20 +349,22 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                   <FormItem>
                     <FormLabel>PLACA T2 / CD (opcional)</FormLabel>
                     <FormControl>
-                      <Combobox
-                        options={vehiculos.map((v: TesoreriaVehiculo) => ({
-                          // descripcion contiene marca/modelo y posiblemente placa; show it to help search
-                          label: v.descripcion || `${v.placa}`,
-                          value: v.placa
-                        }))}
-                        value={field.value || ""}
-                        onChange={(val) => field.onChange(val)}
-                        placeholder="Buscar vehículo..."
-                        emptyText="No se encontraron vehículos."
-                        searchPlaceholder="Buscar por placa, marca o modelo..."
-                        disabled={loadingVehiculos}
+                      <Input
+                        {...field}
+                        placeholder="Ingrese placa o CD..."
+                        list="vehiculos-list"
+                        className="w-full"
                       />
                     </FormControl>
+                    {/* Lista de sugerencias para autocompletado */}
+                    <datalist id="vehiculos-list">
+                      {vehiculos.map((v: TesoreriaVehiculo) => (
+                        <option key={v.id_vehiculo} value={v.placa}>
+                          {v.descripcion}
+                        </option>
+                      ))}
+                      <option value="CD">Centro de Distribución</option>
+                    </datalist>
                     <FormMessage />
                   </FormItem>
                 )}
