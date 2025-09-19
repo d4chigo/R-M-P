@@ -287,7 +287,7 @@ export default function HomePage() {
                   Procedimientos Almacenados
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">
-                  sp_resumen_rutas_fecha y sp_metricas_dia
+                  sp_resumen_rutas_fecha y sp_metricas_dia — procedimientos almacenados para generación rápida de resúmenes y métricas diarias
                 </div>
               </div>
               <div className="text-center">
@@ -306,6 +306,19 @@ export default function HomePage() {
         </div>
       </div>
       <TutorialFloatingButton />
+      <AppFooter />
     </ProtectedRoute>
+  );
+}
+
+// Footer añadido: derechos reservados
+function AppFooter() {
+  return (
+    <footer className="bg-gray-100 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 mt-8">
+      <div className="container mx-auto px-4 py-6 text-center text-sm text-gray-600 dark:text-gray-400">
+        © {new Date().getFullYear()} R-M-P. Todos los derechos reservados.
+        <div className="mt-1">Desarrollado por un grupo de estudiantes SENATINOS, de la carrera de Ing. de Software  — Licencia MIT</div>
+      </div>
+    </footer>
   );
 }
