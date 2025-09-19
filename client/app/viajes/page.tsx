@@ -79,7 +79,8 @@ export default function ViajesPage() {
   // Normalizar fecha siempre en zona local
   const normalizeDate = (dateString: string) => {
     if (!dateString) return "";
-    const d = new Date(dateString);
+    // Asegura que la fecha se tome como local y solo año-mes-día
+    const d = new Date(dateString + "T00:00:00");
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
@@ -98,7 +99,8 @@ export default function ViajesPage() {
       viaje.repartidor_nombre?.toLowerCase().includes(searchLower);
 
     const matchesDate =
-      dateFilter === "" || normalizeDate(viaje.fecha) === dateFilter;
+      dateFilter === "" ||
+      normalizeDate(viaje.fecha) === normalizeDate(dateFilter);
 
     return matchesSearch && matchesDate;
   });
