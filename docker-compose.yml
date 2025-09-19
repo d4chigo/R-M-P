@@ -1,16 +1,17 @@
+
 services:
   # Base de datos MySQL
   mysql:
     image: mysql:8.0
     container_name: rmp_mysql
-    restart: unless-stopped
+    restart: always
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-    ports:
-      - "${MYSQL_PORT}:3306"
+    # No exponemos puertos a la red pública. Solo es accesible desde la red de Docker.
+    ports: []
     volumes:
       - mysql_data:/var/lib/mysql
       - ./mysql/init:/docker-entrypoint-initdb.d
@@ -25,15 +26,15 @@ services:
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     container_name: rmp_phpmyadmin
-    restart: unless-stopped
+    restart: always
     environment:
       PMA_HOST: mysql
       PMA_PORT: 3306
       PMA_USER: ${MYSQL_USER}
       PMA_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    ports:
-      - "${PHPMYADMIN_PORT}:80"
+    # No exponemos puertos por seguridad en producción.
+    ports: []
     depends_on:
       mysql:
         condition: service_healthy
@@ -46,17 +47,16 @@ services:
       context: ./server
       dockerfile: Dockerfile
     container_name: rmp_server
-    restart: unless-stopped
+    restart: always
     env_file:
       - .env
     ports:
+      # Exponemos el puerto solo para que Nginx lo pueda alcanzar.
       - "${SERVER_PORT:-4000}:${SERVER_PORT:-4000}"
     depends_on:
       mysql:
         condition: service_healthy
-    volumes:
-      - ./server:/app
-      - /app/node_modules
+    volumes: []
     networks:
       - rmp_network
 
@@ -64,34 +64,33 @@ services:
   client:
     build:
       context: ./client
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
       dockerfile: Dockerfile
     container_name: rmp_client
-    restart: unless-stopped
+    restart: always
     environment:
       NODE_ENV: ${NODE_ENV}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       PORT: ${CLIENT_PORT}
     ports:
+      # Exponemos el puerto para que Nginx lo pueda alcanzar.
       - "${CLIENT_PORT}:${CLIENT_PORT}"
     depends_on:
       - server
-    volumes:
-      - ./client:/app
-      - /app/node_modules
-      - /app/.next
+    volumes: []
     networks:
       - rmp_network
 
-# Proxy reverso con SSL (Nginx Proxy Manager)
-  # Nginx Proxy Manager
+  # Proxy reverso con SSL (Nginx Proxy Manager)
   nginx-proxy:
     image: jc21/nginx-proxy-manager:latest
     container_name: rmp_nginx
-    restart: unless-stopped
+    restart: always
     ports:
-      - "${HTTP_PORT}:80"
-      - "${NPM_PORT}:81"
-      - "${HTTPS_PORT}:443"
+      - "${HTTP_PORT:-80}:80"
+      - "${NPM_PORT:-81}:81"
+      - "${HTTPS_PORT:-443}:443"
     volumes:
       - nginx_data:/data
       - nginx_letsencrypt:/etc/letsencrypt
@@ -106,3 +105,4 @@ volumes:
 networks:
   rmp_network:
     driver: bridge
+

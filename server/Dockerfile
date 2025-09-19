@@ -1,21 +1,43 @@
-FROM node:22-alpine
+# --- Etapa 1: Construcción de la imagen del servidor ---
+# Usa una imagen base ligera de Node.js
+FROM node:22-alpine AS builder
 
-# Instalar pnpm globalmente
+# Instala pnpm globalmente
 RUN npm install -g pnpm
 
+# Establece el directorio de trabajo
 WORKDIR /app
 
-# Copiar archivos de dependencias
+# Copia los archivos de manifiesto para aprovechar el cache de Docker
 COPY package.json pnpm-lock.yaml* ./
 
-# Instalar dependencias
-RUN pnpm install
+# Instala solo las dependencias de producción. Esto reduce el tamaño de la imagen final.
+RUN pnpm install --prod --frozen-lockfile
 
-# Copiar el resto del código
+# Copia el resto del código
 COPY . .
 
-# Exponer puerto
+# --- Etapa 2: Imagen final de ejecución (producción) ---
+# Usa la misma imagen base, es ligera y ya tiene todo lo necesario
+FROM node:22-alpine
+
+# Crea un usuario no-root por seguridad
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+
+# Establece el directorio de trabajo
+WORKDIR /app
+
+# Copia las dependencias y el código desde la etapa de construcción
+COPY --from=builder /app ./
+
+# Cambia el propietario de los archivos al usuario no-root
+RUN chown -R appuser:appgroup /app
+
+# Expone el puerto que tu servidor usa
 EXPOSE 4000
 
-# Comando para desarrollo
-CMD ["pnpm", "dev"]
+# Cambia al usuario no-root
+USER appuser
+
+# El comando para iniciar la aplicación en producción
+CMD ["node", "index.js"]
