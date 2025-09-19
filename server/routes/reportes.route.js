@@ -22,6 +22,8 @@ const {
   getTesoreriaPorVehiculo,
   getTesoreriaPorCentro,
   getTesoreriaTendenciaMensual,
+  getTesoreriaSummary,
+  getTesoreriaDaily,
 
   // detalle por viaje
   getResumenRutasPorViaje,
@@ -82,6 +84,11 @@ router.get('/tesoreria/vehiculo', getTesoreriaPorVehiculo);
 router.get('/tesoreria/centro', getTesoreriaPorCentro);
 // GET /api/reportes/tesoreria/tendencia?meses=12
 router.get('/tesoreria/tendencia', getTesoreriaTendenciaMensual);
+
+// GET /api/reportes/tesoreria/summary?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/tesoreria/summary', getTesoreriaSummary);
+// GET /api/reportes/tesoreria/daily?fechaInicio=YYYY-MM-DD&fechaFin=YYYY-MM-DD
+router.get('/tesoreria/daily', getTesoreriaDaily);
 
 
 // GET /api/reportes/sp/resumen-rutas/:fecha - Usar procedimiento almacenado

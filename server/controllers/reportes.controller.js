@@ -954,6 +954,88 @@ const getTesoreriaTendenciaMensual = async (req, res) => {
   }
 };
 
+// ===== Nuevos endpoints: resumen y diario para tesorería (Fase 1)
+const getTesoreriaSummary = async (req, res) => {
+  try {
+    const { fechaInicio, fechaFin } = req.query;
+    const params = [];
+    let where = 'WHERE deleted_at IS NULL';
+    if (fechaInicio && fechaFin) {
+      where += ' AND fecha BETWEEN ? AND ?';
+      params.push(fechaInicio, fechaFin);
+    } else if (fechaInicio) {
+      where += ' AND fecha >= ?';
+      params.push(fechaInicio);
+    } else if (fechaFin) {
+      where += ' AND fecha <= ?';
+      params.push(fechaFin);
+    }
+
+    // gasto total
+    const [totalRows] = await db.query(`SELECT COALESCE(SUM(monto),0) AS gasto_total FROM TESORERIA ${where}`, params);
+    const gasto_total = totalRows[0]?.gasto_total || 0;
+
+    // agregado diario para average, max, min, mediana (calculado en JS a partir de query diaria)
+    const [diarioRows] = await db.query(`SELECT DATE(fecha) AS dia, COALESCE(SUM(monto),0) AS total FROM TESORERIA ${where} GROUP BY DATE(fecha) ORDER BY DATE(fecha) ASC`, params);
+    const dias = diarioRows.map(r => ({ dia: r.dia, total: Number(r.total) }));
+
+    const count_days = dias.length;
+    const promedio_diario = count_days > 0 ? dias.reduce((s, r) => s + r.total, 0) / count_days : 0;
+    const montos_sorted = dias.map(d => d.total).sort((a,b) => a-b);
+    const max_diario = montos_sorted.length ? montos_sorted[montos_sorted.length-1] : 0;
+    const min_diario = montos_sorted.length ? montos_sorted[0] : 0;
+    // mediana
+    let mediana_diaria = 0;
+    if (montos_sorted.length) {
+      const mid = Math.floor(montos_sorted.length / 2);
+      mediana_diaria = montos_sorted.length % 2 === 0 ? (montos_sorted[mid-1] + montos_sorted[mid]) / 2 : montos_sorted[mid];
+    }
+
+    // variación intermensual: comparar mes más reciente con mes anterior
+    const [mesRows] = await db.query(`SELECT DATE_FORMAT(fecha,'%Y-%m') AS mes, COALESCE(SUM(monto),0) AS total FROM TESORERIA ${where} GROUP BY mes ORDER BY mes DESC LIMIT 2`, params);
+    let variacion_intermensual_pct = null;
+    if (mesRows.length === 2) {
+      const [cur, prev] = [Number(monthRowsToNumber(mesRows[0].total)), Number(monthRowsToNumber(mesRows[1].total))];
+      // avoid division by zero
+      variacion_intermensual_pct = prev !== 0 ? ((cur - prev) / prev) * 100 : null;
+    }
+
+    return res.json({ success: true, data: { gasto_total, promedio_diario, max_diario, min_diario, mediana_diaria, variacion_intermensual_pct, count_days }, count: 1 });
+  } catch (error) {
+    console.error('❌ Error getTesoreriaSummary:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener resumen de tesorería', error: error.message });
+  }
+};
+
+// helper para robustez en parseo numeric (guard)
+function monthRowsToNumber(v) {
+  return v === null || v === undefined ? 0 : Number(v);
+}
+
+const getTesoreriaDaily = async (req, res) => {
+  try {
+    const { fechaInicio, fechaFin } = req.query;
+    const params = [];
+    let where = 'WHERE deleted_at IS NULL';
+    if (fechaInicio && fechaFin) {
+      where += ' AND fecha BETWEEN ? AND ?';
+      params.push(fechaInicio, fechaFin);
+    } else if (fechaInicio) {
+      where += ' AND fecha >= ?';
+      params.push(fechaInicio);
+    } else if (fechaFin) {
+      where += ' AND fecha <= ?';
+      params.push(fechaFin);
+    }
+
+    const [rows] = await db.query(`SELECT DATE(fecha) AS dia, COUNT(*) AS cantidad_registros, COALESCE(SUM(monto),0) AS monto_total, COALESCE(ROUND(AVG(monto),2),0) AS monto_promedio FROM TESORERIA ${where} GROUP BY DATE(fecha) ORDER BY DATE(fecha) ASC`, params);
+    return res.json({ success: true, data: processResponseData(rows), count: rows.length });
+  } catch (error) {
+    console.error('❌ Error getTesoreriaDaily:', error);
+    res.status(500).json({ success: false, message: 'Error al obtener datos diarios de tesorería', error: error.message });
+  }
+};
+
 // Procedimiento almacenado para resumen de rutas
 const getResumenRutasProcedimiento = async (req, res) => {
   try {
@@ -1035,6 +1117,8 @@ module.exports = {
   getTesoreriaPorVehiculo,
   getTesoreriaPorCentro,
   getTesoreriaTendenciaMensual,
+  getTesoreriaSummary,
+  getTesoreriaDaily,
   // detalle por viaje
   getResumenRutasPorViaje,
   triggerFullResumLoad,
