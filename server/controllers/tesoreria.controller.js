@@ -1,27 +1,15 @@
 const db = require("../config/db");
 const { logAudit } = require("../lib/audit");
-
-// Utilidad: Hoy en formato YYYY-MM-DD para zona horaria de Lima (Perú)
-function todayPeruYMD() {
-  try {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'America/Lima',
-      year: 'numeric', month: '2-digit', day: '2-digit'
-    }).format(new Date());
-  } catch (e) {
-    // Fallback: ISO (UTC) — puede desfasar 1 día en algunos horarios
-    return new Date().toISOString().split('T')[0];
-  }
-}
+const { getTodayLimaYMD, getLimaTodaySQLClause, getLimaNowSQLClause, isValidYMDDate } = require("../lib/date-lima");
 
 // Helper: construir cláusula WHERE según scope y filtros
 function buildWhereAndParams(query) {
   const { scope = "active", q, fecha, fecha_inicio, fecha_fin, categoria, reembolso, turno, distrito, encargado } = query;
   let where = "WHERE 1=1";
   const params = [];
-  // Normalizar 'hoy' a hora de Lima (Perú) independiente del TZ del servidor
-  // Usamos UTC_TIMESTAMP() y convertimos a -05:00, luego tomamos solo la fecha
-  const PERU_TODAY_SQL = "DATE(CONVERT_TZ(UTC_TIMESTAMP(), '+00:00', '-05:00'))";
+  
+  // Usar la nueva utilidad para obtener la fecha de Lima
+  const PERU_TODAY_SQL = getLimaTodaySQLClause();
 
   // Debug: log de parámetros recibidos
   console.log("🔍 buildWhereAndParams - query recibida:", JSON.stringify(query, null, 2));
@@ -36,10 +24,22 @@ function buildWhereAndParams(query) {
   }
   if (hasDate) {
     if (fecha && String(fecha).trim()) {
-      where += " AND t.fecha = ?"; params.push(String(fecha).trim());
+      const fechaStr = String(fecha).trim();
+      if (isValidYMDDate(fechaStr)) {
+        where += " AND t.fecha = ?"; 
+        params.push(fechaStr);
+      } else {
+        console.warn("⚠️ Fecha inválida recibida:", fechaStr);
+      }
     } else {
-      if (fecha_inicio) { where += " AND t.fecha >= ?"; params.push(fecha_inicio); }
-      if (fecha_fin) { where += " AND t.fecha <= ?"; params.push(fecha_fin); }
+      if (fecha_inicio && isValidYMDDate(fecha_inicio)) { 
+        where += " AND t.fecha >= ?"; 
+        params.push(fecha_inicio); 
+      }
+      if (fecha_fin && isValidYMDDate(fecha_fin)) { 
+        where += " AND t.fecha <= ?"; 
+        params.push(fecha_fin); 
+      }
     }
   } else {
     // Sin filtros de fecha explícitos: aplicar comportamiento por scope (hoy/histórico)
@@ -248,7 +248,7 @@ const createTesoreria = async (req, res) => {
 
       // Restar monto del saldo
       const nuevoSaldo = (saldoActual - parseFloat(monto));
-      await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+      await connection.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
 
       await connection.commit();
 
@@ -347,7 +347,7 @@ const updateTesoreria = async (req, res) => {
 
             // Como ya prevenimos incrementos, aquí delta será negativo y por tanto nuevoSaldo = saldoActual - delta => suma
             const nuevoSaldo = saldoActual - delta;
-            await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+            await connection.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
           }
         }
 
@@ -473,7 +473,7 @@ const updateSaldo = async (req, res) => {
     }
 
     // delta < 0: devolver la diferencia al saldo (sumarlo)
-    await db.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [afterSaldo, req.usuario ? req.usuario.id_usuario : null, id]);
+    await db.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [afterSaldo, req.usuario ? req.usuario.id_usuario : null, id]);
     try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: id, detalle: { motivo, before: { saldo: beforeSaldo }, after: { saldo: afterSaldo }, delta } }); } catch(e) {}
     res.json({ success: true, data: { id, saldo: afterSaldo }, message: 'Saldo actualizado' });
   } catch (error) {
@@ -486,7 +486,7 @@ const updateSaldo = async (req, res) => {
 // Obtener historial del día: movimientos, ajustes y auditoría relacionada
 const getSaldoHistorial = async (req, res) => {
   try {
-    const fecha = req.query.fecha || todayPeruYMD();
+    const fecha = req.query.fecha || getTodayLimaYMD();
     let movimientos = [];
     let ajustes = [];
     let audits = [];
@@ -796,7 +796,7 @@ const rolloverSaldo = async (req, res) => {
         return res.json({ success: true, message: 'Rollover completado: saldo inicializado a 0' });
       }
       const saldoActual = parseFloat(rows[0].saldo || 0);
-  const fechaHoy = todayPeruYMD();
+  const fechaHoy = getTodayLimaYMD();
   // Insertar snapshot en history
   await connection.query('INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final) VALUES (?, ?)', [fechaHoy, saldoActual]);
   // Política actual: mantener el sobrante para el día siguiente (no resetear el saldo)
@@ -832,7 +832,7 @@ const performRollover = async (req) => {
     } else {
       saldoActual = parseFloat(rows[0].saldo || 0);
     }
-    const fechaHoy = todayPeruYMD();
+    const fechaHoy = getTodayLimaYMD();
     // Usar upsert (ON DUPLICATE KEY UPDATE) — requiere índice único en la columna `fecha` de la tabla history
     await connection.query(
       `INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final)
@@ -951,12 +951,12 @@ const createAjuste = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Saldo insuficiente para aplicar el ajuste' });
       }
 
-  const f = fecha && String(fecha).trim() ? fecha : todayPeruYMD();
+  const f = fecha && String(fecha).trim() ? fecha : getTodayLimaYMD();
       const [aj] = await connection.query(
         'INSERT INTO TESORERIA_AJUSTE (fecha, tipo, monto, motivo, created_by) VALUES (?, ?, ?, ?, ?)',
         [f, tipo, amount, String(motivo).trim(), req.usuario ? req.usuario.id_usuario : null]
       );
-      await connection.query('UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+      await connection.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
       await connection.commit();
 
       try { await logAudit({ req, evento: 'AJUSTE', entidad: 'TESORERIA_SALDO', entityId: saldoId, detalle: { ajuste_id: aj.insertId, fecha: f, tipo, monto: amount, motivo, saldo_before: saldoActual, saldo_after: nuevoSaldo } }); } catch(e) {}
@@ -1003,7 +1003,7 @@ const listAjustes = async (req, res) => {
 
 const resumenDia = async (req, res) => {
   try {
-  const fecha = (req.query?.fecha && String(req.query.fecha).trim()) || todayPeruYMD();
+  const fecha = (req.query?.fecha && String(req.query.fecha).trim()) || getTodayLimaYMD();
     await ensureAjusteTables();
     // Opening: saldo_final del día anterior (si existe)
     const [openRows] = await db.query('SELECT saldo_final FROM TESORERIA_SALDO_HISTORY WHERE fecha = DATE_SUB(?, INTERVAL 1 DAY) LIMIT 1', [fecha]);

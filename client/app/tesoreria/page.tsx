@@ -37,6 +37,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { getTodayLimaYMD, formatDateForPeru } from "@/lib/utils/date-lima";
 
 export default function TesoreriaPage() {
   const { tesoreria, loading, createTesoreria, searchTesoreria } = useTesoreria();
@@ -50,20 +51,17 @@ export default function TesoreriaPage() {
   const [activeTab, setActiveTab] = useState<"active" | "history" | "trash">("active");
   const [openFecha, setOpenFecha] = useState(false);
 
-  // Fecha a YYYY-MM-DD sin ajustes de zona: usar componentes del Date seleccionado
+  // Convertir Date a YYYY-MM-DD usando la nueva utilidad de Lima
   const toYMD = (d: Date) => {
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
   };
+  
+  // Usar la nueva utilidad para formatear fechas para Perú
   const formatDatePeru = (value?: string) => {
-    if (!value) return "";
-    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      const [y, m, d] = value.split("-");
-      return `${d}/${m}/${y}`;
-    }
-    try { return format(new Date(value), "dd/MM/yyyy", { locale: es }); } catch { return value; }
+    return formatDateForPeru(value);
   };
 
   // Conteo simple para tarjeta fija

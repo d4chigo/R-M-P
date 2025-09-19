@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import Cookies from "js-cookie";
 import { Wallet, Edit, Plus, Eye } from "lucide-react";
+import { LIMA_TIMEZONE } from "@/lib/utils/date-lima";
 
 export function SaldoCard() {
   const { isAdmin } = useAuth();
@@ -208,7 +209,7 @@ export function SaldoCard() {
             <div className="mt-2 text-xs text-muted-foreground space-y-1">
               {updatedAt && (
                 <div>
-                  Última actualización: {new Date(updatedAt).toLocaleString("es-PE")}
+                  Última actualización: {new Date(updatedAt).toLocaleString("es-PE", { timeZone: LIMA_TIMEZONE })}
                 </div>
               )}
               {updatedBy && <div>Actualizado por: {updatedBy}</div>}
@@ -299,7 +300,7 @@ export function SaldoCard() {
                                 <div className="font-medium">{m.nombre} <span className="text-sm text-muted-foreground">— {m.categoria}</span></div>
                                 {m.descripcion && <div className="text-sm text-muted-foreground">{m.descripcion}</div>}
                                 <div className="text-xs text-muted-foreground mt-1">
-                                  Creado: {new Date(m.created_at ?? m.createdAt ?? m.fecha).toLocaleString("es-PE")}
+                                  Creado: {new Date(m.created_at ?? m.createdAt ?? m.fecha).toLocaleString("es-PE", { timeZone: LIMA_TIMEZONE })}
                                   {m.usuario_nombre && <span className="ml-2">— Por: {m.usuario_nombre}</span>}
                                 </div>
                               </div>
@@ -327,7 +328,7 @@ export function SaldoCard() {
                                 </div>
                                 <div className="text-xs text-muted-foreground mt-1">
                                   {a.usuario_nombre && <span>Por: {a.usuario_nombre} — </span>}
-                                  {new Date(a.created_at ?? a.createdAt ?? a.fecha).toLocaleString("es-PE")}
+                                  {new Date(a.created_at ?? a.createdAt ?? a.fecha).toLocaleString("es-PE", { timeZone: LIMA_TIMEZONE })}
                                 </div>
                               </div>
                               <div className="whitespace-nowrap font-semibold text-emerald-700">
@@ -347,7 +348,7 @@ export function SaldoCard() {
                               <li key={ev.id} className="p-1">
                                 <div className="flex items-center justify-between">
                                   <div>
-                                    <div>{new Date(ev.fecha_evento ?? ev.created_at ?? ev.fecha).toLocaleString("es-PE")}</div>
+                                    <div>{new Date(ev.fecha_evento ?? ev.created_at ?? ev.fecha).toLocaleString("es-PE", { timeZone: LIMA_TIMEZONE })}</div>
                                     <div className="text-muted-foreground">{ev.evento} — {ev.entidad} — {ev.entity_id}</div>
                                     {ev.usuario_nombre && <div className="text-muted-foreground">Por: {ev.usuario_nombre}</div>}
                                   </div>
