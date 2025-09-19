@@ -57,8 +57,15 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ViajesPage() {
-  const { viajes, createViaje, updateViaje, deleteViaje, isLoading, error } =
-    useViajes();
+  const {
+    viajes,
+    createViaje,
+    updateViaje,
+    deleteViaje,
+    getEstadisticasViajes,
+    isLoading,
+    error,
+  } = useViajes();
   const { fetchVehiculos } = useVehiculos();
   const { fetchRepartidores } = useRepartidores();
   const { toast } = useToast();
@@ -230,6 +237,9 @@ export default function ViajesPage() {
     setPagina(1);
   };
 
+  // Obtener estadísticas calculadas correctamente
+  const estadisticas = getEstadisticasViajes();
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
@@ -352,7 +362,7 @@ export default function ViajesPage() {
                 <CheckCircle className="h-8 w-8 text-green-600" />
                 <div>
                   <p className="text-2xl font-bold">
-                    {viajes.filter((v) => v.estado === "completado").length}
+                    {estadisticas.completados}
                   </p>
                   <p className="text-sm text-muted-foreground">Completados</p>
                 </div>
@@ -366,9 +376,9 @@ export default function ViajesPage() {
                 <AlertTriangle className="h-8 w-8 text-yellow-600" />
                 <div>
                   <p className="text-2xl font-bold">
-                    {viajes.filter((v) => v.estado === "pendiente").length}
+                    {estadisticas.programados + estadisticas.enCurso}
                   </p>
-                  <p className="text-sm text-muted-foreground">Pendientes</p>
+                  <p className="text-sm text-muted-foreground">Programados + En Curso</p>
                 </div>
               </div>
             </CardContent>
@@ -377,12 +387,12 @@ export default function ViajesPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center space-x-2">
-                <X className="h-8 w-8 text-red-600" />
+                <Activity className="h-8 w-8 text-blue-600" />
                 <div>
                   <p className="text-2xl font-bold">
-                    {viajes.filter((v) => v.estado === "cancelado").length}
+                    {estadisticas.enCurso}
                   </p>
-                  <p className="text-sm text-muted-foreground">Cancelados</p>
+                  <p className="text-sm text-muted-foreground">En Curso (Hoy)</p>
                 </div>
               </div>
             </CardContent>
