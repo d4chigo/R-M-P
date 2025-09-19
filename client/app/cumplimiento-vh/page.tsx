@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { getTodayString } from "@/lib/utils/date";
-
-export default function CumplimientoVhPage() {
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -52,7 +50,7 @@ interface CumplimientoVH {
   fuera_vh: boolean;
 }
 
-export default function CumplimientoVHPage() {
+export default function CumplimientoVhPage() {
   const [filtroFecha, setFiltroFecha] = useState("");
   const [filtroPlaca, setFiltroPlaca] = useState("");
   const { theme, setTheme } = useTheme();
@@ -86,6 +84,7 @@ export default function CumplimientoVHPage() {
 
   const exportarExcel = () => {
     // Reuse existing CSV export in the other report or keep simple
+    // Use a custom toast or dialog instead of alert()
     alert("Exportando a Excel... (usa Exportar CSV en la vista de visitas si necesita un CSV real)");
   };
 
