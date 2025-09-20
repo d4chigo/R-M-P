@@ -19,6 +19,11 @@ interface ResumenRuta {
   "Entrega (CF)": number;
   "Recojo (CF)": number;
   "Peso (Kg)": number;
+  "Nro Conductores": number;
+  "Nro Liquidadores": number;
+  "Nro Auxiliares": number;
+  "Nro Trip Adicional": number;
+  "Tripulacion Especial": string;
 }
 
 interface MetricaDiaria {

@@ -304,7 +304,7 @@ export function ViajeForm({
   const centrosActivos = centros.filter((c) => c.estado === 'activo');
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 w-full" style={{ width: '100%' }}>
       {/* Alertas de advertencia */}
       {warnings.length > 0 && (
         <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">

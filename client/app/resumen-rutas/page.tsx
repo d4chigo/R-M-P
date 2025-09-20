@@ -28,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { useReportes } from "@/hooks/use-reportes";
 import { useToast } from "@/hooks/use-toast";
 import { getTodayLimaYMD } from "@/lib/utils/date-lima";
+import { exportToExcel } from "@/lib/utils/excel";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +56,11 @@ interface ResumenRuta {
   "Entrega (CF)": number;
   "Recojo (CF)": number;
   "Peso (Kg)": number;
+  "Nro Conductores": number;
+  "Nro Liquidadores": number;
+  "Nro Auxiliares": number;
+  "Nro Trip Adicional": number;
+  "Tripulacion Especial": string;
 }
 
 export default function ResumenRutasPage() {
@@ -260,6 +266,11 @@ export default function ResumenRutasPage() {
       "Entrega (CF)",
       "Recojo (CF)",
       "Peso (Kg)",
+      "Nro Conductores",
+      "Nro Liquidadores",
+      "Nro Auxiliares",
+      "Nro Trip Adicional",
+      "Tripulacion Especial",
     ];
 
     const csvContent = [
@@ -281,6 +292,11 @@ export default function ResumenRutasPage() {
           row["Entrega (CF)"],
           row["Recojo (CF)"],
           row["Peso (Kg)"],
+          row["Nro Conductores"],
+          row["Nro Liquidadores"],
+          row["Nro Auxiliares"],
+          row["Nro Trip Adicional"],
+          `"${row["Tripulacion Especial"] || ""}"`,
         ].join(","),
       ),
     ].join("\n");
@@ -290,6 +306,44 @@ export default function ResumenRutasPage() {
     link.href = URL.createObjectURL(blob);
     link.download = `resumen_rutas_${filtros.fecha || "rango"}.csv`;
     link.click();
+  };
+
+  const exportarExcelFromTable = () => {
+    if (!resumenData.length) return;
+
+    const headers = [
+      { key: "Fecha", header: "Fecha" },
+      { key: "Placa", header: "Placa" },
+      { key: "Vehiculo", header: "Vehículo" },
+      { key: "Repartidor", header: "Repartidor" },
+      { key: "Nro de viajes", header: "Nro de viajes" },
+      { key: "Zona", header: "Zona" },
+      { key: "Distancia", header: "Distancia" },
+      { key: "Salida del CD", header: "Salida CD" },
+      { key: "Llegada al CD", header: "Llegada CD" },
+      { key: "Tiempo", header: "Tiempo" },
+      { key: "Nro de clientes", header: "Nro de clientes" },
+      { key: "Nro de pedidos", header: "Nro de pedidos" },
+      { key: "Entrega (CF)", header: "Entrega (CF)" },
+      { key: "Recojo (CF)", header: "Recojo (CF)" },
+      { key: "Peso (Kg)", header: "Peso (Kg)" },
+      { key: "Nro Conductores", header: "Nro Conductores" },
+      { key: "Nro Liquidadores", header: "Nro Liquidadores" },
+      { key: "Nro Auxiliares", header: "Nro Auxiliares" },
+      { key: "Nro Trip Adicional", header: "Nro Trip Adicional" },
+      { key: "Tripulacion Especial", header: "Tripulacion Especial" },
+    ];
+
+    const today = new Date().toLocaleDateString("es-PE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
+    exportToExcel(resumenData, headers.map(h => h.key), {
+      filename: `resumen_rutas_${filtros.fecha || "rango"}_${today}`,
+      sheetName: "Resumen de Rutas",
+    });
   };
 
   const formatTime = (timeString: string) => {
@@ -593,13 +647,23 @@ export default function ResumenRutasPage() {
             </DialogContent>
           </Dialog>
 
-          <Button
-            onClick={exportarExcel}
-            disabled={loading || resumenData.length === 0}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Exportar Excel
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={exportarExcel}
+              disabled={loading || resumenData.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Exportar CSV
+            </Button>
+            <Button
+              onClick={exportarExcelFromTable}
+              disabled={loading || resumenData.length === 0}
+              variant="outline"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Exportar Excel
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -869,25 +933,25 @@ export default function ResumenRutasPage() {
                 <p className="text-2xl font-bold text-blue-600">
                   {metricas.Total_Vehiculos}
                 </p>
-                <p className="text-sm text-muted-foreground">Vehículos</p>
+                <p className="text-sm text-muted-foreground">Total de Vehículos</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-green-600">
                   {metricas.Total_Viajes}
                 </p>
-                <p className="text-sm text-muted-foreground">Viajes</p>
+                <p className="text-sm text-muted-foreground">Total de Viajes</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-purple-600">
                   {metricas.Total_Clientes}
                 </p>
-                <p className="text-sm text-muted-foreground">Clientes</p>
+                <p className="text-sm text-muted-foreground">Total de Clientes</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-orange-600">
                   {formatNumber(metricas.Total_Entrega_CF)}
                 </p>
-                <p className="text-sm text-muted-foreground">Entrega CF</p>
+                <p className="text-sm text-muted-foreground">Total de Entrega CF</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-red-600">
