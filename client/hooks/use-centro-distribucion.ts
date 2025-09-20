@@ -36,7 +36,6 @@ export const useCentroDistribucion = () => {
   // Función simplificada para obtener centros
   const fetchCentros = useCallback(async () => {
     if (isLoadingRef.current) {
-      console.log("🔄 useCentroDistribucion: Ya hay una carga en progreso, saltando...");
       return;
     }
 
@@ -52,8 +51,6 @@ export const useCentroDistribucion = () => {
         setError("No se ha iniciado sesión");
         return;
       }
-
-      console.log("🔑 useCentroDistribucion: Token encontrado, haciendo request...");
 
       const response = await fetch(`${API_BASE_URL}/centros-distribucion`, {
         method: "GET",
@@ -72,11 +69,9 @@ export const useCentroDistribucion = () => {
       if (data.success && data.data) {
         setCentros(data.data);
       } else {
-        console.error("❌ useCentroDistribucion: Error en respuesta:", data.message);
         setError(data.message || "Error al cargar centros");
       }
     } catch (err) {
-      console.error("❌ useCentroDistribucion: Error de conexión:", err);
       setError("Error de conexión al cargar centros");
     } finally {
       isLoadingRef.current = false;

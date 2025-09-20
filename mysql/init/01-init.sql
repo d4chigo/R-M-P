@@ -247,38 +247,43 @@ ALTER TABLE VIAJE ADD UNIQUE KEY uq_viaje_por_dia_vehiculo (fecha, id_vehiculo, 
 DROP TABLE IF EXISTS `resumen_rutas`;
 
 CREATE OR REPLACE VIEW v_resumen_rutas AS
+WITH viaje_latest AS (
+    SELECT 
+        fecha,
+        id_vehiculo,
+        id_repartidor,
+        MAX(nro_viaje) as max_nro_viaje
+    FROM VIAJE
+    GROUP BY fecha, id_vehiculo, id_repartidor
+)
 SELECT
     v.fecha AS `Fecha`,
     ve.placa AS `Placa`,
     CONCAT(ve.marca, ' ', ve.modelo) AS `Vehiculo`,
     CONCAT(r.codigo, ' - ', r.nombre) AS `Repartidor`,
-    COUNT(DISTINCT v.id_viaje) AS `Nro de viajes`,
-    COALESCE(SUM(v.territorios_visitados), 0) AS `Territorios`,
-    COALESCE(SUM(v.distancia_km), 0) AS `Distancia`,
-    MIN(v.salida_cd) AS `Salida del CD`,
-    MAX(v.llegada_cd) AS `Llegada al CD`,
+    vl.max_nro_viaje AS `Nro de viajes`,
+    v.territorios_visitados AS `Territorios`,
+    v.distancia_km AS `Distancia`,
+    v.salida_cd AS `Salida del CD`,
+    v.llegada_cd AS `Llegada al CD`,
     CASE
-        WHEN MIN(v.salida_cd) IS NOT NULL AND MAX(v.llegada_cd) IS NOT NULL
-        THEN TIMEDIFF(MAX(v.llegada_cd), MIN(v.salida_cd))
+        WHEN v.salida_cd IS NOT NULL AND v.llegada_cd IS NOT NULL
+        THEN TIMEDIFF(v.llegada_cd, v.salida_cd)
         ELSE NULL
     END AS `Tiempo`,
-    COALESCE(SUM(v.nro_clientes), 0) AS `Nro de clientes`,
-    COALESCE(SUM(v.nro_pedidos), 0) AS `Nro de pedidos`,
-    COALESCE(SUM(v.entrega_cf), 0) AS `Entrega (CF)`,
-    COALESCE(SUM(v.recojo_cf), 0) AS `Recojo (CF)`,
-    COALESCE(SUM(v.peso_kg), 0) AS `Peso (Kg)`
+    v.nro_clientes AS `Nro de clientes`,
+    v.nro_pedidos AS `Nro de pedidos`,
+    v.entrega_cf AS `Entrega (CF)`,
+    v.recojo_cf AS `Recojo (CF)`,
+    v.peso_kg AS `Peso (Kg)`
 FROM VIAJE v
+JOIN viaje_latest vl ON 
+    v.fecha = vl.fecha AND 
+    v.id_vehiculo = vl.id_vehiculo AND 
+    v.id_repartidor = vl.id_repartidor AND
+    v.nro_viaje = vl.max_nro_viaje
 JOIN VEHICULO ve ON v.id_vehiculo = ve.id_vehiculo
-JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor
-GROUP BY
-    v.fecha,
-    ve.id_vehiculo,
-    ve.placa,
-    ve.marca,
-    ve.modelo,
-    r.id_repartidor,
-    r.codigo,
-    r.nombre;
+JOIN REPARTIDOR r ON v.id_repartidor = r.id_repartidor;
 
 
 -- ==============================
