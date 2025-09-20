@@ -26,7 +26,7 @@ const PORT = process.env.PORT || 4000;
 // Middleware
 app.use(
   cors({
-    origin: ["http://127.0.0.1:3000", "http://localhost:3000"],
+    origin: ["http://127.0.0.1:3000", "http://localhost:3000", "https://rmdistribuciones.romac-logistic.shop"],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Clear-Id-Centro"],
