@@ -13,6 +13,8 @@ import {
   TablePagination,
   usePagination,
 } from "@/components/ui/table-pagination";
+import { exportToExcel } from "@/lib/utils/excel";
+import { Button } from "@/components/ui/button";
 
 interface ResumenRuta {
   Fecha: string;
@@ -55,6 +57,40 @@ export function ResumenRutasTable({
     handlePageChange,
     handlePageSizeChange,
   } = usePagination(resumenData, initialPageSize);
+
+  const handleExportToExcel = () => {
+    if (!resumenData.length) return;
+
+    const headers = [
+      { key: "Fecha", header: "Fecha" },
+      { key: "Placa", header: "Placa" },
+      { key: "Vehiculo", header: "Vehículo" },
+      { key: "Repartidor", header: "Repartidor" },
+      { key: "Estado Repartidor", header: "Estado Repartidor" },
+      { key: "Nro de viajes", header: "Nro de viajes" },
+      { key: "Zona", header: "Zona" },
+      { key: "Distancia", header: "Distancia" },
+      { key: "Salida del CD", header: "Salida CD" },
+      { key: "Llegada al CD", header: "Llegada CD" },
+      { key: "Tiempo", header: "Tiempo" },
+      { key: "Nro de clientes", header: "Nro de clientes" },
+      { key: "Nro de pedidos", header: "Nro de pedidos" },
+      { key: "Entrega (CF)", header: "Entrega (CF)" },
+      { key: "Recojo (CF)", header: "Recojo (CF)" },
+      { key: "Peso (Kg)", header: "Peso (Kg)" },
+    ];
+
+    const today = new Date().toLocaleDateString("es-PE", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+
+    exportToExcel(resumenData, headers.map(h => h.key), {
+      filename: `resumen-rutas-${today}`,
+      sheetName: "Resumen de Rutas",
+    });
+  };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
@@ -125,6 +161,16 @@ export function ResumenRutasTable({
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end mb-4">
+        <Button
+          variant="default"
+          size="sm"
+          onClick={handleExportToExcel}
+          disabled={!resumenData.length || loading || isLoadingData}
+        >
+          Exportar a Excel
+        </Button>
+      </div>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -153,7 +199,7 @@ export function ResumenRutasTable({
                   {formatDate(row.Fecha)}
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="font-mono">
+                  <Badge className="font-mono">
                     {row.Placa}
                   </Badge>
                 </TableCell>
@@ -167,11 +213,10 @@ export function ResumenRutasTable({
                   </div>
                 </TableCell>
                 <TableCell className="text-center font-medium">
-                  <Badge variant="secondary">{row["Nro de viajes"]}</Badge>
+                  <Badge>{row["Nro de viajes"]}</Badge>
                 </TableCell>
                 <TableCell className="text-center">
-                  <Badge
-                    variant={row.Zona > 0 ? "default" : "secondary"}
+                  <Badge 
                     className={row.Zona > 0 ? "bg-blue-100 text-blue-800" : ""}
                   >
                     {row.Zona || 0}

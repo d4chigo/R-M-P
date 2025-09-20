@@ -529,14 +529,14 @@ const getMetricasDiarias = async (req, res) => {
         SUM(\`Entrega (CF)\`) as Total_Entrega_CF,
         SUM(\`Recojo (CF)\`) as Total_Recojo_CF,
         SUM(\`Peso (Kg)\`) as Total_Peso_Kg,
-        0 as Total_Clientes,
+        SUM(\`Nro de clientes\`) as Total_Clientes,
         ROUND(AVG(\`Nro de viajes\`), 1) as Viajes_Promedio,
         ROUND(AVG(Distancia), 1) as Km_Promedio,
         ROUND(AVG(\`Nro de pedidos\`), 1) as Pedidos_Promedio,
-        0 as Clientes_Promedio,
+        ROUND(AVG(\`Nro de clientes\`), 1) as Clientes_Promedio,
         ROUND(SUM(Distancia) / SUM(\`Nro de viajes\`), 1) as Km_por_Viaje,
         ROUND(SUM(\`Nro de pedidos\`) / SUM(\`Nro de viajes\`), 1) as Pedidos_por_Viaje,
-        0 as Clientes_por_Viaje
+        ROUND(SUM(\`Nro de clientes\`) / SUM(\`Nro de viajes\`), 1) as Clientes_por_Viaje
       FROM v_resumen_rutas
       WHERE Fecha = ?
       GROUP BY Fecha
@@ -614,14 +614,14 @@ const getPerformanceVehiculos = async (req, res) => {
         SUM(\`Entrega (CF)\`) as Total_Entrega_CF,
         SUM(\`Recojo (CF)\`) as Total_Recojo_CF,
         SUM(\`Peso (Kg)\`) as Total_Peso_Kg,
-        0 as Total_Clientes,
+        SUM(\`Nro de clientes\`) as Total_Clientes,
         ROUND(AVG(\`Nro de viajes\`), 1) as Viajes_Promedio,
         ROUND(AVG(Distancia), 1) as Km_Promedio,
         ROUND(AVG(\`Nro de pedidos\`), 1) as Pedidos_Promedio,
-        0 as Clientes_Promedio,
+        ROUND(AVG(\`Nro de clientes\`), 1) as Clientes_Promedio,
         ROUND(SUM(Distancia) / SUM(\`Nro de viajes\`), 1) as Km_por_Viaje,
         ROUND(SUM(\`Nro de pedidos\`) / SUM(\`Nro de viajes\`), 1) as Pedidos_por_Viaje,
-        0 as Clientes_por_Viaje
+        ROUND(SUM(\`Nro de clientes\`) / SUM(\`Nro de viajes\`), 1) as Clientes_por_Viaje
       FROM v_resumen_rutas
       WHERE Fecha >= DATE_SUB(CURRENT_DATE, INTERVAL ? DAY)
       GROUP BY Placa, Vehiculo
@@ -664,14 +664,14 @@ const getPerformanceRepartidores = async (req, res) => {
         SUM(\`Entrega (CF)\`) as Total_Entrega_CF,
         SUM(\`Recojo (CF)\`) as Total_Recojo_CF,
         SUM(\`Peso (Kg)\`) as Total_Peso_Kg,
-        0 as Total_Clientes,
+        SUM(\`Nro de clientes\`) as Total_Clientes,
         ROUND(AVG(\`Nro de viajes\`), 1) as Viajes_Promedio,
         ROUND(AVG(Distancia), 1) as Km_Promedio,
         ROUND(AVG(\`Nro de pedidos\`), 1) as Pedidos_Promedio,
-        0 as Clientes_Promedio,
+        ROUND(AVG(\`Nro de clientes\`), 1) as Clientes_Promedio,
         ROUND(SUM(Distancia) / SUM(\`Nro de viajes\`), 1) as Km_por_Viaje,
         ROUND(SUM(\`Nro de pedidos\`) / SUM(\`Nro de viajes\`), 1) as Pedidos_por_Viaje,
-        0 as Clientes_por_Viaje
+        ROUND(SUM(\`Nro de clientes\`) / SUM(\`Nro de viajes\`), 1) as Clientes_por_Viaje
       FROM v_resumen_rutas
       WHERE Fecha >= DATE_SUB(CURRENT_DATE, INTERVAL ? DAY)
       GROUP BY Repartidor
@@ -713,7 +713,7 @@ const getMetricasCumplimiento = async (req, res) => {
           SUM(\`Entrega (CF)\`) as total_entrega_cf,
           SUM(\`Recojo (CF)\`) as total_recojo_cf,
           SUM(\`Peso (Kg)\`) as total_peso_kg,
-          0 as total_clientes,
+          SUM(\`Nro de clientes\`) as total_clientes,
           ROUND(AVG(\`Nro de viajes\`), 1) as viajes_promedio,
           ROUND(AVG(Distancia), 1) as distancia_promedio,
           ROUND(AVG(\`Nro de pedidos\`), 1) as pedidos_promedio

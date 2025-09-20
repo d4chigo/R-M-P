@@ -212,7 +212,6 @@ export function useReportes(): UseReportesReturn {
 
       // Debug: log request URL and headers (token omitted)
       try {
-        console.log('[useReportes] GET', url);
       } catch {}
 
       const response = await fetch(url, {
@@ -226,7 +225,6 @@ export function useReportes(): UseReportesReturn {
       const result = await response.json();
       // Debug: log server result summary
       try {
-        console.log('[useReportes] response', { url, ok: response.ok, status: response.status, success: result?.success, count: result?.count });
       } catch {}
       if (result.success) {
         if (successMessage) {

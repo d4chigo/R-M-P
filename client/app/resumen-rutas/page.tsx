@@ -90,7 +90,6 @@ export default function ResumenRutasPage() {
       if (filtros.tipoReporte === "dia" && filtros.fecha) {
         // Cargar resumen de rutas del día seleccionado
         const resumen = await getResumenRutas(filtros.fecha);
-  console.log('[ResumenRutasPage] resumen raw', resumen);
         setResumenData(resumen);
 
         // Cargar métricas diarias
