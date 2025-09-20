@@ -379,7 +379,12 @@ const getResumenRutas = async (req, res) => {
         \`Nro de pedidos\`,
         \`Entrega (CF)\`,
         \`Recojo (CF)\`,
-        \`Peso (Kg)\`
+        \`Peso (Kg)\`,
+        \`Nro Conductores\`,
+        \`Nro Liquidadores\`,
+        \`Nro Auxiliares\`,
+        \`Nro Trip Adicional\`,
+        \`Tripulacion Especial\`
       FROM v_resumen_rutas
     `;
 
@@ -469,7 +474,12 @@ const getResumenRutasRango = async (req, res) => {
         \`Nro de pedidos\`,
         \`Entrega (CF)\`,
         \`Recojo (CF)\`,
-        \`Peso (Kg)\`
+        \`Peso (Kg)\`,
+        \`Nro Conductores\`,
+        \`Nro Liquidadores\`,
+        \`Nro Auxiliares\`,
+        \`Nro Trip Adicional\`,
+        \`Tripulacion Especial\`
       FROM v_resumen_rutas
       WHERE Fecha BETWEEN ? AND ?
       ORDER BY Fecha DESC, Placa ASC

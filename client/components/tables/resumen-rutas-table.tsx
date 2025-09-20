@@ -13,15 +13,12 @@ import {
   TablePagination,
   usePagination,
 } from "@/components/ui/table-pagination";
-import { exportToExcel } from "@/lib/utils/excel";
-import { Button } from "@/components/ui/button";
 
 interface ResumenRuta {
   Fecha: string;
   Placa: string;
   Vehiculo: string;
   Repartidor: string;
-  "Estado Repartidor": string;
   "Nro de viajes": number;
   Zona: number;
   Distancia: number;
@@ -33,6 +30,11 @@ interface ResumenRuta {
   "Entrega (CF)": number;
   "Recojo (CF)": number;
   "Peso (Kg)": number;
+  "Nro Conductores": number;
+  "Nro Liquidadores": number;
+  "Nro Auxiliares": number;
+  "Nro Trip Adicional": number;
+  "Tripulacion Especial": string;
 }
 
 interface ResumenRutasTableProps {
@@ -58,39 +60,6 @@ export function ResumenRutasTable({
     handlePageSizeChange,
   } = usePagination(resumenData, initialPageSize);
 
-  const handleExportToExcel = () => {
-    if (!resumenData.length) return;
-
-    const headers = [
-      { key: "Fecha", header: "Fecha" },
-      { key: "Placa", header: "Placa" },
-      { key: "Vehiculo", header: "Vehículo" },
-      { key: "Repartidor", header: "Repartidor" },
-      { key: "Estado Repartidor", header: "Estado Repartidor" },
-      { key: "Nro de viajes", header: "Nro de viajes" },
-      { key: "Zona", header: "Zona" },
-      { key: "Distancia", header: "Distancia" },
-      { key: "Salida del CD", header: "Salida CD" },
-      { key: "Llegada al CD", header: "Llegada CD" },
-      { key: "Tiempo", header: "Tiempo" },
-      { key: "Nro de clientes", header: "Nro de clientes" },
-      { key: "Nro de pedidos", header: "Nro de pedidos" },
-      { key: "Entrega (CF)", header: "Entrega (CF)" },
-      { key: "Recojo (CF)", header: "Recojo (CF)" },
-      { key: "Peso (Kg)", header: "Peso (Kg)" },
-    ];
-
-    const today = new Date().toLocaleDateString("es-PE", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-
-    exportToExcel(resumenData, headers.map(h => h.key), {
-      filename: `resumen-rutas-${today}`,
-      sheetName: "Resumen de Rutas",
-    });
-  };
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
@@ -161,16 +130,6 @@ export function ResumenRutasTable({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end mb-4">
-        <Button
-          variant="default"
-          size="sm"
-          onClick={handleExportToExcel}
-          disabled={!resumenData.length || loading || isLoadingData}
-        >
-          Exportar a Excel
-        </Button>
-      </div>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -204,14 +163,7 @@ export function ResumenRutasTable({
                   </Badge>
                 </TableCell>
                 <TableCell className="font-medium">{row.Vehiculo}</TableCell>
-                <TableCell>
-                  <div className="space-y-1">
-                    <div className="font-medium">{row.Repartidor}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {row["Estado Repartidor"]}
-                    </div>
-                  </div>
-                </TableCell>
+                <TableCell className="font-medium">{row.Repartidor}</TableCell>
                 <TableCell className="text-center font-medium">
                   <Badge>{row["Nro de viajes"]}</Badge>
                 </TableCell>

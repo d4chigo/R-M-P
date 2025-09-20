@@ -275,7 +275,13 @@ SELECT
     v.nro_pedidos AS `Nro de pedidos`,
     v.entrega_cf AS `Entrega (CF)`,
     v.recojo_cf AS `Recojo (CF)`,
-    v.peso_kg AS `Peso (Kg)`
+    v.peso_kg AS `Peso (Kg)`,
+    -- Campos de tripulación
+    v.nro_conductores AS `Nro Conductores`,
+    v.nro_liquidadores AS `Nro Liquidadores`,
+    v.nro_auxiliares AS `Nro Auxiliares`,
+    v.nro_trip_adicional AS `Nro Trip Adicional`,
+    v.tripulacion_especial AS `Tripulacion Especial`
 FROM VIAJE v
 JOIN viaje_latest vl ON 
     v.fecha = vl.fecha AND 
