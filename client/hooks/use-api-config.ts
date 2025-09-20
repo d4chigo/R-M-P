@@ -4,7 +4,7 @@ export function useApiConfig() {
     if (typeof window !== 'undefined' && (window as any).__env && (window as any).__env.NEXT_PUBLIC_API_URL) {
       return (window as any).__env.NEXT_PUBLIC_API_URL;
     }
-    return 'http://localhost:4000/api';
+    return process.env.NEXT_PUBLIC_API_URL || 'https://api-rmdistribuciones.romac-logistic.shop/api';
   };
 
   return {

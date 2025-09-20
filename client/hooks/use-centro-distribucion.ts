@@ -31,16 +31,14 @@ export const useCentroDistribucion = () => {
   const isLoadingRef = useRef(false);
 
   const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+    process.env.NEXT_PUBLIC_API_URL || "https:api-rmdistribuciones.romac-logistic.shop/api";
 
   // Función simplificada para obtener centros
   const fetchCentros = useCallback(async () => {
     if (isLoadingRef.current) {
-      console.log("🔄 useCentroDistribucion: Ya hay una carga en progreso, saltando...");
       return;
     }
 
-    console.log("🔍 useCentroDistribucion: Iniciando carga de centros...");
     isLoadingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -50,12 +48,9 @@ export const useCentroDistribucion = () => {
       const authToken = Cookies.get("auth_token");
 
       if (!authToken) {
-        console.warn("⚠️ useCentroDistribucion: No hay token de autenticación");
         setError("No se ha iniciado sesión");
         return;
       }
-
-      console.log("🔑 useCentroDistribucion: Token encontrado, haciendo request...");
 
       const response = await fetch(`${API_BASE_URL}/centros-distribucion`, {
         method: "GET",
@@ -65,26 +60,18 @@ export const useCentroDistribucion = () => {
         },
       });
 
-      console.log("📡 useCentroDistribucion: Response status:", response.status);
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("📊 useCentroDistribucion: Respuesta del servidor:", data);
 
       if (data.success && data.data) {
-        console.log(
-          `✅ useCentroDistribucion: ${data.data.length} centros cargados exitosamente`,
-        );
         setCentros(data.data);
       } else {
-        console.error("❌ useCentroDistribucion: Error en respuesta:", data.message);
         setError(data.message || "Error al cargar centros");
       }
     } catch (err) {
-      console.error("❌ useCentroDistribucion: Error de conexión:", err);
       setError("Error de conexión al cargar centros");
     } finally {
       isLoadingRef.current = false;

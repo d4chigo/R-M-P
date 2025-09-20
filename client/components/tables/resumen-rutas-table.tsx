@@ -19,7 +19,6 @@ interface ResumenRuta {
   Placa: string;
   Vehiculo: string;
   Repartidor: string;
-  "Estado Repartidor": string;
   "Nro de viajes": number;
   Zona: number;
   Distancia: number;
@@ -31,6 +30,11 @@ interface ResumenRuta {
   "Entrega (CF)": number;
   "Recojo (CF)": number;
   "Peso (Kg)": number;
+  "Nro Conductores": number;
+  "Nro Liquidadores": number;
+  "Nro Auxiliares": number;
+  "Nro Trip Adicional": number;
+  "Tripulacion Especial": string;
 }
 
 interface ResumenRutasTableProps {
@@ -55,6 +59,7 @@ export function ResumenRutasTable({
     handlePageChange,
     handlePageSizeChange,
   } = usePagination(resumenData, initialPageSize);
+
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "-";
@@ -153,25 +158,17 @@ export function ResumenRutasTable({
                   {formatDate(row.Fecha)}
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="font-mono">
+                  <Badge className="font-mono">
                     {row.Placa}
                   </Badge>
                 </TableCell>
                 <TableCell className="font-medium">{row.Vehiculo}</TableCell>
-                <TableCell>
-                  <div className="space-y-1">
-                    <div className="font-medium">{row.Repartidor}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {row["Estado Repartidor"]}
-                    </div>
-                  </div>
-                </TableCell>
+                <TableCell className="font-medium">{row.Repartidor}</TableCell>
                 <TableCell className="text-center font-medium">
-                  <Badge variant="secondary">{row["Nro de viajes"]}</Badge>
+                  <Badge>{row["Nro de viajes"]}</Badge>
                 </TableCell>
                 <TableCell className="text-center">
-                  <Badge
-                    variant={row.Zona > 0 ? "default" : "secondary"}
+                  <Badge 
                     className={row.Zona > 0 ? "bg-blue-100 text-blue-800" : ""}
                   >
                     {row.Zona || 0}
