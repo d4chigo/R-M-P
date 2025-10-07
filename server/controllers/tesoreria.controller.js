@@ -490,7 +490,7 @@ const getSaldo = async (_req, res) => {
 // Actualizar saldo (solo admin)
 const updateSaldo = async (req, res) => {
   try {
-    const { saldo, motivo } = req.body || {};
+    const { saldo, motivo, id_centro } = req.body || {};
     if (typeof saldo === 'undefined' || isNaN(parseFloat(saldo))) {
       return res.status(400).json({ success: false, message: 'Saldo inválido' });
     }
@@ -498,39 +498,76 @@ const updateSaldo = async (req, res) => {
       return res.status(400).json({ success: false, message: 'El saldo no puede ser negativo' });
     }
 
-    const [rows] = await db.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1');
-    // Si no existe fila, crearla (como antes)
-    if (rows.length === 0) {
-      if (typeof motivo === 'undefined' || String(motivo).trim() === '') {
-        return res.status(400).json({ success: false, message: 'Debe especificar un motivo para establecer el saldo inicial' });
+    // Validar id_centro si viene
+    if (typeof id_centro !== 'undefined' && id_centro !== null && id_centro !== '') {
+      const [c] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
+      if (c.length === 0) {
+        return res.status(400).json({ success: false, message: 'Centro de distribución no encontrado' });
       }
-      const [ins] = await db.query('INSERT INTO TESORERIA_SALDO (saldo, updated_by) VALUES (?, ?)', [saldo, req.usuario ? req.usuario.id_usuario : null]);
-      try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: ins.insertId, detalle: { motivo, before: { saldo: 0 }, after: { saldo: parseFloat(saldo) }, delta: parseFloat(saldo) } }); } catch(e) {}
-      return res.json({ success: true, data: { id: ins.insertId, saldo }, message: 'Saldo creado' });
-    }
-
-    const id = rows[0].id;
-    const beforeSaldo = parseFloat(rows[0].saldo || 0);
-    const afterSaldo = parseFloat(saldo);
-    const delta = afterSaldo - beforeSaldo;
-
-    // En modo edición (PUT /saldo/actual) solo permitimos disminuir o igualar el saldo actual.
-    if (delta > 0) {
-      return res.status(400).json({ success: false, message: 'No está permitido aumentar el saldo con la acción de "Editar". Use la opción "Agregar" para incrementar el saldo.' });
-    }
-
-    if (delta === 0) {
-      return res.json({ success: true, data: { id, saldo: afterSaldo }, message: 'Saldo sin cambios' });
     }
 
     if (typeof motivo === 'undefined' || String(motivo).trim() === '') {
       return res.status(400).json({ success: false, message: 'Debe especificar un motivo para ajustar el saldo' });
     }
 
-    // delta < 0: devolver la diferencia al saldo (sumarlo)
-    await db.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [afterSaldo, req.usuario ? req.usuario.id_usuario : null, id]);
-    try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: id, detalle: { motivo, before: { saldo: beforeSaldo }, after: { saldo: afterSaldo }, delta } }); } catch(e) {}
-    res.json({ success: true, data: { id, saldo: afterSaldo }, message: 'Saldo actualizado' });
+    await ensureAjusteTables();
+
+    // Usar transacción para leer y actualizar saldo y crear un registro de ajuste para trazabilidad
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+      // Si no existe fila, crearla
+      if (rows.length === 0) {
+        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo, updated_by) VALUES (?, ?)', [saldo, req.usuario ? req.usuario.id_usuario : null]);
+        // Registrar ajuste correspondiente (delta = saldo - 0)
+        const delta = parseFloat(saldo) - 0;
+        const tipo = delta >= 0 ? 'incremento' : 'decremento';
+        const montoAjuste = Math.abs(delta);
+        if (montoAjuste > 0) {
+          await connection.query('INSERT INTO TESORERIA_AJUSTE (fecha, tipo, monto, motivo, id_centro, created_by) VALUES (?, ?, ?, ?, ?, ?)', [getTodayLimaYMD(), tipo, montoAjuste, String(motivo).trim(), id_centro ?? null, req.usuario ? req.usuario.id_usuario : null]);
+        }
+        await connection.commit();
+        try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: ins.insertId, detalle: { motivo, before: { saldo: 0 }, after: { saldo: parseFloat(saldo) }, delta } }); } catch(e) {}
+        return res.json({ success: true, data: { id: ins.insertId, saldo }, message: 'Saldo creado' });
+      }
+
+      const id = rows[0].id;
+      const beforeSaldo = parseFloat(rows[0].saldo || 0);
+      const afterSaldo = parseFloat(saldo);
+      const delta = afterSaldo - beforeSaldo;
+
+      // En modo edición (PUT /saldo/actual) solo permitimos disminuir o igualar el saldo actual.
+      if (delta > 0) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: 'No está permitido aumentar el saldo con la acción de "Editar". Use la opción "Agregar" para incrementar el saldo.' });
+      }
+
+      if (delta === 0) {
+        await connection.rollback();
+        return res.json({ success: true, data: { id, saldo: afterSaldo }, message: 'Saldo sin cambios' });
+      }
+
+      // delta < 0: se aplica el nuevo saldo
+      await connection.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [afterSaldo, req.usuario ? req.usuario.id_usuario : null, id]);
+
+      // Registrar ajuste para trazabilidad: tipo según signo de delta
+      const tipoAjuste = delta > 0 ? 'incremento' : 'decremento';
+      const montoAjuste = Math.abs(delta);
+      if (montoAjuste > 0) {
+        await connection.query('INSERT INTO TESORERIA_AJUSTE (fecha, tipo, monto, motivo, id_centro, created_by) VALUES (?, ?, ?, ?, ?, ?)', [getTodayLimaYMD(), tipoAjuste, montoAjuste, String(motivo).trim(), id_centro ?? null, req.usuario ? req.usuario.id_usuario : null]);
+      }
+
+      await connection.commit();
+      try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: id, detalle: { motivo, before: { saldo: beforeSaldo }, after: { saldo: afterSaldo }, delta } }); } catch(e) {}
+      res.json({ success: true, data: { id, saldo: afterSaldo }, message: 'Saldo actualizado' });
+    } catch (txErr) {
+      await connection.rollback();
+      console.error('Error en transacción updateSaldo:', txErr);
+      res.status(500).json({ success: false, message: 'Error al actualizar saldo', error: txErr.message });
+    } finally {
+      connection.release();
+    }
   } catch (error) {
     console.error('Error actualizando saldo:', error);
     res.status(500).json({ success: false, message: 'Error al actualizar saldo', error: error.message });
@@ -547,9 +584,10 @@ const getSaldoHistorial = async (req, res) => {
     let audits = [];
     try {
       const [m] = await db.query(
-        `SELECT t.id, t.fecha, t.monto, t.nombre, t.cargo, t.categoria, t.detalle, t.created_at, t.created_by, u.nombre_completo AS created_by_nombre
+        `SELECT t.id, t.fecha, t.monto, t.nombre, t.cargo, t.categoria, t.detalle, t.created_at, t.created_by, t.id_centro, c.nombre AS centro_nombre, u.nombre_completo AS created_by_nombre
          FROM TESORERIA t
          LEFT JOIN USUARIO u ON t.created_by = u.id_usuario
+         LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
          WHERE t.fecha = ?
          ORDER BY t.created_at ASC`,
         [fecha]
@@ -562,9 +600,10 @@ const getSaldoHistorial = async (req, res) => {
 
     try {
       const [a] = await db.query(
-        `SELECT a.id, a.fecha, a.tipo, a.monto, a.motivo, a.created_at, a.created_by, u.nombre_completo AS created_by_nombre
+        `SELECT a.id, a.fecha, a.tipo, a.monto, a.motivo, a.created_at, a.created_by, a.id_centro, c.nombre AS centro_nombre, u.nombre_completo AS created_by_nombre
          FROM TESORERIA_AJUSTE a
          LEFT JOIN USUARIO u ON a.created_by = u.id_usuario
+         LEFT JOIN CENTRO_DISTRIBUCION c ON a.id_centro = c.id_centro
          WHERE a.fecha = ?
          ORDER BY a.created_at ASC`,
         [fecha]
@@ -955,11 +994,14 @@ async function ensureAjusteTables() {
       tipo ENUM('incremento','decremento') NOT NULL,
       monto DECIMAL(14,2) NOT NULL,
       motivo VARCHAR(255) NOT NULL,
+      id_centro INT NULL,
       created_by INT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (created_by) REFERENCES USUARIO(id_usuario) ON DELETE SET NULL,
+      FOREIGN KEY (id_centro) REFERENCES CENTRO_DISTRIBUCION(id_centro) ON DELETE SET NULL,
       INDEX idx_ajuste_fecha (fecha),
-      INDEX idx_ajuste_tipo (tipo)
+      INDEX idx_ajuste_tipo (tipo),
+      INDEX idx_ajuste_id_centro (id_centro)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 }
@@ -974,7 +1016,7 @@ const createAjuste = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
     }
 
-    const { tipo, monto, motivo, fecha } = req.body || {};
+  const { tipo, monto, motivo, fecha, id_centro } = req.body || {};
     if (!['incremento','decremento'].includes(String(tipo))) {
       return res.status(400).json({ success: false, message: 'Tipo inválido (use incremento/decremento)' });
     }
@@ -987,6 +1029,14 @@ const createAjuste = async (req, res) => {
     }
 
     await ensureAjusteTables();
+
+    // Validar id_centro si viene
+    if (typeof id_centro !== 'undefined' && id_centro !== null && id_centro !== '') {
+      const [c] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
+      if (c.length === 0) {
+        return res.status(400).json({ success: false, message: 'Centro de distribución no encontrado' });
+      }
+    }
 
     const connection = await db.getConnection();
     try {
@@ -1008,14 +1058,14 @@ const createAjuste = async (req, res) => {
 
   const f = fecha && String(fecha).trim() ? fecha : getTodayLimaYMD();
       const [aj] = await connection.query(
-        'INSERT INTO TESORERIA_AJUSTE (fecha, tipo, monto, motivo, created_by) VALUES (?, ?, ?, ?, ?)',
-        [f, tipo, amount, String(motivo).trim(), req.usuario ? req.usuario.id_usuario : null]
+        'INSERT INTO TESORERIA_AJUSTE (fecha, tipo, monto, motivo, id_centro, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+        [f, tipo, amount, String(motivo).trim(), id_centro ?? null, req.usuario ? req.usuario.id_usuario : null]
       );
       await connection.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
       await connection.commit();
 
       try { await logAudit({ req, evento: 'AJUSTE', entidad: 'TESORERIA_SALDO', entityId: saldoId, detalle: { ajuste_id: aj.insertId, fecha: f, tipo, monto: amount, motivo, saldo_before: saldoActual, saldo_after: nuevoSaldo } }); } catch(e) {}
-      res.status(201).json({ success: true, data: { id: aj.insertId, saldo: nuevoSaldo }, message: 'Ajuste aplicado' });
+  res.status(201).json({ success: true, data: { id: aj.insertId, saldo: nuevoSaldo, id_centro: id_centro ?? null }, message: 'Ajuste aplicado' });
     } catch (txErr) {
       await connection.rollback();
       console.error('❌ Error en ajuste:', txErr);
@@ -1043,9 +1093,10 @@ const listAjustes = async (req, res) => {
     if (fecha_inicio) { where += ' AND fecha >= ?'; params.push(fecha_inicio); }
     if (fecha_fin) { where += ' AND fecha <= ?'; params.push(fecha_fin); }
     const [rows] = await db.query(
-      `SELECT a.*, u.nombre_completo AS created_by_nombre
+      `SELECT a.*, u.nombre_completo AS created_by_nombre, c.id_centro AS id_centro, c.nombre AS centro_nombre
        FROM TESORERIA_AJUSTE a
        LEFT JOIN USUARIO u ON a.created_by = u.id_usuario
+       LEFT JOIN CENTRO_DISTRIBUCION c ON a.id_centro = c.id_centro
        ${where}
        ORDER BY a.fecha DESC, a.id DESC
        LIMIT 500`, params);

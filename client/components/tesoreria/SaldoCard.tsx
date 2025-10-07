@@ -9,6 +9,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import Cookies from "js-cookie";
 import { Wallet, Edit, Plus, Eye } from "lucide-react";
+import { useCentroDistribucion } from "@/hooks/use-centro-distribucion";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { LIMA_TIMEZONE } from "@/lib/utils/date-lima";
 
 export function SaldoCard() {
@@ -24,6 +32,9 @@ export function SaldoCard() {
   const [mode, setMode] = useState<'set' | 'add'>('set'); // 'set' para establecer, 'add' para agregar
   const [value, setValue] = useState(0);
   const [motivo, setMotivo] = useState("");
+  const [selectedCentro, setSelectedCentro] = useState<number | null>(null);
+
+  const { centros, isLoading: centrosLoading } = useCentroDistribucion();
 
   const API_BASE =
     (typeof window !== "undefined" &&
@@ -73,27 +84,35 @@ export function SaldoCard() {
           return;
         }
         // Establecer saldo específico (funcionalidad original)
+        const body: any = { saldo: parseFloat(String(value)), motivo: String(motivo).trim() };
+        if (selectedCentro) body.id_centro = selectedCentro;
         res = await fetch(`${API_BASE}/tesoreria/saldo/actual`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: token ? `Bearer ${token}` : "",
           },
-          body: JSON.stringify({ saldo: parseFloat(String(value)), motivo: String(motivo).trim() }),
+          body: JSON.stringify(body),
         });
       } else {
         // Agregar dinero al saldo existente (incremento)
+        if (!selectedCentro) {
+          toast({ title: 'Centro requerido', description: 'Seleccione un centro de distribución al asignar el monto', variant: 'destructive' });
+          return;
+        }
+        const body = {
+          tipo: 'incremento',
+          monto: parseFloat(String(value)),
+          motivo: String(motivo).trim(),
+          id_centro: selectedCentro,
+        };
         res = await fetch(`${API_BASE}/tesoreria/saldo/ajustes`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: token ? `Bearer ${token}` : "",
           },
-          body: JSON.stringify({ 
-            tipo: 'incremento', 
-            monto: parseFloat(String(value)), 
-            motivo: String(motivo).trim() 
-          }),
+          body: JSON.stringify(body),
         });
       }
       
@@ -114,6 +133,7 @@ export function SaldoCard() {
         setOpen(false);
         setMotivo("");
         setValue(0);
+        setSelectedCentro(null);
         window.dispatchEvent(new Event("tesoreria:saldo-changed"));
       } else {
         toast({
@@ -236,6 +256,23 @@ export function SaldoCard() {
                 }).format(saldo)}
               </div>
             )}
+            {/* Selector de Centro (requerido para 'add') */}
+            <div>
+              <label className="text-sm font-medium">Centro de distribución</label>
+              <Select value={selectedCentro ? String(selectedCentro) : ""} onValueChange={(v: string) => setSelectedCentro(v ? Number(v) : null)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={centrosLoading ? 'Cargando...' : 'Seleccionar centro'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">-- Ninguno --</SelectItem>
+                  {centros && centros.map((c: any) => (
+                    <SelectItem key={c.id_centro} value={String(c.id_centro)}>
+                      {c.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Input
               type="number"
               step="0.01"

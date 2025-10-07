@@ -33,6 +33,28 @@ export const useCentroDistribucion = () => {
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_URL || "https:api-rmdistribuciones.romac-logistic.shop/api";
 
+  // Datos mock de fallback para desarrollo local sin token/BD
+  const sampleCentros: CentroDistribucion[] = [
+    {
+      id_centro: 1,
+      codigo: 'CD-001',
+      nombre: 'Centro Distribución Lima - Central',
+      descripcion: 'Sede Central - Lima',
+      direccion: 'Av. Principal 123',
+      ciudad: 'Lima',
+      estado: 'activo',
+    },
+    {
+      id_centro: 2,
+      codigo: 'CD-002',
+      nombre: 'Centro Distribución Arequipa',
+      descripcion: 'Sucursal Arequipa',
+      direccion: 'Calle Secundaria 45',
+      ciudad: 'Arequipa',
+      estado: 'activo',
+    },
+  ];
+
   // Función simplificada para obtener centros
   const fetchCentros = useCallback(async () => {
     if (isLoadingRef.current) {
@@ -50,8 +72,10 @@ export const useCentroDistribucion = () => {
       const authToken = Cookies.get("auth_token");
 
       if (!authToken) {
-        console.warn("⚠️ useCentroDistribucion: No hay token de autenticación");
-        setError("No se ha iniciado sesión");
+        console.warn("⚠️ useCentroDistribucion: No hay token de autenticación — usando datos mock de desarrollo");
+        // Usar datos de ejemplo para permitir pruebas sin backend/BD
+        setCentros(sampleCentros);
+        setError(null);
         return;
       }
 
@@ -85,7 +109,9 @@ export const useCentroDistribucion = () => {
       }
     } catch (err) {
       console.error("❌ useCentroDistribucion: Error de conexión:", err);
-      setError("Error de conexión al cargar centros");
+      // En caso de error, usar datos mock para seguir operando en dev
+      setCentros(sampleCentros);
+      setError("Error de conexión al cargar centros — usando datos mock");
     } finally {
       isLoadingRef.current = false;
       setIsLoading(false);
