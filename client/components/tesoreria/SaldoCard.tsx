@@ -17,6 +17,8 @@ export function SaldoCard() {
   const [saldo, setSaldo] = useState<number | null>(null);
   const [updatedBy, setUpdatedBy] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [centros, setCentros] = useState<any[]>([]);
+  const [selectedCentro, setSelectedCentro] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
   const [histLoading, setHistLoading] = useState(false);
@@ -34,7 +36,8 @@ export function SaldoCard() {
 
   const fetchSaldo = async () => {
     try {
-      const res = await fetch(`${API_BASE}/tesoreria/saldo/actual`);
+      const url = selectedCentro !== null ? `${API_BASE}/tesoreria/saldo/actual?id_centro=${selectedCentro}` : `${API_BASE}/tesoreria/saldo/actual`;
+      const res = await fetch(url);
       const json = await res.json();
       if (json && json.success) {
         setSaldo(parseFloat(json.data?.saldo || 0));
@@ -48,6 +51,14 @@ export function SaldoCard() {
 
   useEffect(() => {
     fetchSaldo();
+    // Load centros for selector
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/centros-distribucion`);
+        const json = await res.json();
+        if (json && json.success) setCentros(json.data || []);
+      } catch (e) {}
+    })();
   }, []);
 
   useEffect(() => {
@@ -79,7 +90,7 @@ export function SaldoCard() {
             "Content-Type": "application/json",
             Authorization: token ? `Bearer ${token}` : "",
           },
-          body: JSON.stringify({ saldo: parseFloat(String(value)), motivo: String(motivo).trim() }),
+          body: JSON.stringify({ saldo: parseFloat(String(value)), motivo: String(motivo).trim(), id_centro: selectedCentro }),
         });
       } else {
         // Agregar dinero al saldo existente (incremento)
@@ -92,7 +103,8 @@ export function SaldoCard() {
           body: JSON.stringify({ 
             tipo: 'incremento', 
             monto: parseFloat(String(value)), 
-            motivo: String(motivo).trim() 
+            motivo: String(motivo).trim(),
+            id_centro: selectedCentro
           }),
         });
       }
@@ -141,6 +153,17 @@ export function SaldoCard() {
           </CardTitle>
           {isAdmin && (
             <div className="flex gap-1">
+              <div className="mr-2">
+                <select className="border rounded p-1 text-sm" value={selectedCentro ?? ''} onChange={(e) => {
+                  const v = e.target.value === '' ? null : Number(e.target.value);
+                  setSelectedCentro(v);
+                  // refresh saldo when centro changes
+                  setTimeout(fetchSaldo, 0);
+                }}>
+                  <option value="">Global</option>
+                  {centros.map(c => (<option key={c.id_centro} value={c.id_centro}>{c.codigo} - {c.nombre}</option>))}
+                </select>
+              </div>
               <Button
                 size="sm"
                 variant="ghost"

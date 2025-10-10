@@ -210,26 +210,33 @@ const createTesoreria = async (req, res) => {
       return res.status(400).json({ success: false, message: "El monto debe ser mayor a 0" });
     }
 
-    // Si el cuerpo incluye id_centro, validar que exista (pero permitir '' o null como intención de limpiar)
+    // El requisito nuevo: cada monto asignado debe pertenecer a un centro de distribución.
+    // Por tanto exigimos que el cliente envíe id_centro (no vacío) al crear.
     const hasIdCentro = Object.prototype.hasOwnProperty.call(req.body, 'id_centro');
-    if (hasIdCentro && id_centro !== '' && id_centro !== null && typeof id_centro !== 'undefined') {
-      const [centroRows] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
-      if (centroRows.length === 0) {
-        return res.status(400).json({ success: false, message: 'Centro de distribución no encontrado' });
-      }
+    if (!hasIdCentro || id_centro === '' || id_centro === null || typeof id_centro === 'undefined') {
+      return res.status(400).json({ success: false, message: 'Debe especificar el id_centro para asignar el monto' });
+    }
+    // Validar existencia del centro
+    const [centroRowsCheck] = await db.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
+    if (centroRowsCheck.length === 0) {
+      return res.status(400).json({ success: false, message: 'Centro de distribución no encontrado' });
     }
 
-    // Manejar decremento de saldo: obtener saldo actual y restar monto dentro de una transacción
+    // Manejar decremento de saldo: obtener saldo actual del centro y restar monto dentro de una transacción
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
 
-      // Obtener saldo actual (si no existe, inicializar a 0)
-      const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+      // Obtener saldo actual para el centro (si no existe, inicializar a 0)
+      const centroParam = Number(id_centro);
+      const [saldoRows] = await connection.query(
+        'SELECT id, saldo FROM TESORERIA_SALDO WHERE ' + (isNaN(centroParam) ? 'id_centro IS NULL' : 'id_centro = ?') + ' FOR UPDATE',
+        isNaN(centroParam) ? [] : [centroParam]
+      );
       let saldoId = null;
       let saldoActual = 0;
       if (saldoRows.length === 0) {
-        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (?)', [0]);
+        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo, id_centro) VALUES (?, ?)', [0, isNaN(centroParam) ? null : centroParam]);
         saldoId = ins.insertId;
         saldoActual = 0;
       } else {
@@ -249,9 +256,9 @@ const createTesoreria = async (req, res) => {
         [fecha, placa || null, nombre, cargo || null, categoria, detalle || null, reembolso || null, distrito || null, id_centro ?? null, turno ?? null, encargado || null, monto, req.usuario ? req.usuario.id_usuario : null]
       );
 
-      // Restar monto del saldo
-      const nuevoSaldo = (saldoActual - parseFloat(monto));
-      await connection.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
+  // Restar monto del saldo del centro correspondiente
+  const nuevoSaldo = (saldoActual - parseFloat(monto));
+  await connection.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
 
       await connection.commit();
 
@@ -355,12 +362,14 @@ const updateTesoreria = async (req, res) => {
 
           const delta = parsedNewMonto - oldMonto; // si <0: devolver saldo (sumar al saldo)
           if (delta !== 0) {
-            const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+              // Bloquear fila de saldo correspondiente al centro del registro existente
+              const centroForSaldo = typeof existing[0].id_centro !== 'undefined' && existing[0].id_centro !== null ? Number(existing[0].id_centro) : null;
+              const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO WHERE ' + (centroForSaldo === null ? 'id_centro IS NULL' : 'id_centro = ?') + ' FOR UPDATE', centroForSaldo === null ? [] : [centroForSaldo]);
             let saldoId, saldoActual;
             if (saldoRows.length === 0) {
-              const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
-              saldoId = ins.insertId;
-              saldoActual = 0;
+                const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo, id_centro) VALUES (?, ?)', [0, centroForSaldo]);
+                saldoId = ins.insertId;
+                saldoActual = 0;
             } else {
               saldoId = saldoRows[0].id;
               saldoActual = parseFloat(saldoRows[0].saldo || 0);
@@ -461,21 +470,34 @@ const updateTesoreria = async (req, res) => {
 // Obtener saldo actual de la tarjeta de tesorería (incluye nombre de quien actualizó si está disponible)
 const getSaldo = async (_req, res) => {
   try {
+    // Support optional id_centro parameter (query). If not provided, return global saldo (id_centro IS NULL)
+    const idCentro = (_req.query && _req.query.id_centro) ? Number(_req.query.id_centro) : null;
+    const params = [];
+    let where = '1=1';
+    if (typeof idCentro !== 'undefined' && idCentro !== null) {
+      where = 's.id_centro = ?';
+      params.push(idCentro);
+    } else {
+      where = 's.id_centro IS NULL';
+    }
+
     try {
       const [rows] = await db.query(
-        `SELECT s.id, s.saldo, s.updated_by, s.updated_at, s.created_at, u.nombre_completo AS updated_by_nombre
+        `SELECT s.id, s.saldo, s.updated_by, s.updated_at, s.created_at, s.id_centro, u.nombre_completo AS updated_by_nombre
          FROM TESORERIA_SALDO s
          LEFT JOIN USUARIO u ON s.updated_by = u.id_usuario
-         LIMIT 1`
+         WHERE ${where}
+         LIMIT 1`, params
       );
       if (rows.length === 0) {
-        return res.json({ success: true, data: { saldo: 0 }, message: 'Saldo por defecto' });
+        return res.json({ success: true, data: { saldo: 0, id_centro: idCentro }, message: 'Saldo por defecto' });
       }
       return res.json({ success: true, data: rows[0], message: 'Saldo obtenido' });
     } catch (e) {
-      const [rows2] = await db.query('SELECT id, saldo, updated_by, updated_at, created_at FROM TESORERIA_SALDO LIMIT 1');
+      console.warn('Error obteniendo saldo por centro, fallback:', e.message || e);
+      const [rows2] = await db.query('SELECT id, saldo, updated_by, updated_at, created_at, id_centro FROM TESORERIA_SALDO LIMIT 1');
       if (rows2.length === 0) {
-        return res.json({ success: true, data: { saldo: 0 }, message: 'Saldo por defecto' });
+        return res.json({ success: true, data: { saldo: 0, id_centro: idCentro }, message: 'Saldo por defecto' });
       }
       const r = rows2[0];
       r.updated_by_nombre = null;
@@ -490,7 +512,7 @@ const getSaldo = async (_req, res) => {
 // Actualizar saldo (solo admin)
 const updateSaldo = async (req, res) => {
   try {
-    const { saldo, motivo } = req.body || {};
+    const { saldo, motivo, id_centro } = req.body || {};
     if (typeof saldo === 'undefined' || isNaN(parseFloat(saldo))) {
       return res.status(400).json({ success: false, message: 'Saldo inválido' });
     }
@@ -498,13 +520,15 @@ const updateSaldo = async (req, res) => {
       return res.status(400).json({ success: false, message: 'El saldo no puede ser negativo' });
     }
 
-    const [rows] = await db.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1');
+    // Find saldo row for given id_centro (null = global)
+    const centroParam = (typeof id_centro !== 'undefined' && id_centro !== null) ? Number(id_centro) : null;
+    const [rows] = await db.query('SELECT id, saldo FROM TESORERIA_SALDO WHERE ' + (centroParam === null ? 'id_centro IS NULL' : 'id_centro = ?') + ' LIMIT 1', centroParam === null ? [] : [centroParam]);
     // Si no existe fila, crearla (como antes)
     if (rows.length === 0) {
       if (typeof motivo === 'undefined' || String(motivo).trim() === '') {
         return res.status(400).json({ success: false, message: 'Debe especificar un motivo para establecer el saldo inicial' });
       }
-      const [ins] = await db.query('INSERT INTO TESORERIA_SALDO (saldo, updated_by) VALUES (?, ?)', [saldo, req.usuario ? req.usuario.id_usuario : null]);
+      const [ins] = await db.query('INSERT INTO TESORERIA_SALDO (saldo, updated_by, id_centro) VALUES (?, ?, ?)', [saldo, req.usuario ? req.usuario.id_usuario : null, centroParam]);
       try { await logAudit({ req, evento: 'ADJUST_SALDO', entidad: 'TESORERIA_SALDO', entityId: ins.insertId, detalle: { motivo, before: { saldo: 0 }, after: { saldo: parseFloat(saldo) }, delta: parseFloat(saldo) } }); } catch(e) {}
       return res.json({ success: true, data: { id: ins.insertId, saldo }, message: 'Saldo creado' });
     }
@@ -631,11 +655,12 @@ const deleteTesoreria = async (req, res) => {
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
-      // Devolver monto al saldo
-      const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+      // Devolver monto al saldo del centro del registro (compatibilidad: id_centro puede ser NULL)
+      const centroForSaldo = typeof existing[0].id_centro !== 'undefined' && existing[0].id_centro !== null ? Number(existing[0].id_centro) : null;
+      const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO WHERE ' + (centroForSaldo === null ? 'id_centro IS NULL' : 'id_centro = ?') + ' LIMIT 1 FOR UPDATE', centroForSaldo === null ? [] : [centroForSaldo]);
       let saldoId, saldoActual;
       if (saldoRows.length === 0) {
-        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
+        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo, id_centro) VALUES (?, ?)', [0, centroForSaldo]);
         saldoId = ins.insertId;
         saldoActual = 0;
       } else {
@@ -695,11 +720,12 @@ const restoreTesoreria = async (req, res) => {
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
-      // Descontar del saldo nuevamente
-      const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+      // Descontar del saldo del centro correspondiente (compatibilidad con id_centro NULL)
+      const centroForSaldo = typeof existing[0].id_centro !== 'undefined' && existing[0].id_centro !== null ? Number(existing[0].id_centro) : null;
+      const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO WHERE ' + (centroForSaldo === null ? 'id_centro IS NULL' : 'id_centro = ?') + ' LIMIT 1 FOR UPDATE', centroForSaldo === null ? [] : [centroForSaldo]);
       let saldoId, saldoActual;
       if (saldoRows.length === 0) {
-        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
+        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo, id_centro) VALUES (?, ?)', [0, centroForSaldo]);
         saldoId = ins.insertId;
         saldoActual = 0;
       } else {
@@ -842,23 +868,46 @@ const rolloverSaldo = async (req, res) => {
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
-      // Obtener saldo actual
-      const [rows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
-      if (rows.length === 0) {
-        // nada que snapshotear, crear fila con saldo 0
-        await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (?)', [0]);
+      // Soporte opcional id_centro en req.query: si se pasa, hacemos rollover sólo para ese centro.
+      const id_centro = (req.query && typeof req.query.id_centro !== 'undefined') ? (req.query.id_centro === '' ? null : Number(req.query.id_centro)) : undefined;
+      const fechaHoy = getTodayLimaYMD();
+      if (typeof id_centro !== 'undefined') {
+        // Snapshot para un centro específico
+        const [rows] = await connection.query('SELECT id, saldo, id_centro FROM TESORERIA_SALDO WHERE ' + (id_centro === null ? 'id_centro IS NULL' : 'id_centro = ?') + ' FOR UPDATE', id_centro === null ? [] : [id_centro]);
+        if (rows.length === 0) {
+          // Crear fila con saldo 0 para ese centro
+          const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo, id_centro) VALUES (?, ?)', [0, id_centro]);
+          await connection.query('INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final, id_centro) VALUES (?, ?, ?)', [fechaHoy, 0, id_centro]);
+          await connection.commit();
+          try { await logAudit({ req, evento: 'ROLLOVER', entidad: 'TESORERIA_SALDO', entityId: ins.insertId, detalle: { fecha: fechaHoy, saldo_final: 0, id_centro } }); } catch(e) {}
+          return res.json({ success: true, message: 'Rollover completado: saldo inicializado a 0', saldo_final: 0 });
+        }
+        const saldoActual = parseFloat(rows[0].saldo || 0);
+        await connection.query('INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final, id_centro) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE saldo_final = VALUES(saldo_final), updated_at = CURRENT_TIMESTAMP', [fechaHoy, saldoActual, id_centro]);
         await connection.commit();
-        return res.json({ success: true, message: 'Rollover completado: saldo inicializado a 0' });
+        try { await logAudit({ req, evento: 'ROLLOVER', entidad: 'TESORERIA_SALDO', entityId: rows[0]?.id || null, detalle: { fecha: fechaHoy, saldo_final: saldoActual, id_centro } }); } catch(e) {}
+        console.log(`✅ Rollover tesorería para centro ${id_centro}: snapshot ${saldoActual} guardado para ${fechaHoy}`);
+        return res.json({ success: true, message: 'Rollover completado', saldo_final: saldoActual });
+      } else {
+        // Snapshot para todos los centros existentes
+        const [rows] = await connection.query('SELECT id, saldo, id_centro FROM TESORERIA_SALDO FOR UPDATE');
+        if (rows.length === 0) {
+          // Ningún saldo existente: crear fila global 0 y snapshot
+          await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (?)', [0]);
+          await connection.query('INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final, id_centro) VALUES (?, ?, ?)', [fechaHoy, 0, null]);
+          await connection.commit();
+          try { await logAudit({ req, evento: 'ROLLOVER', entidad: 'TESORERIA_SALDO', entityId: null, detalle: { fecha: fechaHoy, saldo_final: 0 } }); } catch(e) {}
+          return res.json({ success: true, message: 'Rollover completado: saldo inicializado a 0' });
+        }
+        for (const r of rows) {
+          const s = parseFloat(r.saldo || 0);
+          await connection.query('INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final, id_centro) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE saldo_final = VALUES(saldo_final), updated_at = CURRENT_TIMESTAMP', [fechaHoy, s, r.id_centro]);
+        }
+        await connection.commit();
+        try { await logAudit({ req, evento: 'ROLLOVER', entidad: 'TESORERIA_SALDO', entityId: null, detalle: { fecha: fechaHoy, action: 'snapshot_all' } }); } catch(e) {}
+        console.log(`✅ Rollover tesorería: snapshots guardados para ${rows.length} centros en ${fechaHoy}`);
+        return res.json({ success: true, message: 'Rollover completado', count: rows.length });
       }
-      const saldoActual = parseFloat(rows[0].saldo || 0);
-  const fechaHoy = getTodayLimaYMD();
-  // Insertar snapshot en history
-  await connection.query('INSERT INTO TESORERIA_SALDO_HISTORY (fecha, saldo_final) VALUES (?, ?)', [fechaHoy, saldoActual]);
-  // Política actual: mantener el sobrante para el día siguiente (no resetear el saldo)
-  await connection.commit();
-  try { await logAudit({ req, evento: 'ROLLOVER', entidad: 'TESORERIA_SALDO', entityId: rows[0]?.id || null, detalle: { fecha: fechaHoy, saldo_final: saldoActual } }); } catch(e) {}
-      console.log(`✅ Rollover tesorería: snapshot ${saldoActual} guardado para ${fechaHoy}`);
-      return res.json({ success: true, message: 'Rollover completado', saldo_final: saldoActual });
     } catch (txErr) {
       await connection.rollback();
       console.error('Error en transacción rollover:', txErr);
@@ -964,7 +1013,7 @@ async function ensureAjusteTables() {
   `);
 }
 
-// Crear ajuste que impacta el saldo general (admin)
+// Crear ajuste que impacta el saldo por centro (admin)
 const createAjuste = async (req, res) => {
   try {
     if (!req.userRoles && req.usuario && req.usuario.roles) {
@@ -974,7 +1023,7 @@ const createAjuste = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Acción no permitida: se requiere rol ADMINISTRADOR' });
     }
 
-    const { tipo, monto, motivo, fecha } = req.body || {};
+    const { tipo, monto, motivo, fecha, id_centro } = req.body || {};
     if (!['incremento','decremento'].includes(String(tipo))) {
       return res.status(400).json({ success: false, message: 'Tipo inválido (use incremento/decremento)' });
     }
@@ -991,10 +1040,22 @@ const createAjuste = async (req, res) => {
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
-      const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE');
+      // Ajuste debe indicar el centro al que aplica
+      if (typeof id_centro === 'undefined' || id_centro === null || id_centro === '') {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: 'Debe especificar id_centro para el ajuste' });
+      }
+      const [centroRowsCheck] = await connection.query('SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?', [id_centro]);
+      if (centroRowsCheck.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ success: false, message: 'Centro de distribución no encontrado' });
+      }
+      // Bloquear fila de saldo del centro
+      const centroForSaldo = Number(id_centro);
+      const [saldoRows] = await connection.query('SELECT id, saldo FROM TESORERIA_SALDO WHERE ' + (isNaN(centroForSaldo) ? 'id_centro IS NULL' : 'id_centro = ?') + ' FOR UPDATE', isNaN(centroForSaldo) ? [] : [centroForSaldo]);
       let saldoId, saldoActual;
       if (saldoRows.length === 0) {
-        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)');
+        const [ins] = await connection.query('INSERT INTO TESORERIA_SALDO (saldo, id_centro) VALUES (?, ?)', [0, centroForSaldo]);
         saldoId = ins.insertId; saldoActual = 0;
       } else {
         saldoId = saldoRows[0].id; saldoActual = parseFloat(saldoRows[0].saldo || 0);
@@ -1006,15 +1067,16 @@ const createAjuste = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Saldo insuficiente para aplicar el ajuste' });
       }
 
-  const f = fecha && String(fecha).trim() ? fecha : getTodayLimaYMD();
+      const f = fecha && String(fecha).trim() ? fecha : getTodayLimaYMD();
       const [aj] = await connection.query(
         'INSERT INTO TESORERIA_AJUSTE (fecha, tipo, monto, motivo, created_by) VALUES (?, ?, ?, ?, ?)',
         [f, tipo, amount, String(motivo).trim(), req.usuario ? req.usuario.id_usuario : null]
       );
+      // Actualizar saldo del centro
       await connection.query(`UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`, [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId]);
       await connection.commit();
 
-      try { await logAudit({ req, evento: 'AJUSTE', entidad: 'TESORERIA_SALDO', entityId: saldoId, detalle: { ajuste_id: aj.insertId, fecha: f, tipo, monto: amount, motivo, saldo_before: saldoActual, saldo_after: nuevoSaldo } }); } catch(e) {}
+      try { await logAudit({ req, evento: 'AJUSTE', entidad: 'TESORERIA_SALDO', entityId: saldoId, detalle: { ajuste_id: aj.insertId, fecha: f, tipo, monto: amount, motivo, saldo_before: saldoActual, saldo_after: nuevoSaldo, id_centro: centroForSaldo } }); } catch(e) {}
       res.status(201).json({ success: true, data: { id: aj.insertId, saldo: nuevoSaldo }, message: 'Ajuste aplicado' });
     } catch (txErr) {
       await connection.rollback();
@@ -1058,19 +1120,27 @@ const listAjustes = async (req, res) => {
 
 const resumenDia = async (req, res) => {
   try {
-  const fecha = (req.query?.fecha && String(req.query.fecha).trim()) || getTodayLimaYMD();
+    const fecha = (req.query?.fecha && String(req.query.fecha).trim()) || getTodayLimaYMD();
+    const id_centro = typeof req.query.id_centro !== 'undefined' ? (req.query.id_centro === '' ? null : Number(req.query.id_centro)) : undefined;
     await ensureAjusteTables();
     // Opening: saldo_final del día anterior (si existe)
-    const [openRows] = await db.query('SELECT saldo_final FROM TESORERIA_SALDO_HISTORY WHERE fecha = DATE_SUB(?, INTERVAL 1 DAY) LIMIT 1', [fecha]);
+    const openQuery = id_centro === undefined ? 'SELECT saldo_final FROM TESORERIA_SALDO_HISTORY WHERE fecha = DATE_SUB(?, INTERVAL 1 DAY) LIMIT 1' : 'SELECT saldo_final FROM TESORERIA_SALDO_HISTORY WHERE fecha = DATE_SUB(?, INTERVAL 1 DAY) AND ' + (id_centro === null ? 'id_centro IS NULL' : 'id_centro = ?') + ' LIMIT 1';
+    const openParams = id_centro === undefined ? [fecha] : (id_centro === null ? [fecha] : [fecha, id_centro]);
+    const [openRows] = await db.query(openQuery, openParams);
     const opening = openRows.length ? parseFloat(openRows[0].saldo_final || 0) : null;
-    const [gastoRows] = await db.query('SELECT COALESCE(SUM(monto),0) AS total FROM TESORERIA WHERE deleted_at IS NULL AND fecha = ?', [fecha]);
+    const gastoQuery = id_centro === undefined ? 'SELECT COALESCE(SUM(monto),0) AS total FROM TESORERIA WHERE deleted_at IS NULL AND fecha = ?' : 'SELECT COALESCE(SUM(monto),0) AS total FROM TESORERIA WHERE deleted_at IS NULL AND fecha = ? AND ' + (id_centro === null ? 'id_centro IS NULL' : 'id_centro = ?');
+    const gastoParams = id_centro === undefined ? [fecha] : (id_centro === null ? [fecha] : [fecha, id_centro]);
+    const [gastoRows] = await db.query(gastoQuery, gastoParams);
     const totalGastos = parseFloat(gastoRows[0].total || 0);
+    // NOTE: TESORERIA_AJUSTE currently does not store id_centro. We keep current behavior (global adjustments).
     const [ajInc] = await db.query("SELECT COALESCE(SUM(monto),0) AS total FROM TESORERIA_AJUSTE WHERE tipo='incremento' AND fecha = ?", [fecha]);
     const [ajDec] = await db.query("SELECT COALESCE(SUM(monto),0) AS total FROM TESORERIA_AJUSTE WHERE tipo='decremento' AND fecha = ?", [fecha]);
     const totalInc = parseFloat(ajInc[0].total || 0);
     const totalDec = parseFloat(ajDec[0].total || 0);
     const closingCalc = (opening ?? 0) + totalInc - totalDec - totalGastos;
-    const [saldoNow] = await db.query('SELECT saldo FROM TESORERIA_SALDO LIMIT 1');
+    const saldoQuery = id_centro === undefined ? 'SELECT saldo FROM TESORERIA_SALDO LIMIT 1' : 'SELECT saldo FROM TESORERIA_SALDO WHERE ' + (id_centro === null ? 'id_centro IS NULL' : 'id_centro = ?') + ' LIMIT 1';
+    const saldoParams = id_centro === undefined ? [] : (id_centro === null ? [] : [id_centro]);
+    const [saldoNow] = await db.query(saldoQuery, saldoParams);
     const saldoActual = saldoNow.length ? parseFloat(saldoNow[0].saldo || 0) : 0;
     res.json({ success: true, data: { fecha, opening, total_ajustes_incremento: totalInc, total_ajustes_decremento: totalDec, total_gastos: totalGastos, closing_calculado: closingCalc, saldo_actual: saldoActual } });
   } catch (error) {

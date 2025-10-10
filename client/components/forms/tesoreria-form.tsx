@@ -489,22 +489,21 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               />
             </div>
 
-            {/* Centro de distribución (opcional) */}
+            {/* Centro de distribución (requerido) */}
             <FormField
               control={form.control}
               name="id_centro"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Centro de distribución (opcional)</FormLabel>
+                  <FormLabel>Centro de distribución *</FormLabel>
                   <FormControl>
                     <Combobox
-                      options={[{ label: '(Vacío)', value: '' }, ...centros.map(c => ({
+                      options={[...centros.map(c => ({
                         label: `${c.codigo} - ${c.nombre}${c.ciudad ? ` (${c.ciudad})` : ''}`,
                         value: String(c.id_centro)
                       }))]}
                       value={field.value ? String(field.value) : ""}
                       onChange={(value) => {
-                        // Keep empty string in form state for the empty option; schema transform will turn '' -> undefined
                         field.onChange(value === '' ? '' : value);
                       }}
                       placeholder="Buscar centro de distribución..."
