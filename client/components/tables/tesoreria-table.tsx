@@ -97,6 +97,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategoria, setFilterCategoria] = useState<string>("");
+  const [selectedCentro, setSelectedCentro] = useState<number | null | undefined>(undefined);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [selectedTesoreria, setSelectedTesoreria] = useState<Tesoreria | null>(null);
@@ -106,22 +107,38 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   // Mantener sincronizado con la página (variant="simple")
   useEffect(() => {
     const onRefresh = () => {
-      if (mode === "active") return fetchActive();
-      if (mode === "history") return fetchHistory();
+      const baseParams: any = {};
+      if (typeof selectedCentro !== 'undefined') baseParams.id_centro = selectedCentro;
+      if (mode === "active") return fetchActive(baseParams as any);
+      if (mode === "history") return fetchHistory(baseParams as any);
       if (mode === "trash") return fetchTrash();
     };
     const onSearch = (e: Event) => {
       const detail = (e as CustomEvent).detail || {};
       // Asegurar que el scope se respete según el modo de la tabla
       const params = { ...detail, scope: mode } as any;
+      if (typeof selectedCentro !== 'undefined') params.id_centro = selectedCentro;
       // Para history, si no hay fechas, el backend decidirá por fecha < hoy
       searchTesoreria(params);
     };
+    const onCentroChanged = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      const id = typeof detail.id_centro === 'undefined' ? undefined : detail.id_centro === null ? null : Number(detail.id_centro);
+      setSelectedCentro(id);
+      // Re-trigger refresh with the new centro
+      try {
+        const params: any = { scope: mode };
+        if (typeof id !== 'undefined') params.id_centro = id;
+        searchTesoreria(params);
+      } catch (err) {}
+    };
     window.addEventListener("tesoreria:refresh", onRefresh as EventListener);
     window.addEventListener("tesoreria:search", onSearch as EventListener);
+    window.addEventListener("tesoreria:centro-changed", onCentroChanged as EventListener);
     return () => {
       window.removeEventListener("tesoreria:refresh", onRefresh as EventListener);
       window.removeEventListener("tesoreria:search", onSearch as EventListener);
+      window.removeEventListener("tesoreria:centro-changed", onCentroChanged as EventListener);
     };
   }, [fetchActive, fetchHistory, fetchTrash, searchTesoreria, mode]);
 
@@ -129,6 +146,15 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   // En variant "simple" la página externa controla las búsquedas vía evento.
   useEffect(() => {
     if (variant !== "full") return;
+    // Intentar respetar un centro seleccionado globalmente si existe
+    const globalCentro = (window as any).__tesoreria_selected_centro;
+    if (typeof globalCentro !== 'undefined') {
+      setSelectedCentro(globalCentro === null ? null : Number(globalCentro));
+      const params: any = { scope: mode };
+      if (typeof globalCentro !== 'undefined') params.id_centro = globalCentro;
+      searchTesoreria(params);
+      return;
+    }
     if (mode === "active") fetchActive();
     if (mode === "history") fetchHistory();
     if (mode === "trash") fetchTrash();
@@ -166,6 +192,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     const params: any = {};
     if (searchTerm) params.q = searchTerm;
     if (filterCategoria) params.categoria = filterCategoria;
+    if (typeof selectedCentro !== 'undefined') params.id_centro = selectedCentro;
 
     await searchTesoreria(params);
   };
@@ -173,7 +200,9 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   const clearFilters = async () => {
     setSearchTerm("");
     setFilterCategoria("");
-    await searchTesoreria({});
+    const params: any = {};
+    if (typeof selectedCentro !== 'undefined') params.id_centro = selectedCentro;
+    await searchTesoreria(params);
   };
 
   const handleCreate = async (data: any) => {

@@ -159,6 +159,14 @@ export function SaldoCard() {
                   setSelectedCentro(v);
                   // refresh saldo when centro changes
                   setTimeout(fetchSaldo, 0);
+                  // Notify other components (tables) that the centro changed so they can re-query
+                  try {
+                    window.dispatchEvent(new CustomEvent('tesoreria:centro-changed', { detail: { id_centro: v } }));
+                    // Also trigger a search event (legacy listeners might use tesoreria:search)
+                    window.dispatchEvent(new CustomEvent('tesoreria:search', { detail: { id_centro: v } }));
+                  } catch (e) {
+                    // ignore
+                  }
                 }}>
                   <option value="">Global</option>
                   {centros.map(c => (<option key={c.id_centro} value={c.id_centro}>{c.codigo} - {c.nombre}</option>))}
