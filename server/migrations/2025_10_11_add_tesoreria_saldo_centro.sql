@@ -1,0 +1,17 @@
+-- Migration: add TESORERIA_SALDO_CENTRO table to track saldo per centro
+-- Run this migration in your MySQL database
+
+CREATE TABLE IF NOT EXISTS TESORERIA_SALDO_CENTRO (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  id_centro INT NOT NULL,
+  saldo DECIMAL(14,2) NOT NULL DEFAULT 0,
+  updated_by INT NULL,
+  updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_centro (id_centro),
+  FOREIGN KEY (id_centro) REFERENCES CENTRO_DISTRIBUCION(id_centro) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Optional: seed saldo rows for existing centers with 0
+INSERT INTO TESORERIA_SALDO_CENTRO (id_centro, saldo)
+SELECT id_centro, 0 FROM CENTRO_DISTRIBUCION WHERE id_centro NOT IN (SELECT id_centro FROM TESORERIA_SALDO_CENTRO);

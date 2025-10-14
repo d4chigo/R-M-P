@@ -18,7 +18,10 @@ router.get('/saldo/ajustes', authenticateToken, requireAdmin, tesoreriaControlle
 router.get('/resumen/dia', optionalAuth, getUserRoles, tesoreriaController.resumenDia);
 // Saldo (tarjeta fija) - lectura pública, actualización sólo admin
 router.get('/saldo/actual', tesoreriaController.getSaldo);
+// Saldo por centro (lectura pública, actualización solo admin)
+router.get('/saldo/actual/:centroId', tesoreriaController.getSaldo);
 router.put('/saldo/actual', authenticateToken, requireAdmin, tesoreriaController.updateSaldo);
+router.put('/saldo/actual/:centroId', authenticateToken, requireAdmin, tesoreriaController.updateSaldo);
 // Historial del saldo por fecha (opcionalmente fecha=YYYY-MM-DD)
 router.get('/saldo/historial', optionalAuth, getUserRoles, tesoreriaController.getSaldoHistorial);
 // Dropdown endpoints para form

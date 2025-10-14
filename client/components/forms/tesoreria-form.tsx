@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, FormEvent } from "react";
 import { useState, useEffect } from "react";
 import Cookies from 'js-cookie';
 import { useForm } from "react-hook-form";
@@ -242,7 +242,10 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     fetchData();
   }, []);
 
-  const form = useForm<z.infer<typeof tesoreriaSchema>>({
+  // Using any here to avoid strict generic resolver/control mismatches
+  // between react-hook-form generics and our Form wrapper types.
+  // We still validate with zodResolver at runtime.
+  const form = useForm<any>({
     resolver: zodResolver(tesoreriaSchema),
     defaultValues: {
   fecha: (function () {
@@ -262,11 +265,12 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       cargo: tesoreria?.cargo || "",
       categoria: tesoreria?.categoria || "",
       detalle: tesoreria?.detalle || "",
-      reembolso: tesoreria?.reembolso || undefined,
+  reembolso: (tesoreria && (tesoreria.reembolso === 'Si' || tesoreria.reembolso === 'No')) ? tesoreria.reembolso : undefined,
   distrito: tesoreria?.distrito || "",
   turno: tesoreria?.turno ? String(tesoreria.turno) : "",
   encargado: tesoreria?.encargado || "",
-  id_centro: tesoreria?.id_centro ? String(tesoreria.id_centro) : "",
+      // Prefer centro id from record (id_centro) but also accept centro_id for older records
+      id_centro: (tesoreria?.id_centro ?? (tesoreria as any)?.centro_id) ?? null,
       monto: tesoreria?.monto || 0,
     },
   });
@@ -289,7 +293,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       try { return new Date(f).toISOString().split('T')[0]; } catch { return getTodayLimaYMD(); }
     };
 
-    const vals: any = {
+      const vals: any = {
       fecha: normalizeFecha(tesoreria.fecha),
       placa: tesoreria.placa || "",
       nombre: tesoreria.nombre || "",
@@ -300,7 +304,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       distrito: tesoreria.distrito || "",
       turno: tesoreria.turno ? String(tesoreria.turno) : "",
       encargado: tesoreria.encargado || "",
-      id_centro: tesoreria.id_centro ? String((tesoreria as any).id_centro) : "",
+        id_centro: tesoreria.id_centro ?? null,
       monto: tesoreria.monto || 0,
     };
 
@@ -310,11 +314,19 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
   }, [tesoreria]);
 
   const handleSubmit = async (data: z.infer<typeof tesoreriaSchema>) => {
+    // Require centro selection when creating a new record
+    if (!tesoreria) {
+      const centroVal: any = (data as any).id_centro;
+      if (centroVal === null || centroVal === undefined || (typeof centroVal === 'string' && centroVal === '')) {
+        toast({ title: 'Seleccione un centro', description: 'Debe seleccionar el centro de distribución para este registro.', variant: 'destructive' });
+        return false;
+      }
+    }
     // Normalizar payload (turno como número, reembolso vacío a undefined)
     const payload: any = {
       ...data,
       turno: data.turno ? Number(data.turno) : undefined,
-      reembolso: !data.reembolso || data.reembolso === 'none' || data.reembolso === '' ? undefined : data.reembolso,
+      reembolso: data.reembolso || undefined,
     };
     // Ensure monto is a number (defensive)
     if (typeof payload.monto === 'string') {
@@ -322,7 +334,10 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       payload.monto = isNaN(parsed) ? 0 : parsed;
     }
     // Normalize id_centro: '' -> undefined, string -> number
-  if (payload.id_centro === '') payload.id_centro = null; // send explicit null to indicate clearing
+  // Normalize id_centro to number or null
+  // Normalize id_centro: empty string or undefined -> null, string -> number
+  if (typeof payload.id_centro === 'string' && payload.id_centro === '') payload.id_centro = null;
+  if (payload.id_centro === undefined) payload.id_centro = null;
   if (typeof payload.id_centro === 'string' && payload.id_centro !== '') payload.id_centro = Number(payload.id_centro);
   // If creating (no tesoreria), validate saldo for all users (admins included).
   if (!tesoreria) {
@@ -370,8 +385,8 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
           payload.id_centro = null;
         } else {
           // normalize values consistently
-          if (payload.id_centro === '') payload.id_centro = null;
-          if (typeof payload.id_centro === 'string' && payload.id_centro !== null) payload.id_centro = Number(payload.id_centro);
+          if (typeof payload.id_centro === 'string' && payload.id_centro === '') payload.id_centro = null;
+          if (typeof payload.id_centro === 'string' && payload.id_centro !== '') payload.id_centro = Number(payload.id_centro);
         }
       }
 
@@ -395,8 +410,8 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
   return (
     <Card className="w-full max-w-2xl mx-auto pt-5">
       <CardContent>
-        <Form {...form}>
-          <form noValidate onSubmit={(e) => {
+        <Form {...(form as any)}>
+          <form noValidate onSubmit={(e: FormEvent) => {
             e.preventDefault();
             const values = form.getValues();
             // Coerce monto to number if needed before validation
@@ -404,8 +419,8 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               const p = parseFloat(String(values.monto).replace(/,/g, '.'));
               form.setValue('monto', isNaN(p) ? 0 : p);
             }
-            // Normalize empty centro to '' so schema transform can pick it up as undefined
-            if (values.id_centro === undefined) form.setValue('id_centro', '');
+            // Normalize undefined centro to null so schema transform can pick it up
+            if (values.id_centro === undefined) form.setValue('id_centro', null as any);
             // Now run react-hook-form submit (this will call zodResolver)
             form.handleSubmit(handleSubmit)();
           }} className="space-y-6">
@@ -489,30 +504,38 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               />
             </div>
 
-            {/* Centro de distribución (opcional) */}
+            {/* Centro de distribución */}
             <FormField
               control={form.control}
               name="id_centro"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Centro de distribución (opcional)</FormLabel>
+                  <FormLabel>Centro de distribución {tesoreria ? "(opcional)" : "*"}</FormLabel>
                   <FormControl>
                     <Combobox
                       options={[{ label: '(Vacío)', value: '' }, ...centros.map(c => ({
                         label: `${c.codigo} - ${c.nombre}${c.ciudad ? ` (${c.ciudad})` : ''}`,
-                        value: String(c.id_centro)
+                        // store numeric id as string value for the combobox, but keep semantics numeric on submit
+                        value: String(c.id_centro ?? (c as any).id ?? '')
                       }))]}
-                      value={field.value ? String(field.value) : ""}
+                      // Show numeric id if present
+                      value={field.value !== null && field.value !== undefined ? String(field.value) : ""}
                       onChange={(value) => {
-                        // Keep empty string in form state for the empty option; schema transform will turn '' -> undefined
-                        field.onChange(value === '' ? '' : value);
+                        // When the user selects an option we convert to number (or '' for empty)
+                        if (value === '') return field.onChange('');
+                        const n = Number(value);
+                        if (!isNaN(n)) field.onChange(n);
+                        else field.onChange('');
                       }}
                       placeholder="Buscar centro de distribución..."
                       emptyText="No se encontraron centros."
                       searchPlaceholder="Buscar por código o nombre..."
                     />
                   </FormControl>
-                  <FormMessage />
+                  {/* If creating and centro not selected, show inline hint */}
+                  {!tesoreria && (form.getValues('id_centro') === null || form.getValues('id_centro') === undefined || form.getValues('id_centro') === '') && (
+                    <p className="text-sm text-red-600 mt-1">El centro es obligatorio al crear un registro.</p>
+                  )}
                 </FormItem>
               )}
             />
@@ -758,8 +781,8 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                             const p = parseFloat(String(values.monto).replace(/,/g, '.'));
                             values.monto = isNaN(p) ? 0 : p;
                           }
-                          if (values.id_centro === '') values.id_centro = null;
-                          if (typeof values.id_centro === 'string' && values.id_centro !== '') values.id_centro = Number(values.id_centro);
+                          if (values.id_centro === '' || values.id_centro === undefined) values.id_centro = null;
+                          if (typeof values.id_centro === 'string') values.id_centro = Number(values.id_centro);
                           const success = await onSubmit({ ...values, turno: values.turno ? Number(values.turno) : undefined } as any);
                           if (success) {
                             form.reset();

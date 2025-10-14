@@ -285,6 +285,39 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     return formatter.format(amount);
   };
 
+  const getCentroLabel = (item: any) => {
+    const code = item.centro_codigo ?? item.centroCodigo ?? item.centro?.codigo ?? '';
+    const name = item.centro_nombre ?? item.centroNombre ?? item.centro?.nombre ?? '';
+    if (code || name) return `${code || ''}${code && name ? ' - ' : ''}${name || ''}`;
+    return '';
+  };
+
+  // Read selected centro from localStorage to display in header
+  const [selectedCentroId, setSelectedCentroId] = useState<number | null>(null);
+  const [selectedCentroName, setSelectedCentroName] = useState<string | null>(null);
+  const [centroSaldo, setCentroSaldo] = useState<number | null>(null);
+
+  useEffect(() => {
+    try {
+      const id = typeof window !== 'undefined' ? localStorage.getItem('centroSeleccionado') : null;
+      const name = typeof window !== 'undefined' ? localStorage.getItem('centroSeleccionadoName') : null;
+      if (id) setSelectedCentroId(Number(id));
+      if (name) setSelectedCentroName(name);
+    } catch { }
+  }, []);
+
+  useEffect(() => {
+    if (!selectedCentroId) return;
+    (async () => {
+      try {
+        const API_BASE = (typeof window !== 'undefined' && (window as any).__env && (window as any).__env.NEXT_PUBLIC_API_URL) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+        const res = await fetch(`${API_BASE}/tesoreria/saldo/actual/${selectedCentroId}`);
+        const json = await res.json();
+        if (json && json.success) setCentroSaldo(parseFloat(json.data?.saldo || 0));
+      } catch { }
+    })();
+  }, [selectedCentroId]);
+
   // Estadísticas simples
   const totalRegistros = tesoreria.length;
   const totalMonto = tesoreria.reduce((acc, it) => acc + (it.monto || 0), 0);
@@ -389,7 +422,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     </TableCell>
                     <TableCell>{item.placa || ""}</TableCell>
                     <TableCell>{item.nombre}</TableCell>
-                    <TableCell>{item.centro_codigo || item.centro_nombre ? `${item.centro_codigo || ''}${item.centro_codigo && item.centro_nombre ? ' - ' : ''}${item.centro_nombre || ''}` : ''}</TableCell>
+                    <TableCell>{getCentroLabel(item)}</TableCell>
                     <TableCell>{item.cargo || ""}</TableCell>
                     <TableCell>{item.categoria}</TableCell>
                     <TableCell>{item.distrito || ""}</TableCell>
@@ -539,7 +572,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Centro de distribución</label>
-                    <p className="text-sm">{selectedTesoreria.centro_codigo || selectedTesoreria.centro_nombre ? `${selectedTesoreria.centro_codigo || ''}${selectedTesoreria.centro_codigo && selectedTesoreria.centro_nombre ? ' - ' : ''}${selectedTesoreria.centro_nombre || ''}` : '-'}</p>
+                    <p className="text-sm">{getCentroLabel(selectedTesoreria) || '-'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Cargo</label>
@@ -602,10 +635,15 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
       {/* Header con búsqueda y filtros */}
       <Card>
         <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
-              Registros de Tesorería
+              <div>
+                Registros de Tesorería
+                {selectedCentroName && (
+                  <div className="text-xs text-muted-foreground">Centro: {selectedCentroName} {centroSaldo !== null && `— Saldo: ${formatCurrency(centroSaldo)}`}</div>
+                )}
+              </div>
             </CardTitle>
             <div className="flex gap-2">
               <DropdownMenu>
@@ -709,7 +747,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
             </div>
           </div>
 
-          {/* Tabla */}
+          {/* Tabla simplificada: mostramos Centro y solo columnas clave */}
           <div className="rounded-md border overflow-x-auto">
             <Table>
               <TableHeader>
@@ -717,13 +755,9 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                   <TableHead>Fecha</TableHead>
                   <TableHead>PLACA T2</TableHead>
                   <TableHead>Nombre</TableHead>
-                  <TableHead>Cargo</TableHead>
+                  <TableHead>Centro</TableHead>
                   <TableHead>Categoría</TableHead>
-                  <TableHead>Detalle</TableHead>
-                  <TableHead>Reembolso</TableHead>
                   <TableHead>Distrito</TableHead>
-                  <TableHead>Turno</TableHead>
-                  <TableHead>Encargado</TableHead>
                   <TableHead>Monto</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
@@ -736,7 +770,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedData.map((item) => (
+                  (paginatedData as Tesoreria[]).map((item) => (
                     <TableRow key={item.id}>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -746,81 +780,16 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                       </TableCell>
                       <TableCell>{item.placa || "-"}</TableCell>
                       <TableCell>{item.nombre}</TableCell>
-                      <TableCell>{item.cargo || "-"}</TableCell>
+                      <TableCell>{getCentroLabel(item)}</TableCell>
+                      <TableCell>{item.categoria}</TableCell>
+                      <TableCell>{item.distrito || '-'}</TableCell>
                       <TableCell>
-                        <div>
-                          <div className="font-medium">{item.categoria}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="max-w-xs truncate" title={item.detalle || ""}>
-                          {item.detalle || "-"}
-                        </div>
-                      </TableCell>
-                      <TableCell>{item.reembolso || "-"}</TableCell>
-                      <TableCell>{item.distrito || "-"}</TableCell>
-                      <TableCell>{(() => {
-                        const n = Number(item.turno);
-                        if (n === 1) return '1 - Mañana';
-                        if (n === 2) return '2 - Tarde';
-                        if (n === 3) return '3 - Noche';
-                        return item.turno ?? '-';
-                      })()}</TableCell>
-                      <TableCell>{item.encargado || "-"}</TableCell>
-                      <TableCell>
-                        <div className="font-medium">
-                          {formatCurrency(item.monto)}
-                        </div>
+                        <div className="font-medium">{formatCurrency(item.monto)}</div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => handleEdit(item)}
-                            aria-label="Editar"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => handleInfo(item)}
-                            aria-label="Info"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                aria-label="Eliminar"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta acción no se puede deshacer. Se eliminará permanentemente el registro de tesorería.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(item.id)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
-                                  Eliminar
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => handleEdit(item)} aria-label="Editar"><Edit className="h-4 w-4" /></Button>
+                          <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => handleInfo(item)} aria-label="Info"><Eye className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>

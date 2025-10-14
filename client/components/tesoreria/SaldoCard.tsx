@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import Cookies from "js-cookie";
-import { Wallet, Edit, Plus, Eye } from "lucide-react";
+import { Wallet, Edit, Plus, Eye, Loader } from "lucide-react";
 import { LIMA_TIMEZONE } from "@/lib/utils/date-lima";
 
 export function SaldoCard() {
@@ -20,10 +20,16 @@ export function SaldoCard() {
   const [open, setOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
   const [histLoading, setHistLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [histData, setHistData] = useState<any | null>(null);
   const [mode, setMode] = useState<'set' | 'add'>('set'); // 'set' para establecer, 'add' para agregar
   const [value, setValue] = useState(0);
   const [motivo, setMotivo] = useState("");
+  // centros
+  const [centros, setCentros] = useState<any[]>([]);
+  const [centroSeleccionado, setCentroSeleccionado] = useState<string>("");
+  const [centrosLoading, setCentrosLoading] = useState<boolean>(false);
+  const [saldoLoading, setSaldoLoading] = useState<boolean>(false);
 
   const API_BASE =
     (typeof window !== "undefined" &&
@@ -32,32 +38,82 @@ export function SaldoCard() {
     process.env.NEXT_PUBLIC_API_URL ||
     "http://localhost:4000/api";
 
-  const fetchSaldo = async () => {
+  const fetchCentros = async () => {
+    setCentrosLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/tesoreria/saldo/actual`);
+      // El endpoint correcto en el servidor es /centros-distribucion
+      const token = Cookies.get('auth_token');
+      const res = await fetch(`${API_BASE}/centros-distribucion`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      const json = await res.json();
+      if (json && json.success) {
+        const list = json.data || [];
+        setCentros(list);
+        // Do not auto-select a centro here: selection happens when creating/adjusting saldo
+      } else {
+        toast({ title: 'Error', description: 'No se pudo cargar centros', variant: 'destructive' });
+      }
+    } catch (e) {
+      toast({ title: 'Error', description: 'Error cargando centros', variant: 'destructive' });
+    } finally {
+      setCentrosLoading(false);
+    }
+  };
+
+  const normalizeId = (c: any) => String(c?.id_centro ?? c?.id ?? c?.ID ?? '');
+
+  const fetchSaldo = async (centroId?: string) => {
+    if (!centroId) return;
+    setSaldoLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/tesoreria/saldo/actual/${centroId}`);
       const json = await res.json();
       if (json && json.success) {
         setSaldo(parseFloat(json.data?.saldo || 0));
         setUpdatedBy(json.data?.updated_by_nombre || null);
         setUpdatedAt(json.data?.updated_at || null);
+      } else {
+        // clear or keep previous
+        setSaldo(null);
       }
     } catch {
       /* ignore */
+    } finally {
+      setSaldoLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchSaldo();
+    fetchCentros();
   }, []);
 
   useEffect(() => {
-    const handler = () => fetchSaldo();
+    if (centroSeleccionado) fetchSaldo(centroSeleccionado);
+  }, [centroSeleccionado]);
+
+  // persist centroSeleccionado
+  useEffect(() => {
+    if (centroSeleccionado && typeof window !== 'undefined') {
+      localStorage.setItem('centroSeleccionado', String(centroSeleccionado));
+      // Persist also the centro name so other components can show it in headers
+      try {
+        const found = centros.find(c => normalizeId(c) === String(centroSeleccionado));
+        if (found) localStorage.setItem('centroSeleccionadoName', found.nombre || '');
+        else localStorage.removeItem('centroSeleccionadoName');
+      } catch { /* ignore */ }
+    }
+  }, [centroSeleccionado]);
+
+  useEffect(() => {
+    const handler = () => fetchSaldo(centroSeleccionado);
     window.addEventListener("tesoreria:saldo-changed", handler);
     return () => window.removeEventListener("tesoreria:saldo-changed", handler);
-  }, []);
+  }, [centroSeleccionado]);
 
   const save = async () => {
     try {
+      setSaving(true);
       const token = Cookies.get("auth_token");
       if (!motivo || !motivo.trim()) {
         toast({ title: "Motivo requerido", description: "Ingrese un motivo para el ajuste del saldo", variant: "destructive" });
@@ -65,15 +121,19 @@ export function SaldoCard() {
       }
 
       let res, json;
+      if (!centroSeleccionado) {
+        toast({ title: 'Centro requerido', description: 'Seleccione un centro de distribución', variant: 'destructive' });
+        return;
+      }
       
-      if (mode === 'set') {
+  if (mode === 'set') {
         // No permitir que el admin aumente el saldo desde el modal 'Editar'
         if (saldo != null && parseFloat(String(value)) > saldo) {
           toast({ title: 'Acción no permitida', description: 'Para aumentar el saldo use el botón Agregar', variant: 'destructive' });
           return;
         }
-        // Establecer saldo específico (funcionalidad original)
-        res = await fetch(`${API_BASE}/tesoreria/saldo/actual`, {
+        // Establecer saldo específico por centro
+        res = await fetch(`${API_BASE}/tesoreria/saldo/actual/${centroSeleccionado}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
@@ -82,7 +142,7 @@ export function SaldoCard() {
           body: JSON.stringify({ saldo: parseFloat(String(value)), motivo: String(motivo).trim() }),
         });
       } else {
-        // Agregar dinero al saldo existente (incremento)
+        // Agregar dinero al saldo existente para el centro: usar endpoint de ajustes (admin)
         res = await fetch(`${API_BASE}/tesoreria/saldo/ajustes`, {
           method: "POST",
           headers: {
@@ -92,7 +152,8 @@ export function SaldoCard() {
           body: JSON.stringify({ 
             tipo: 'incremento', 
             monto: parseFloat(String(value)), 
-            motivo: String(motivo).trim() 
+            motivo: String(motivo).trim(),
+            centro_id: centroSeleccionado
           }),
         });
       }
@@ -105,12 +166,8 @@ export function SaldoCard() {
             ? "El saldo fue establecido correctamente"
             : `Se agregaron S/ ${value} al saldo disponible`,
         });
-        if (mode === 'set') {
-          setSaldo(parseFloat(String(value)));
-        } else {
-          // Para incremento, actualizar el saldo con el nuevo valor del servidor
-          setSaldo(json.data?.saldo || saldo);
-        }
+        // actualizar saldo con el valor devuelto por el servidor (si existe)
+        setSaldo(json.data?.saldo ?? (mode === 'set' ? parseFloat(String(value)) : saldo));
         setOpen(false);
         setMotivo("");
         setValue(0);
@@ -128,79 +185,93 @@ export function SaldoCard() {
         description: "Error de conexión",
         variant: "destructive",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <>
       <Card className="w-full max-w-md shadow-sm rounded-lg">
-        <CardHeader className="pb-2 flex flex-row items-center justify-between">
-          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-            <Wallet className="h-5 w-5 text-emerald-600" />
-            Tesorería
-          </CardTitle>
-          {isAdmin && (
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={async () => {
-                  setHistOpen(true);
-                  setHistLoading(true);
-                  try {
-                    const res = await fetch(`${API_BASE}/tesoreria/saldo/historial`);
-                    const json = await res.json();
-                    if (json && json.success) setHistData(json.data);
-                  } catch (e) {
-                    // ignore
-                  } finally {
-                    setHistLoading(false);
-                  }
-                }}
-                title="Ver historial diario"
-              >
-                <Eye className="h-4 w-4 text-slate-600" />
-              </Button>
-              
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setMode('add');
-                  setValue(0);
-                  setOpen(true);
-                }}
-                className="text-emerald-600 hover:text-emerald-700"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Agregar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setMode('set');
-                  setValue(Number(saldo ?? 0));
-                  setOpen(true);
-                }}
-              >
-                <Edit className="h-3 w-3 mr-1" />
-                Editar
-              </Button>
-            </div>
-          )}
+        <CardHeader className="pb-2 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+              <Wallet className="h-5 w-5 text-emerald-600" />
+              Tesorería
+            </CardTitle>
+
+            {isAdmin && (
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    setHistOpen(true);
+                    setHistLoading(true);
+                    try {
+                      const res = await fetch(`${API_BASE}/tesoreria/saldo/historial/${centroSeleccionado}`);
+                      const json = await res.json();
+                      if (json && json.success) setHistData(json.data);
+                    } catch (e) {
+                      // ignore
+                    } finally {
+                      setHistLoading(false);
+                    }
+                  }}
+                  title="Ver historial diario"
+                >
+                  <Eye className="h-4 w-4 text-slate-600" />
+                </Button>
+                
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setMode('add');
+                    setValue(0);
+                    setOpen(true);
+                  }}
+                  className="text-emerald-600 hover:text-emerald-700"
+                  disabled={saving}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Agregar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setMode('set');
+                    setValue(Number(saldo ?? 0));
+                    setOpen(true);
+                  }}
+                  disabled={saving}
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  Editar
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Selector + búsqueda de centros */}
+          {/* The center selector is intentionally not shown here to avoid accidental changes.
+              Center selection occurs when creating/adjusting amounts (modal).
+              The SaldoCard displays the current saldo for the selected center maintained in localStorage or chosen in the modal. */}
         </CardHeader>
         <CardContent className="pt-0">
           <div className="flex items-baseline justify-between">
             <div>
               <p className="text-xs text-muted-foreground">Saldo disponible</p>
-              <p className="text-xl font-bold text-emerald-700">
-                {saldo != null
-                  ? new Intl.NumberFormat("es-PE", {
-                      style: "currency",
-                      currency: "PEN",
-                    }).format(saldo)
-                  : "Cargando..."}
+              <p className="text-xl font-bold text-emerald-700 flex items-center gap-2">
+                {saldoLoading ? (
+                  <>
+                    <Loader className="animate-spin h-5 w-5 text-emerald-600" />
+                    <span>Cargando...</span>
+                  </>
+                ) : (
+                  new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(saldo ?? 0)
+                )}
               </p>
             </div>
           </div>
@@ -219,58 +290,88 @@ export function SaldoCard() {
       </Card>
 
       {/* Modal flotante de edición */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>
-              {mode === 'set' ? 'Establecer Saldo' : 'Agregar Dinero'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            {mode === 'add' && saldo != null && (
-              <div className="text-sm text-muted-foreground bg-gray-50 p-2 rounded">
-                <span className="font-medium">Saldo actual:</span>{" "}
-                {new Intl.NumberFormat("es-PE", {
-                  style: "currency",
-                  currency: "PEN",
-                }).format(saldo)}
-              </div>
-            )}
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={value}
-              onChange={(e) => setValue(parseFloat(e.target.value) || 0)}
-              placeholder={mode === 'set' ? 'Nuevo saldo total' : 'Cantidad a agregar'}
-            />
-            <Input
-              placeholder={mode === 'set' 
-                ? "Motivo para establecer saldo (requerido)" 
-                : "Motivo para agregar dinero (requerido)"}
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-            />
-            {mode === 'add' && value > 0 && saldo != null && (
-              <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
-                <span className="font-medium">Nuevo saldo será:</span>{" "}
-                {new Intl.NumberFormat("es-PE", {
-                  style: "currency",
-                  currency: "PEN",
-                }).format(saldo + value)}
-              </div>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
-                Cancelar
-              </Button>
-              <Button size="sm" onClick={save}>
-                {mode === 'set' ? 'Establecer' : 'Agregar'}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+     {/* Modal flotante de edición */}
+<Dialog open={open} onOpenChange={setOpen}>
+  <DialogContent className="max-w-sm">
+    <DialogHeader>
+      <DialogTitle>
+        {mode === 'set' ? 'Establecer Saldo' : 'Agregar Dinero'}
+      </DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-3">
+      {/* 🟢 Nuevo: selector de centro dentro del modal */}
+      <div>
+        <label className="text-xs text-muted-foreground">Centro de distribución</label>
+        <select
+          className="w-full border rounded p-2 text-sm mt-1"
+          value={centroSeleccionado}
+          onChange={(e) => setCentroSeleccionado(e.target.value)}
+        >
+          {centros.map((c) => {
+            const id = normalizeId(c);
+            return (
+              <option key={id} value={String(id)}>{c.nombre}</option>
+            );
+          })}
+        </select>
+      </div>
+
+      {/* Mostrar saldo actual si está en modo agregar */}
+      {mode === 'add' && saldo != null && (
+        <div className="text-sm text-muted-foreground bg-gray-50 p-2 rounded">
+          <span className="font-medium">Saldo actual:</span>{" "}
+          {new Intl.NumberFormat("es-PE", {
+            style: "currency",
+            currency: "PEN",
+          }).format(saldo)}
+        </div>
+      )}
+
+      {/* Monto */}
+      <Input
+        type="number"
+        step="0.01"
+        min="0"
+        value={value}
+        onChange={(e) => setValue(parseFloat(e.target.value) || 0)}
+        placeholder={mode === 'set' ? 'Nuevo saldo total' : 'Cantidad a agregar'}
+      />
+
+      {/* Motivo */}
+      <Input
+        placeholder={mode === 'set' 
+          ? "Motivo para establecer saldo (requerido)" 
+          : "Motivo para agregar dinero (requerido)"}
+        value={motivo}
+        onChange={(e) => setMotivo(e.target.value)}
+      />
+
+      {/* Mostrar nuevo saldo estimado */}
+      {mode === 'add' && value > 0 && saldo != null && (
+        <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
+          <span className="font-medium">Nuevo saldo será:</span>{" "}
+          {new Intl.NumberFormat("es-PE", {
+            style: "currency",
+            currency: "PEN",
+          }).format(saldo + value)}
+        </div>
+      )}
+
+      {/* Botones */}
+      <div className="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)} disabled={saving}>
+          Cancelar
+        </Button>
+        <Button size="sm" onClick={save} disabled={saving || saldoLoading}>
+          {saving ? (
+            <span className="flex items-center gap-2"><Loader className="animate-spin h-4 w-4" />Procesando...</span>
+          ) : (mode === 'set' ? 'Establecer' : 'Agregar')}
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
 
       {/* Historial diario modal */}
       <Dialog open={histOpen} onOpenChange={setHistOpen}>

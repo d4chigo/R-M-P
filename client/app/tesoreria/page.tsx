@@ -43,6 +43,15 @@ export default function TesoreriaPage() {
   const { tesoreria, loading, createTesoreria, searchTesoreria } = useTesoreria();
   const { toast } = useToast();
 
+  const API_BASE =
+    (typeof window !== "undefined" &&
+      (window as any).__env &&
+      (window as any).__env.NEXT_PUBLIC_API_URL) ||
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:4000/api";
+
+  // Note: center selection is handled in the creation form/modal. We don't keep it here.
+
   // UI state
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -85,6 +94,7 @@ export default function TesoreriaPage() {
     return () => {
       const params: any = {};
       if (searchTerm) params.q = searchTerm;
+  // centro_id is provided by form when creating records; page-level search does not auto-filter by centro
       if (filterCategoria) params.categoria = filterCategoria;
       if (fecha) {
         params.fecha = fecha;
@@ -96,6 +106,8 @@ export default function TesoreriaPage() {
       return params;
     };
   }, [searchTerm, filterCategoria, fecha, activeTab]);
+
+  // No centro list or selection here; the `TesoreriaForm` will load and submit centro_id when needed.
 
   // Debounced auto-search when fields change (avoid loops by not depending on function identity)
   const prevParamsRef = useRef("");
@@ -130,7 +142,9 @@ export default function TesoreriaPage() {
   };
 
   const handleCreate = async (data: any) => {
-    const success = await createTesoreria(data);
+    // The form should include centro_id when appropriate. Use payload as-is.
+    const payload = { ...data };
+    const success = await createTesoreria(payload);
     if (success) {
       toast({ title: "Éxito", description: "Registro creado correctamente" });
       setIsCreateDialogOpen(false);
@@ -159,6 +173,7 @@ export default function TesoreriaPage() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Tesorería</h1>
             <p className="text-muted-foreground">Gestión de ingresos y egresos financieros</p>
+            {/* Centro activo is shown in the SaldoCard; selection happens when creating/adjusting. */}
           </div>
         </div>
 
@@ -186,134 +201,104 @@ export default function TesoreriaPage() {
         <div className="md:basis-[70%] md:flex-grow">
           {/* Search (común) moved out to the left column */}
           <Card className="mt-4 min-h-[140px]">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <SearchIcon className="h-5 w-5" />
-                Buscar Registros
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="relative flex-1 min-w-[220px]">
-                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Buscar por placa, nombre y cargo..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+  <CardHeader>
+    <CardTitle className="flex items-center gap-2">
+      <SearchIcon className="h-5 w-5" />
+      Buscar Registros
+    </CardTitle>
+  </CardHeader>
 
-                <div className="w-[200px]">
-                  <Select
-                    value={filterCategoria || "all"}
-                    onValueChange={(val: string) => setFilterCategoria(val === "all" ? "" : val)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Categoría" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todas</SelectItem>
-                      {categorias.map((categoria) => (
-                        <SelectItem key={categoria} value={categoria}>
-                          {categoria}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+  <CardContent>
+    <div className="flex flex-wrap items-center gap-3">
+      {/* Campo de búsqueda por texto */}
+      <div className="relative w-[240px]">
+        <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+        <Input
+          type="text"
+          placeholder="Buscar por descripción..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-9"
+        />
+      </div>
 
-                {/* Filtro por fecha específica (dd/mm/aaaa) */}
-                <Popover open={openFecha} onOpenChange={setOpenFecha}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-[200px] justify-start">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {fecha ? formatDatePeru(fecha) : <span className="text-gray-500">dd/mm/aaaa</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={fecha ? new Date(`${fecha}T00:00:00`) : undefined}
-                      onSelect={(d: Date | undefined) => {
-                        if (!d) { setFecha(""); return; }
-                        const ymd = toYMD(d);
-                        setFecha(ymd);
-                        setOpenFecha(false);
-                      }}
-                      initialFocus
-                      locale={es}
-                    />
-                  </PopoverContent>
-                </Popover>
+      {/* Filtro por categoría */}
+      <div className="w-[200px]">
+        <Select
+          value={filterCategoria || "all"}
+          onValueChange={(val: string) =>
+            setFilterCategoria(val === "all" ? "" : val)
+          }
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Categoría" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            {categorias.map((categoria) => (
+              <SelectItem key={categoria} value={categoria}>
+                {categoria}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-                <Button variant="outline" onClick={clearFilters} className="flex items-center gap-2">
-                  <RefreshCcw className="h-4 w-4" />
-                  
-                </Button>
+      {/* Filtro por fecha */}
+      <Popover open={openFecha} onOpenChange={setOpenFecha}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="w-[200px] justify-start">
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            {fecha ? (
+              formatDatePeru(fecha)
+            ) : (
+              <span className="text-gray-500">dd/mm/aaaa</span>
+            )}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <CalendarComponent
+            mode="single"
+            selected={fecha ? new Date(`${fecha}T00:00:00`) : undefined}
+            onSelect={(d: Date | undefined) => {
+              if (!d) {
+                setFecha("");
+                return;
+              }
+              const ymd = toYMD(d);
+              setFecha(ymd);
+              setOpenFecha(false);
+            }}
+            initialFocus
+            locale={es}
+          />
+        </PopoverContent>
+      </Popover>
 
-                {/* Se elimina botón de estadísticas */}
-              </div>
-            </CardContent>
-          </Card>
+      {/* Botón limpiar filtros */}
+      <Button
+        variant="outline"
+        onClick={clearFilters}
+        className="flex items-center gap-2"
+      >
+        <RefreshCcw className="h-4 w-4" />
+        Limpiar
+      </Button>
+    </div>
+  </CardContent>
+</Card>
+          {/* Tabla principal bajo el buscador */}
+          <div className="mt-4">
+            <TesoreriaTable variant="full" mode={activeTab} onRefresh={() => window.dispatchEvent(new Event('tesoreria:refresh'))} />
+          </div>
         </div>
 
-        <div className="md:basis-[30%] md:sticky md:top-24">
+        {/* Columna derecha: Saldo por centro */}
+        <div className="md:basis-[30%]">
           <SaldoCard />
         </div>
       </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList>
-          <TabsTrigger value="active">Hoy</TabsTrigger>
-          <TabsTrigger value="history">Historial Completo</TabsTrigger>
-          <TabsTrigger value="trash">Papelera</TabsTrigger>
-        </TabsList>
-
-        
-
-        {/* Tab: Hoy */}
-        <TabsContent value="active" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {fecha ? `Lista de Registros (Fecha: ${formatDatePeru(fecha)})` : 'Lista de Registros (Hoy)'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TesoreriaTable variant="simple" mode="active" />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab: Historial */}
-        <TabsContent value="history" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {fecha ? `Historial (Fecha: ${formatDatePeru(fecha)})` : 'Historial de Registros'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TesoreriaTable variant="simple" mode="history" />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Tab: Papelera */}
-        <TabsContent value="trash" className="mt-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Papelera</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TesoreriaTable variant="simple" mode="trash" />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
- 

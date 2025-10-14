@@ -18,6 +18,34 @@ import Link from "next/link";
 
 export const Navbar: React.FC = () => {
   const { usuario, logout, isAuthenticated, isAdmin } = useAuth();
+  const [centroNombre, setCentroNombre] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const loadCentro = async () => {
+      if (typeof window === 'undefined') return;
+      const id = localStorage.getItem('centroSeleccionado');
+      if (!id) return setCentroNombre(null);
+      const API_BASE = (window as any).__env?.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+      try {
+        const token = typeof window !== 'undefined' ? (window as any).localStorage.getItem('auth_token') || undefined : undefined;
+        const res = await fetch(`${API_BASE}/centros-distribucion/${id}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const json = await res.json();
+        if (json && json.success && json.data) {
+          setCentroNombre(json.data.nombre || json.data.nombre_centro || null);
+        } else {
+          setCentroNombre(null);
+        }
+      } catch (e) {
+        setCentroNombre(null);
+      }
+    };
+    loadCentro();
+    const handler = () => loadCentro();
+    window.addEventListener('centros:refresh', handler);
+    return () => window.removeEventListener('centros:refresh', handler);
+  }, []);
 
   if (!isAuthenticated || !usuario) {
     return null;
@@ -46,9 +74,10 @@ export const Navbar: React.FC = () => {
               <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-r from-blue-600 to-blue-500 rounded-xl flex items-center justify-center shadow-md">
                 <Truck className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <span className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">
-                R-M-P
-              </span>
+              <div className="flex flex-col">
+                <span className="text-lg sm:text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-400">R-M-P</span>
+                {centroNombre && <span className="text-xs text-muted-foreground">Centro: {centroNombre}</span>}
+              </div>
             </Link>
           </div>
 
