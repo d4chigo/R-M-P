@@ -228,12 +228,10 @@ const getTesoreriaById = async (req, res) => {
     }
 
     if (rows.length === 0) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Registro de tesorería no encontrado",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Registro de tesorería no encontrado",
+      });
     }
 
     // ocultar nombres si no es admin
@@ -252,13 +250,11 @@ const getTesoreriaById = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error al obtener registro de tesorería:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al obtener registro de tesorería",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener registro de tesorería",
+      error: error.message,
+    });
   }
 };
 
@@ -284,12 +280,10 @@ const createTesoreria = async (req, res) => {
 
     // Validaciones básicas
     if (!fecha || !nombre || !categoria || monto === undefined) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Fecha, nombre, categoría y monto son requeridos",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Fecha, nombre, categoría y monto son requeridos",
+      });
     }
 
     if (monto <= 0) {
@@ -298,62 +292,55 @@ const createTesoreria = async (req, res) => {
         .json({ success: false, message: "El monto debe ser mayor a 0" });
     }
 
-    // Si el cuerpo incluye id_centro, validar que exista (pero permitir '' o null como intención de limpiar)
-    const hasIdCentro = Object.prototype.hasOwnProperty.call(
-      req.body,
-      "id_centro",
-    );
-    if (
-      hasIdCentro &&
-      id_centro !== "" &&
-      id_centro !== null &&
-      typeof id_centro !== "undefined"
-    ) {
-      const [centroRows] = await db.query(
-        "SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?",
-        [id_centro],
-      );
-      if (centroRows.length === 0) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Centro de distribución no encontrado",
-          });
-      }
+    // Validar que id_centro sea obligatorio
+    if (!id_centro || id_centro === "" || id_centro === null) {
+      return res.status(400).json({
+        success: false,
+        message: "El centro de distribución es requerido",
+      });
     }
 
-    // Manejar decremento de saldo: obtener saldo actual y restar monto dentro de una transacción
+    // Validar que el centro exista
+    const [centroRows] = await db.query(
+      "SELECT id_centro FROM CENTRO_DISTRIBUCION WHERE id_centro = ?",
+      [id_centro],
+    );
+    if (centroRows.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Centro de distribución no encontrado",
+      });
+    }
+
+    // Manejar decremento de saldo del centro: obtener saldo actual y restar monto dentro de una transacción
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
 
-      // Obtener saldo actual (si no existe, inicializar a 0)
-      const [saldoRows] = await connection.query(
-        "SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE",
+      // Obtener saldo del centro (si no existe, crearlo con saldo 0)
+      const [saldoCentroRows] = await connection.query(
+        "SELECT saldo FROM TESORERIA_SALDO_CENTRO WHERE id_centro = ? FOR UPDATE",
+        [id_centro],
       );
-      let saldoId = null;
+
       let saldoActual = 0;
-      if (saldoRows.length === 0) {
-        const [ins] = await connection.query(
-          "INSERT INTO TESORERIA_SALDO (saldo) VALUES (?)",
-          [0],
+      if (saldoCentroRows.length === 0) {
+        // Crear registro de saldo para el centro si no existe
+        await connection.query(
+          "INSERT INTO TESORERIA_SALDO_CENTRO (id_centro, saldo, created_at, updated_at) VALUES (?, 0, NOW(), NOW())",
+          [id_centro],
         );
-        saldoId = ins.insertId;
         saldoActual = 0;
       } else {
-        saldoId = saldoRows[0].id;
-        saldoActual = parseFloat(saldoRows[0].saldo || 0);
+        saldoActual = parseFloat(saldoCentroRows[0].saldo || 0);
       }
 
       if (monto > saldoActual) {
         await connection.rollback();
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Saldo insuficiente en la tarjeta de tesorería",
-          });
+        return res.status(400).json({
+          success: false,
+          message: `Saldo insuficiente en el centro de distribución. Saldo disponible: S/ ${saldoActual.toFixed(2)}`,
+        });
       }
 
       // Insertar registro de tesorería
@@ -377,12 +364,35 @@ const createTesoreria = async (req, res) => {
         ],
       );
 
-      // Restar monto del saldo
+      // Restar monto del saldo del centro
       const nuevoSaldo = saldoActual - parseFloat(monto);
       await connection.query(
-        `UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`,
-        [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId],
+        `UPDATE TESORERIA_SALDO_CENTRO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id_centro = ?`,
+        [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, id_centro],
       );
+
+      // Registrar en historial del centro
+      try {
+        await connection.query(
+          `INSERT INTO TESORERIA_SALDO_CENTRO_HISTORIAL
+           (id_centro, tipo, saldo_anterior, monto, saldo_nuevo, motivo, id_registro_tesoreria, created_by, created_at)
+           VALUES (?, 'gasto', ?, ?, ?, ?, ?, ?, ${getLimaNowSQLClause()})`,
+          [
+            id_centro,
+            saldoActual,
+            parseFloat(monto),
+            nuevoSaldo,
+            `Gasto: ${categoria} - ${nombre}`,
+            result.insertId,
+            req.usuario ? req.usuario.id_usuario : null,
+          ],
+        );
+      } catch (histErr) {
+        console.warn(
+          "No se pudo registrar en historial de centro:",
+          histErr.message,
+        );
+      }
 
       await connection.commit();
 
@@ -423,35 +433,29 @@ const createTesoreria = async (req, res) => {
         );
       }
 
-      res
-        .status(201)
-        .json({
-          success: true,
-          data: { id: result.insertId },
-          message: "Registro de tesorería creado exitosamente",
-        });
+      res.status(201).json({
+        success: true,
+        data: { id: result.insertId },
+        message: "Registro de tesorería creado exitosamente",
+      });
     } catch (txErr) {
       console.error("Error en transacción crear tesorería:", txErr);
       await connection.rollback();
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: "Error al crear registro de tesorería",
-          error: txErr.message,
-        });
+      res.status(500).json({
+        success: false,
+        message: "Error al crear registro de tesorería",
+        error: txErr.message,
+      });
     } finally {
       connection.release();
     }
   } catch (error) {
     console.error("❌ Error al crear registro de tesorería:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al crear registro de tesorería",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al crear registro de tesorería",
+      error: error.message,
+    });
   }
 };
 
@@ -464,12 +468,10 @@ const updateTesoreria = async (req, res) => {
       req.userRoles = req.usuario.roles.map((r) => String(r).toUpperCase());
     }
     if (!req.userRoles || !req.userRoles.includes("ADMINISTRADOR")) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Acción no permitida: se requiere rol ADMINISTRADOR",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Acción no permitida: se requiere rol ADMINISTRADOR",
+      });
     }
 
     const { id } = req.params;
@@ -513,20 +515,16 @@ const updateTesoreria = async (req, res) => {
       [id],
     );
     if (existing.length === 0) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Registro de tesorería no encontrado",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Registro de tesorería no encontrado",
+      });
     }
     if (existing[0].deleted_at) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "No se puede editar un registro en la papelera",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "No se puede editar un registro en la papelera",
+      });
     }
 
     // Si el body incluye id_centro y su valor NO es vacío/NULL, validar que exista.
@@ -542,12 +540,10 @@ const updateTesoreria = async (req, res) => {
         [id_centro],
       );
       if (centroRows.length === 0) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Centro de distribución no encontrado",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Centro de distribución no encontrado",
+        });
       }
     }
 
@@ -570,13 +566,11 @@ const updateTesoreria = async (req, res) => {
         // Política: en edición solo se permiten montos inferiores o iguales al original (no aumentar)
         if (parsedNewMonto > oldMonto) {
           await connection.rollback();
-          return res
-            .status(400)
-            .json({
-              success: false,
-              message:
-                "Edición inválida: no está permitido aumentar el monto original. Para sumar nuevo gasto, cree un nuevo registro.",
-            });
+          return res.status(400).json({
+            success: false,
+            message:
+              "Edición inválida: no está permitido aumentar el monto original. Para sumar nuevo gasto, cree un nuevo registro.",
+          });
         }
 
         const delta = parsedNewMonto - oldMonto; // si <0: devolver saldo (sumar al saldo)
@@ -734,25 +728,21 @@ const updateTesoreria = async (req, res) => {
     } catch (txErr) {
       await connection.rollback();
       console.error("Error en transacción actualizar tesorería:", txErr);
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: "Error al actualizar registro de tesorería",
-          error: txErr.message,
-        });
+      res.status(500).json({
+        success: false,
+        message: "Error al actualizar registro de tesorería",
+        error: txErr.message,
+      });
     } finally {
       connection.release();
     }
   } catch (error) {
     console.error("❌ Error al actualizar registro de tesorería:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al actualizar registro de tesorería",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar registro de tesorería",
+      error: error.message,
+    });
   }
 };
 
@@ -795,13 +785,11 @@ const getSaldo = async (_req, res) => {
     }
   } catch (error) {
     console.error("Error obteniendo saldo:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al obtener saldo",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener saldo",
+      error: error.message,
+    });
   }
 };
 
@@ -826,13 +814,11 @@ const updateSaldo = async (req, res) => {
     // Si no existe fila, crearla (como antes)
     if (rows.length === 0) {
       if (typeof motivo === "undefined" || String(motivo).trim() === "") {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message:
-              "Debe especificar un motivo para establecer el saldo inicial",
-          });
+        return res.status(400).json({
+          success: false,
+          message:
+            "Debe especificar un motivo para establecer el saldo inicial",
+        });
       }
       const [ins] = await db.query(
         "INSERT INTO TESORERIA_SALDO (saldo, updated_by) VALUES (?, ?)",
@@ -866,13 +852,11 @@ const updateSaldo = async (req, res) => {
 
     // En modo edición (PUT /saldo/actual) solo permitimos disminuir o igualar el saldo actual.
     if (delta > 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            'No está permitido aumentar el saldo con la acción de "Editar". Use la opción "Agregar" para incrementar el saldo.',
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          'No está permitido aumentar el saldo con la acción de "Editar". Use la opción "Agregar" para incrementar el saldo.',
+      });
     }
 
     if (delta === 0) {
@@ -884,12 +868,10 @@ const updateSaldo = async (req, res) => {
     }
 
     if (typeof motivo === "undefined" || String(motivo).trim() === "") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Debe especificar un motivo para ajustar el saldo",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Debe especificar un motivo para ajustar el saldo",
+      });
     }
 
     // delta < 0: devolver la diferencia al saldo (sumarlo)
@@ -918,13 +900,11 @@ const updateSaldo = async (req, res) => {
     });
   } catch (error) {
     console.error("Error actualizando saldo:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al actualizar saldo",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al actualizar saldo",
+      error: error.message,
+    });
   }
 };
 
@@ -1016,13 +996,11 @@ const getSaldoHistorial = async (req, res) => {
     res.json({ success: true, data: { fecha, movimientos, ajustes, audits } });
   } catch (error) {
     console.error("Error obteniendo historial de saldo:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al obtener historial de saldo",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener historial de saldo",
+      error: error.message,
+    });
   }
 };
 
@@ -1034,12 +1012,10 @@ const deleteTesoreria = async (req, res) => {
       req.userRoles = req.usuario.roles.map((r) => String(r).toUpperCase());
     }
     if (!req.userRoles || !req.userRoles.includes("ADMINISTRADOR")) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Acción no permitida: se requiere rol ADMINISTRADOR",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Acción no permitida: se requiere rol ADMINISTRADOR",
+      });
     }
     const { id } = req.params;
 
@@ -1048,12 +1024,10 @@ const deleteTesoreria = async (req, res) => {
       [id],
     );
     if (existing.length === 0) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Registro de tesorería no encontrado",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Registro de tesorería no encontrado",
+      });
     }
 
     // Si ya está en papelera, no hacer nada
@@ -1097,13 +1071,11 @@ const deleteTesoreria = async (req, res) => {
     } catch (txErr) {
       await connection.rollback();
       console.error("Error en transacción eliminar tesorería:", txErr);
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: "Error al eliminar registro de tesorería",
-          error: txErr.message,
-        });
+      return res.status(500).json({
+        success: false,
+        message: "Error al eliminar registro de tesorería",
+        error: txErr.message,
+      });
     } finally {
       connection.release();
     }
@@ -1124,13 +1096,11 @@ const deleteTesoreria = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error al eliminar registro de tesorería:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al eliminar registro de tesorería",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al eliminar registro de tesorería",
+      error: error.message,
+    });
   }
 };
 
@@ -1142,12 +1112,10 @@ const restoreTesoreria = async (req, res) => {
       req.userRoles = req.usuario.roles.map((r) => String(r).toUpperCase());
     }
     if (!req.userRoles || !req.userRoles.includes("ADMINISTRADOR")) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Acción no permitida: se requiere rol ADMINISTRADOR",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Acción no permitida: se requiere rol ADMINISTRADOR",
+      });
     }
     const { id } = req.params;
     const [existing] = await db.query(
@@ -1155,20 +1123,16 @@ const restoreTesoreria = async (req, res) => {
       [id],
     );
     if (existing.length === 0) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "Registro de tesorería no encontrado",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "Registro de tesorería no encontrado",
+      });
     }
     if (!existing[0].deleted_at) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "El registro no está en la papelera",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "El registro no está en la papelera",
+      });
     }
 
     const connection = await db.getConnection();
@@ -1192,12 +1156,10 @@ const restoreTesoreria = async (req, res) => {
       const monto = parseFloat(existing[0].monto);
       if (monto > saldoActual) {
         await connection.rollback();
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Saldo insuficiente para restaurar el registro",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Saldo insuficiente para restaurar el registro",
+        });
       }
       const nuevoSaldo = saldoActual - monto;
       await connection.query(
@@ -1213,13 +1175,11 @@ const restoreTesoreria = async (req, res) => {
     } catch (txErr) {
       await connection.rollback();
       console.error("Error en transacción restaurar tesorería:", txErr);
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: "Error al restaurar registro de tesorería",
-          error: txErr.message,
-        });
+      return res.status(500).json({
+        success: false,
+        message: "Error al restaurar registro de tesorería",
+        error: txErr.message,
+      });
     } finally {
       connection.release();
     }
@@ -1237,13 +1197,11 @@ const restoreTesoreria = async (req, res) => {
     res.json({ success: true, message: "Registro restaurado exitosamente" });
   } catch (error) {
     console.error("❌ Error al restaurar registro de tesorería:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al restaurar registro de tesorería",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al restaurar registro de tesorería",
+      error: error.message,
+    });
   }
 };
 
@@ -1317,12 +1275,10 @@ const purgeTesoreria = async (_req, res) => {
       );
     }
     if (!reqObj.userRoles || !reqObj.userRoles.includes("ADMINISTRADOR")) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Acción no permitida: se requiere rol ADMINISTRADOR",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Acción no permitida: se requiere rol ADMINISTRADOR",
+      });
     }
     // Elimina filas cuya deleted_at sea anterior a 7 días
     const [result] = await db.query(
@@ -1339,13 +1295,11 @@ const purgeTesoreria = async (_req, res) => {
     });
   } catch (error) {
     console.error("❌ Error al purgar tesorería:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al purgar registros de tesorería",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al purgar registros de tesorería",
+      error: error.message,
+    });
   }
 };
 
@@ -1421,25 +1375,21 @@ const rolloverSaldo = async (req, res) => {
     } catch (txErr) {
       await connection.rollback();
       console.error("Error en transacción rollover:", txErr);
-      return res
-        .status(500)
-        .json({
-          success: false,
-          message: "Error en rollover",
-          error: txErr.message,
-        });
+      return res.status(500).json({
+        success: false,
+        message: "Error en rollover",
+        error: txErr.message,
+      });
     } finally {
       connection.release();
     }
   } catch (err) {
     console.error("Error en rolloverSaldo:", err);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error en rollover",
-        error: err.message,
-      });
+    return res.status(500).json({
+      success: false,
+      message: "Error en rollover",
+      error: err.message,
+    });
   }
 };
 
@@ -1537,13 +1487,11 @@ const getSaldosPorCentro = async (req, res) => {
     res.json({ success: true, data });
   } catch (error) {
     console.error("Error obteniendo saldos por centro:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al obtener saldos por centro",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener saldos por centro",
+      error: error.message,
+    });
   }
 };
 
@@ -1554,12 +1502,10 @@ const setSaldoCentro = async (req, res) => {
       req.userRoles = req.usuario.roles.map((r) => String(r).toUpperCase());
     }
     if (!req.userRoles || !req.userRoles.includes("ADMINISTRADOR")) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Acción no permitida: se requiere rol ADMINISTRADOR",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Acción no permitida: se requiere rol ADMINISTRADOR",
+      });
     }
 
     const id_centro = Number(req.params.id_centro);
@@ -1603,12 +1549,10 @@ const setSaldoCentro = async (req, res) => {
 
       if (centroRows.length === 0) {
         await connection.rollback();
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: "Centro de distribución no encontrado",
-          });
+        return res.status(404).json({
+          success: false,
+          message: "Centro de distribución no encontrado",
+        });
       }
 
       // Obtener saldo actual
@@ -1682,25 +1626,21 @@ const setSaldoCentro = async (req, res) => {
     } catch (txErr) {
       await connection.rollback();
       console.error("Error en transacción setSaldoCentro:", txErr);
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: "Error al establecer saldo",
-          error: txErr.message,
-        });
+      res.status(500).json({
+        success: false,
+        message: "Error al establecer saldo",
+        error: txErr.message,
+      });
     } finally {
       connection.release();
     }
   } catch (error) {
     console.error("Error en setSaldoCentro:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al establecer saldo",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al establecer saldo",
+      error: error.message,
+    });
   }
 };
 
@@ -1711,12 +1651,10 @@ const incrementarSaldoCentro = async (req, res) => {
       req.userRoles = req.usuario.roles.map((r) => String(r).toUpperCase());
     }
     if (!req.userRoles || !req.userRoles.includes("ADMINISTRADOR")) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Acción no permitida: se requiere rol ADMINISTRADOR",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Acción no permitida: se requiere rol ADMINISTRADOR",
+      });
     }
 
     const id_centro = Number(req.params.id_centro);
@@ -1760,12 +1698,10 @@ const incrementarSaldoCentro = async (req, res) => {
 
       if (centroRows.length === 0) {
         await connection.rollback();
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: "Centro de distribución no encontrado",
-          });
+        return res.status(404).json({
+          success: false,
+          message: "Centro de distribución no encontrado",
+        });
       }
 
       // Obtener saldo actual
@@ -1849,25 +1785,21 @@ const incrementarSaldoCentro = async (req, res) => {
     } catch (txErr) {
       await connection.rollback();
       console.error("Error en transacción incrementarSaldoCentro:", txErr);
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: "Error al incrementar saldo",
-          error: txErr.message,
-        });
+      res.status(500).json({
+        success: false,
+        message: "Error al incrementar saldo",
+        error: txErr.message,
+      });
     } finally {
       connection.release();
     }
   } catch (error) {
     console.error("Error en incrementarSaldoCentro:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al incrementar saldo",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al incrementar saldo",
+      error: error.message,
+    });
   }
 };
 
@@ -1892,13 +1824,11 @@ const getDropdownVehiculos = async (req, res) => {
     res.json({ success: true, data });
   } catch (error) {
     console.error("Error obteniendo vehiculos para dropdown:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al obtener vehiculos",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener vehiculos",
+      error: error.message,
+    });
   }
 };
 
@@ -1915,13 +1845,11 @@ const getDropdownRepartidores = async (req, res) => {
     res.json({ success: true, data });
   } catch (error) {
     console.error("Error obteniendo repartidores para dropdown:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al obtener repartidores",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener repartidores",
+      error: error.message,
+    });
   }
 };
 
@@ -1955,22 +1883,18 @@ const createAjuste = async (req, res) => {
       req.userRoles = req.usuario.roles.map((r) => String(r).toUpperCase());
     }
     if (!req.userRoles || !req.userRoles.includes("ADMINISTRADOR")) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Acción no permitida: se requiere rol ADMINISTRADOR",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Acción no permitida: se requiere rol ADMINISTRADOR",
+      });
     }
 
     const { tipo, monto, motivo, fecha } = req.body || {};
     if (!["incremento", "decremento"].includes(String(tipo))) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Tipo inválido (use incremento/decremento)",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Tipo inválido (use incremento/decremento)",
+      });
     }
     const amount = parseFloat(monto);
     if (!amount || amount <= 0) {
@@ -2007,12 +1931,10 @@ const createAjuste = async (req, res) => {
       const nuevoSaldo = saldoActual + signo * amount;
       if (nuevoSaldo < 0) {
         await connection.rollback();
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Saldo insuficiente para aplicar el ajuste",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Saldo insuficiente para aplicar el ajuste",
+        });
       }
 
       const f = fecha && String(fecha).trim() ? fecha : getTodayLimaYMD();
@@ -2049,35 +1971,29 @@ const createAjuste = async (req, res) => {
           },
         });
       } catch (e) {}
-      res
-        .status(201)
-        .json({
-          success: true,
-          data: { id: aj.insertId, saldo: nuevoSaldo },
-          message: "Ajuste aplicado",
-        });
+      res.status(201).json({
+        success: true,
+        data: { id: aj.insertId, saldo: nuevoSaldo },
+        message: "Ajuste aplicado",
+      });
     } catch (txErr) {
       await connection.rollback();
       console.error("❌ Error en ajuste:", txErr);
-      res
-        .status(500)
-        .json({
-          success: false,
-          message: "Error al aplicar ajuste",
-          error: txErr.message,
-        });
+      res.status(500).json({
+        success: false,
+        message: "Error al aplicar ajuste",
+        error: txErr.message,
+      });
     } finally {
       connection.release();
     }
   } catch (error) {
     console.error("❌ Error creando ajuste:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error creando ajuste",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error creando ajuste",
+      error: error.message,
+    });
   }
 };
 
@@ -2087,12 +2003,10 @@ const listAjustes = async (req, res) => {
       req.userRoles = req.usuario.roles.map((r) => String(r).toUpperCase());
     }
     if (!req.userRoles || !req.userRoles.includes("ADMINISTRADOR")) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Acción no permitida: se requiere rol ADMINISTRADOR",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Acción no permitida: se requiere rol ADMINISTRADOR",
+      });
     }
     await ensureAjusteTables();
     const { fecha_inicio, fecha_fin } = req.query || {};
@@ -2118,13 +2032,11 @@ const listAjustes = async (req, res) => {
     res.json({ success: true, data: rows, count: rows.length });
   } catch (error) {
     console.error("❌ Error listando ajustes:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error listando ajustes",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error listando ajustes",
+      error: error.message,
+    });
   }
 };
 
@@ -2177,13 +2089,11 @@ const resumenDia = async (req, res) => {
     });
   } catch (error) {
     console.error("❌ Error en resumen diario:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error en resumen diario",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error en resumen diario",
+      error: error.message,
+    });
   }
 };
 
@@ -2199,12 +2109,10 @@ const getAudit = async (req, res) => {
       req.userRoles = req.usuario.roles.map((r) => String(r).toUpperCase());
     }
     if (!req.userRoles || !req.userRoles.includes("ADMINISTRADOR")) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Acción no permitida: se requiere rol ADMINISTRADOR",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Acción no permitida: se requiere rol ADMINISTRADOR",
+      });
     }
 
     const { entidad, entity_id, desde, hasta, evento } = req.query;
@@ -2243,13 +2151,11 @@ const getAudit = async (req, res) => {
     res.json({ success: true, data: rows, count: rows.length });
   } catch (error) {
     console.error("❌ Error obteniendo auditoría:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al obtener auditoría",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener auditoría",
+      error: error.message,
+    });
   }
 };
 
@@ -2259,12 +2165,10 @@ const getAuditByTesoreriaId = async (req, res) => {
       req.userRoles = req.usuario.roles.map((r) => String(r).toUpperCase());
     }
     if (!req.userRoles || !req.userRoles.includes("ADMINISTRADOR")) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Acción no permitida: se requiere rol ADMINISTRADOR",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Acción no permitida: se requiere rol ADMINISTRADOR",
+      });
     }
     const id = Number(req.params.id);
     const [rows] = await db.query(
@@ -2278,13 +2182,11 @@ const getAuditByTesoreriaId = async (req, res) => {
     res.json({ success: true, data: rows, count: rows.length });
   } catch (error) {
     console.error("❌ Error obteniendo auditoría por id:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Error al obtener auditoría",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Error al obtener auditoría",
+      error: error.message,
+    });
   }
 };
 
