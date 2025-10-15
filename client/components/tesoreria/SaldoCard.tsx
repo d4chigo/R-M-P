@@ -4,24 +4,48 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import Cookies from "js-cookie";
-import { Wallet, Edit, Plus, Eye } from "lucide-react";
-import { LIMA_TIMEZONE } from "@/lib/utils/date-lima";
+import { Wallet, Edit, Plus, Eye, Info } from "lucide-react";
+
+interface CentroSaldo {
+  id_centro: number;
+  nombre_centro: string;
+  saldo: number;
+  codigo?: string;
+  ciudad?: string;
+  updated_at?: string;
+  updated_by_nombre?: string;
+}
 
 export function SaldoCard() {
   const { isAdmin } = useAuth();
   const { toast } = useToast();
-  const [saldo, setSaldo] = useState<number | null>(null);
-  const [updatedBy, setUpdatedBy] = useState<string | null>(null);
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
-  const [histOpen, setHistOpen] = useState(false);
-  const [histLoading, setHistLoading] = useState(false);
-  const [histData, setHistData] = useState<any | null>(null);
-  const [mode, setMode] = useState<'set' | 'add'>('set'); // 'set' para establecer, 'add' para agregar
+  const [saldoTotal, setSaldoTotal] = useState<number | null>(null);
+  const [centrosSaldos, setCentrosSaldos] = useState<CentroSaldo[]>([]);
+  const [tableOpen, setTableOpen] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [selectedCentro, setSelectedCentro] = useState<CentroSaldo | null>(
+    null,
+  );
+  const [mode, setMode] = useState<"set" | "add">("set");
   const [value, setValue] = useState(0);
   const [motivo, setMotivo] = useState("");
 
@@ -32,88 +56,154 @@ export function SaldoCard() {
     process.env.NEXT_PUBLIC_API_URL ||
     "http://localhost:4000/api";
 
-  const fetchSaldo = async () => {
+  const fetchSaldos = async () => {
     try {
-      const res = await fetch(`${API_BASE}/tesoreria/saldo/actual`);
+      const token = Cookies.get("auth_token");
+      console.log(
+        "Fetching saldos from:",
+        `${API_BASE}/tesoreria/saldo/por-centro`,
+      );
+
+      const res = await fetch(`${API_BASE}/tesoreria/saldo/por-centro`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+      });
+
       const json = await res.json();
+      console.log("Saldos response:", json);
+
       if (json && json.success) {
-        setSaldo(parseFloat(json.data?.saldo || 0));
-        setUpdatedBy(json.data?.updated_by_nombre || null);
-        setUpdatedAt(json.data?.updated_at || null);
+        const centros = json.data || [];
+        console.log("Centros recibidos:", centros);
+        setCentrosSaldos(centros);
+        const total = centros.reduce(
+          (acc: number, c: CentroSaldo) =>
+            acc + parseFloat(String(c.saldo || 0)),
+          0,
+        );
+        setSaldoTotal(total);
+      } else {
+        console.error("Error en respuesta:", json);
+        toast({
+          title: "Error",
+          description: json.message || "No se pudieron cargar los saldos",
+          variant: "destructive",
+        });
       }
-    } catch {
-      /* ignore */
+    } catch (error) {
+      console.error("Error fetching saldos:", error);
+      toast({
+        title: "Error",
+        description: "Error al cargar los saldos de los centros",
+        variant: "destructive",
+      });
     }
   };
 
   useEffect(() => {
-    fetchSaldo();
+    fetchSaldos();
   }, []);
 
   useEffect(() => {
-    const handler = () => fetchSaldo();
+    const handler = () => fetchSaldos();
     window.addEventListener("tesoreria:saldo-changed", handler);
     return () => window.removeEventListener("tesoreria:saldo-changed", handler);
   }, []);
 
-  const save = async () => {
+  const handleOpenEdit = (centro: CentroSaldo, editMode: "set" | "add") => {
+    setSelectedCentro(centro);
+    setMode(editMode);
+    setValue(editMode === "set" ? centro.saldo : 0);
+    setMotivo("");
+    setEditOpen(true);
+  };
+
+  const handleOpenInfo = (centro: CentroSaldo) => {
+    setSelectedCentro(centro);
+    setInfoOpen(true);
+  };
+
+  const saveSaldo = async () => {
+    if (!selectedCentro) return;
+
     try {
       const token = Cookies.get("auth_token");
       if (!motivo || !motivo.trim()) {
-        toast({ title: "Motivo requerido", description: "Ingrese un motivo para el ajuste del saldo", variant: "destructive" });
+        toast({
+          title: "Motivo requerido",
+          description: "Ingrese un motivo para el ajuste del saldo",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (value <= 0) {
+        toast({
+          title: "Valor inválido",
+          description: "El valor debe ser mayor a 0",
+          variant: "destructive",
+        });
         return;
       }
 
       let res, json;
-      
-      if (mode === 'set') {
-        // No permitir que el admin aumente el saldo desde el modal 'Editar'
-        if (saldo != null && parseFloat(String(value)) > saldo) {
-          toast({ title: 'Acción no permitida', description: 'Para aumentar el saldo use el botón Agregar', variant: 'destructive' });
+
+      if (mode === "set") {
+        if (value > selectedCentro.saldo) {
+          toast({
+            title: "Acción no permitida",
+            description: "Para aumentar el saldo use el botón Agregar",
+            variant: "destructive",
+          });
           return;
         }
-        // Establecer saldo específico (funcionalidad original)
-        res = await fetch(`${API_BASE}/tesoreria/saldo/actual`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: token ? `Bearer ${token}` : "",
+
+        res = await fetch(
+          `${API_BASE}/tesoreria/saldo/por-centro/${selectedCentro.id_centro}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: token ? `Bearer ${token}` : "",
+            },
+            body: JSON.stringify({
+              saldo: parseFloat(String(value)),
+              motivo: String(motivo).trim(),
+            }),
           },
-          body: JSON.stringify({ saldo: parseFloat(String(value)), motivo: String(motivo).trim() }),
-        });
+        );
       } else {
-        // Agregar dinero al saldo existente (incremento)
-        res = await fetch(`${API_BASE}/tesoreria/saldo/ajustes`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: token ? `Bearer ${token}` : "",
+        res = await fetch(
+          `${API_BASE}/tesoreria/saldo/por-centro/${selectedCentro.id_centro}/incrementar`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: token ? `Bearer ${token}` : "",
+            },
+            body: JSON.stringify({
+              monto: parseFloat(String(value)),
+              motivo: String(motivo).trim(),
+            }),
           },
-          body: JSON.stringify({ 
-            tipo: 'incremento', 
-            monto: parseFloat(String(value)), 
-            motivo: String(motivo).trim() 
-          }),
-        });
+        );
       }
-      
+
       json = await res.json();
       if (json && json.success) {
         toast({
-          title: mode === 'set' ? "Saldo establecido" : "Dinero agregado",
-          description: mode === 'set' 
-            ? "El saldo fue establecido correctamente"
-            : `Se agregaron S/ ${value} al saldo disponible`,
+          title: mode === "set" ? "Saldo establecido" : "Dinero agregado",
+          description:
+            mode === "set"
+              ? `Saldo de ${selectedCentro.nombre_centro} establecido correctamente`
+              : `Se agregaron S/ ${value} al saldo de ${selectedCentro.nombre_centro}`,
         });
-        if (mode === 'set') {
-          setSaldo(parseFloat(String(value)));
-        } else {
-          // Para incremento, actualizar el saldo con el nuevo valor del servidor
-          setSaldo(json.data?.saldo || saldo);
-        }
-        setOpen(false);
+        setEditOpen(false);
         setMotivo("");
         setValue(0);
+        setSelectedCentro(null);
+        fetchSaldos();
         window.dispatchEvent(new Event("tesoreria:saldo-changed"));
       } else {
         toast({
@@ -122,12 +212,29 @@ export function SaldoCard() {
           variant: "destructive",
         });
       }
-    } catch {
+    } catch (error) {
+      console.error("Error saving saldo:", error);
       toast({
         title: "Error",
         description: "Error de conexión",
         variant: "destructive",
       });
+    }
+  };
+
+  const formatDateTime = (dateString?: string) => {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString("es-PE", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "N/A";
     }
   };
 
@@ -139,233 +246,273 @@ export function SaldoCard() {
             <Wallet className="h-5 w-5 text-emerald-600" />
             Tesorería
           </CardTitle>
-          {isAdmin && (
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={async () => {
-                  setHistOpen(true);
-                  setHistLoading(true);
-                  try {
-                    const res = await fetch(`${API_BASE}/tesoreria/saldo/historial`);
-                    const json = await res.json();
-                    if (json && json.success) setHistData(json.data);
-                  } catch (e) {
-                    // ignore
-                  } finally {
-                    setHistLoading(false);
-                  }
-                }}
-                title="Ver historial diario"
-              >
-                <Eye className="h-4 w-4 text-slate-600" />
-              </Button>
-              
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setMode('add');
-                  setValue(0);
-                  setOpen(true);
-                }}
-                className="text-emerald-600 hover:text-emerald-700"
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                Agregar
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setMode('set');
-                  setValue(Number(saldo ?? 0));
-                  setOpen(true);
-                }}
-              >
-                <Edit className="h-3 w-3 mr-1" />
-                Editar
-              </Button>
-            </div>
-          )}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setTableOpen(true);
+              setTableLoading(true);
+              fetchSaldos().finally(() => setTableLoading(false));
+            }}
+            title="Ver montos por centro de distribución"
+          >
+            <Eye className="h-4 w-4 text-slate-600" />
+            Ver
+          </Button>
         </CardHeader>
         <CardContent className="pt-0">
           <div className="flex items-baseline justify-between">
             <div>
-              <p className="text-xs text-muted-foreground">Saldo disponible</p>
+              <p className="text-xs text-muted-foreground">
+                Saldo total disponible
+              </p>
               <p className="text-xl font-bold text-emerald-700">
-                {saldo != null
+                {saldoTotal != null
                   ? new Intl.NumberFormat("es-PE", {
                       style: "currency",
                       currency: "PEN",
-                    }).format(saldo)
+                    }).format(saldoTotal)
                   : "Cargando..."}
               </p>
             </div>
           </div>
-
-          {(isAdmin || updatedBy || updatedAt) && (
-            <div className="mt-2 text-xs text-muted-foreground space-y-1">
-              {updatedAt && (
-                <div>
-                  Última actualización: {new Date(updatedAt).toLocaleString("es-PE", { timeZone: LIMA_TIMEZONE })}
-                </div>
-              )}
-              {updatedBy && <div>Actualizado por: {updatedBy}</div>}
-            </div>
-          )}
         </CardContent>
       </Card>
 
-      {/* Modal flotante de edición */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm">
+      {/* Modal con tabla de centros */}
+      <Dialog open={tableOpen} onOpenChange={setTableOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>
-              {mode === 'set' ? 'Establecer Saldo' : 'Agregar Dinero'}
-            </DialogTitle>
+            <DialogTitle>Montos por Centro de Distribución</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            {mode === 'add' && saldo != null && (
-              <div className="text-sm text-muted-foreground bg-gray-50 p-2 rounded">
-                <span className="font-medium">Saldo actual:</span>{" "}
-                {new Intl.NumberFormat("es-PE", {
-                  style: "currency",
-                  currency: "PEN",
-                }).format(saldo)}
-              </div>
+          <div className="flex-1 overflow-y-auto">
+            {tableLoading ? (
+              <p className="text-center py-8">Cargando...</p>
+            ) : centrosSaldos && centrosSaldos.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[40%]">
+                      Centro de Distribución
+                    </TableHead>
+                    <TableHead className="w-[30%] text-right">Monto</TableHead>
+                    <TableHead className="w-[30%] text-center">
+                      Acciones
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {centrosSaldos.map((centro) => (
+                    <TableRow key={centro.id_centro}>
+                      <TableCell>
+                        <div>
+                          <p className="font-semibold text-gray-800">
+                            {centro.nombre_centro}
+                          </p>
+                          {centro.codigo && (
+                            <p className="text-xs text-gray-500">
+                              Código: {centro.codigo}
+                            </p>
+                          )}
+                          {centro.ciudad && (
+                            <p className="text-xs text-gray-500">
+                              {centro.ciudad}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span className="text-lg font-bold text-emerald-700">
+                          S/ {parseFloat(String(centro.saldo || 0)).toFixed(2)}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-2 justify-center">
+                          {isAdmin && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenEdit(centro, "add")}
+                                title="Agregar dinero"
+                                className="h-8 px-3"
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Agregar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenEdit(centro, "set")}
+                                title="Editar monto"
+                                className="h-8 px-3"
+                              >
+                                <Edit className="h-4 w-4 mr-1" />
+                                Editar
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleOpenInfo(centro)}
+                            title="Ver información de actualización"
+                            className="h-8 px-3"
+                          >
+                            <Info className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <p className="text-center py-8 text-muted-foreground">
+                No hay datos disponibles.
+              </p>
             )}
-            <Input
-              type="number"
-              step="0.01"
-              min="0"
-              value={value}
-              onChange={(e) => setValue(parseFloat(e.target.value) || 0)}
-              placeholder={mode === 'set' ? 'Nuevo saldo total' : 'Cantidad a agregar'}
-            />
-            <Input
-              placeholder={mode === 'set' 
-                ? "Motivo para establecer saldo (requerido)" 
-                : "Motivo para agregar dinero (requerido)"}
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-            />
-            {mode === 'add' && value > 0 && saldo != null && (
-              <div className="text-sm text-green-600 bg-green-50 p-2 rounded">
-                <span className="font-medium">Nuevo saldo será:</span>{" "}
-                {new Intl.NumberFormat("es-PE", {
-                  style: "currency",
-                  currency: "PEN",
-                }).format(saldo + value)}
-              </div>
-            )}
-            <div className="flex justify-end gap-2">
-              <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
-                Cancelar
-              </Button>
-              <Button size="sm" onClick={save}>
-                {mode === 'set' ? 'Establecer' : 'Agregar'}
-              </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Historial diario modal */}
-      <Dialog open={histOpen} onOpenChange={setHistOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
+      {/* Modal de información de actualización */}
+      <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Historial diario de Tesorería</DialogTitle>
+            <DialogTitle>Información de Actualización</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {histLoading && <div>Cargando historial...</div>}
-            {!histLoading && histData && (
-              <div>
-                <div className="mb-2 font-medium">Fecha: {histData.fecha}</div>
+          {selectedCentro && (
+            <div className="space-y-3">
+              <div className="bg-gray-50 p-3 rounded">
+                <p className="text-sm font-medium text-gray-700">Centro:</p>
+                <p className="text-base font-semibold">
+                  {selectedCentro.nombre_centro}
+                </p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <p className="text-sm font-medium text-gray-700">
+                  Saldo actual:
+                </p>
+                <p className="text-lg font-bold text-emerald-700">
+                  {new Intl.NumberFormat("es-PE", {
+                    style: "currency",
+                    currency: "PEN",
+                  }).format(selectedCentro.saldo)}
+                </p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <p className="text-sm font-medium text-gray-700">
+                  Última actualización:
+                </p>
+                <p className="text-base">
+                  {formatDateTime(selectedCentro.updated_at)}
+                </p>
+              </div>
+              <div className="bg-gray-50 p-3 rounded">
+                <p className="text-sm font-medium text-gray-700">
+                  Actualizado por:
+                </p>
+                <p className="text-base">
+                  {selectedCentro.updated_by_nombre || "Sistema"}
+                </p>
+              </div>
+              <div className="flex justify-end pt-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setInfoOpen(false);
+                    setSelectedCentro(null);
+                  }}
+                >
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
-                {/* Scrollable content area */}
-                <div className="overflow-y-auto max-h-[65vh] pr-2">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="font-semibold">Movimientos</h4>
-                      <ul className="mt-2 space-y-3">
-                        {(!histData.movimientos || histData.movimientos.length === 0) && (
-                          <li className="text-sm text-muted-foreground">Sin movimientos</li>
-                        )}
-                        {histData.movimientos && histData.movimientos.map((m: any) => (
-                          <li key={m.id} className="p-2 rounded border">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="font-medium">{m.nombre} <span className="text-sm text-muted-foreground">— {m.categoria}</span></div>
-                                {m.descripcion && <div className="text-sm text-muted-foreground">{m.descripcion}</div>}
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  Creado: {new Date(m.created_at ?? m.createdAt ?? m.fecha).toLocaleString("es-PE", { timeZone: LIMA_TIMEZONE })}
-                                  {m.usuario_nombre && <span className="ml-2">— Por: {m.usuario_nombre}</span>}
-                                </div>
-                              </div>
-                              <div className="whitespace-nowrap font-semibold text-emerald-700">
-                                {new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(Number(m.monto ?? 0))}
-                              </div>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold">Ajustes</h4>
-                      <ul className="mt-2 space-y-3">
-                        {(!histData.ajustes || histData.ajustes.length === 0) && (
-                          <li className="text-sm text-muted-foreground">Sin ajustes</li>
-                        )}
-                        {histData.ajustes && histData.ajustes.map((a: any) => (
-                          <li key={a.id} className="p-2 rounded border">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="font-medium">
-                                  <span className={"inline-block mr-2 px-2 py-0.5 text-xs rounded " + (a.tipo === 'incremento' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700')}>{a.tipo}</span>
-                                  {a.motivo && <span className="text-sm text-muted-foreground">{a.motivo}</span>}
-                                </div>
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  {a.usuario_nombre && <span>Por: {a.usuario_nombre} — </span>}
-                                  {new Date(a.created_at ?? a.createdAt ?? a.fecha).toLocaleString("es-PE", { timeZone: LIMA_TIMEZONE })}
-                                </div>
-                              </div>
-                              <div className="whitespace-nowrap font-semibold text-emerald-700">
-                                {new Intl.NumberFormat("es-PE", { style: "currency", currency: "PEN" }).format(Number(a.monto ?? 0))}
-                              </div>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-
-                      <h4 className="mt-4 font-semibold">Auditoría</h4>
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        {(!histData.audits || histData.audits.length === 0) && <div>Sin eventos de auditoría</div>}
-                        {histData.audits && (
-                          <ul className="space-y-2">
-                            {histData.audits.map((ev: any) => (
-                              <li key={ev.id} className="p-1">
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <div>{new Date(ev.fecha_evento ?? ev.created_at ?? ev.fecha).toLocaleString("es-PE", { timeZone: LIMA_TIMEZONE })}</div>
-                                    <div className="text-muted-foreground">{ev.evento} — {ev.entidad} — {ev.entity_id}</div>
-                                    {ev.usuario_nombre && <div className="text-muted-foreground">Por: {ev.usuario_nombre}</div>}
-                                  </div>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+      {/* Modal de edición/adición de saldo */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {mode === "set" ? "Establecer Saldo" : "Agregar Dinero"}
+            </DialogTitle>
+            {selectedCentro && (
+              <p className="text-sm text-muted-foreground mt-1">
+                Centro:{" "}
+                <span className="font-medium">
+                  {selectedCentro.nombre_centro}
+                </span>
+              </p>
+            )}
+          </DialogHeader>
+          <div className="space-y-3">
+            {selectedCentro && (
+              <div className="text-sm text-muted-foreground bg-gray-50 p-3 rounded">
+                <span className="font-medium">Saldo actual:</span>{" "}
+                {new Intl.NumberFormat("es-PE", {
+                  style: "currency",
+                  currency: "PEN",
+                }).format(selectedCentro.saldo)}
               </div>
             )}
-            {!histLoading && !histData && <div>No se pudo cargar el historial</div>}
-            <div className="flex justify-end mt-4">
-              <Button size="sm" variant="ghost" onClick={() => setHistOpen(false)}>Cerrar</Button>
+            <div>
+              <label className="text-sm font-medium mb-1 block">
+                {mode === "set" ? "Nuevo saldo total" : "Cantidad a agregar"}
+              </label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={value}
+                onChange={(e) => setValue(parseFloat(e.target.value) || 0)}
+                placeholder={
+                  mode === "set" ? "Nuevo saldo total" : "Cantidad a agregar"
+                }
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">
+                Motivo (requerido)
+              </label>
+              <Input
+                placeholder={
+                  mode === "set"
+                    ? "Motivo para establecer saldo"
+                    : "Motivo para agregar dinero"
+                }
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+              />
+            </div>
+            {mode === "add" && value > 0 && selectedCentro && (
+              <div className="text-sm text-green-600 bg-green-50 p-3 rounded">
+                <span className="font-medium">Nuevo saldo será:</span>{" "}
+                {new Intl.NumberFormat("es-PE", {
+                  style: "currency",
+                  currency: "PEN",
+                }).format(selectedCentro.saldo + value)}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setEditOpen(false);
+                  setSelectedCentro(null);
+                  setValue(0);
+                  setMotivo("");
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button size="sm" onClick={saveSaldo}>
+                {mode === "set" ? "Establecer" : "Agregar"}
+              </Button>
             </div>
           </div>
         </DialogContent>

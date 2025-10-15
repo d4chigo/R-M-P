@@ -2,10 +2,13 @@
 
 import type { ReactNode } from "react";
 import { useState, useEffect } from "react";
-import Cookies from 'js-cookie';
+import Cookies from "js-cookie";
 import { useForm } from "react-hook-form";
 import { getAPIBase } from "@/lib/api-config";
-import type { TesoreriaVehiculo, TesoreriaRepartidor } from "@/hooks/use-tesoreria";
+import type {
+  TesoreriaVehiculo,
+  TesoreriaRepartidor,
+} from "@/hooks/use-tesoreria";
 import { Combobox } from "@/components/ui/combobox";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -42,7 +45,11 @@ import { es } from "date-fns/locale";
 import { Tesoreria, TesoreriaFormData } from "@/hooks/use-tesoreria";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { getTodayLimaYMD, formatDateForPeru, peruDateToYMD } from "@/lib/utils/date-lima";
+import {
+  getTodayLimaYMD,
+  formatDateForPeru,
+  peruDateToYMD,
+} from "@/lib/utils/date-lima";
 
 interface FormRenderProps {
   field: {
@@ -50,24 +57,27 @@ interface FormRenderProps {
     onChange: (value: string | number) => void;
     onBlur: () => void;
     name: string;
-  }
+  };
 }
 
 const tesoreriaSchema = z.object({
   fecha: z.string().min(1, "La fecha es requerida"),
   placa: z.string().optional(), // PLACA T2: texto libre, puede ser CD, placa, etc. Ahora opcional
   nombre: z.string().min(1, "El nombre es requerido"),
-  id_centro: z.preprocess((val) => {
-    // preserve the key and normalize empty strings to null so downstream code
-    // can detect explicit clearing intent
-    if (val === undefined) return null;
-    if (val === '') return null;
-    if (typeof val === 'string') {
-      const n = Number(val);
-      return isNaN(n) ? null : n;
-    }
-    return val;
-  }, z.number().nullable()),
+  id_centro: z.preprocess(
+    (val) => {
+      // Convertir valores vacíos o inválidos en undefined para que falle la validación
+      if (val === undefined || val === "" || val === null) return undefined;
+      if (typeof val === "string") {
+        const n = Number(val);
+        return isNaN(n) ? undefined : n;
+      }
+      return val;
+    },
+    z
+      .number({ required_error: "El centro de distribución es requerido" })
+      .positive("Debe seleccionar un centro de distribución"),
+  ),
   cargo: z.string().optional(), // Opcional
   categoria: z.string().min(1, "La categoría es requerida"),
   detalle: z.string().optional(),
@@ -134,26 +144,34 @@ const subcategorias = {
   Otros: ["Gastos Varios", "Emergencias", "Donaciones"],
 };
 
-export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: TesoreriaFormProps) {
+export function TesoreriaForm({
+  tesoreria,
+  onSubmit,
+  onCancel,
+  loading,
+}: TesoreriaFormProps) {
   const { isAdmin } = useAuth();
-  
+
   // Formateador de números con 2 decimales sin símbolo (mostramos prefijo S/ aparte)
   const formatNumberPretty = (n: number) =>
-    new Intl.NumberFormat("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
-      isNaN(n) ? 0 : n
-    );
+    new Intl.NumberFormat("es-PE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(isNaN(n) ? 0 : n);
   const [selectedCategoria, setSelectedCategoria] = useState<string>(
-    tesoreria?.categoria || ""
+    tesoreria?.categoria || "",
   );
   const [showConfirm, setShowConfirm] = useState(false);
-  const [centros, setCentros] = useState<Array<{
-    id: string;
-    codigo: string;
-    nombre: string;
-    ciudad?: string;
-    id_centro: number;
-  }>>([]);
-  
+  const [centros, setCentros] = useState<
+    Array<{
+      id: string;
+      codigo: string;
+      nombre: string;
+      ciudad?: string;
+      id_centro: number;
+    }>
+  >([]);
+
   interface FieldRenderProps {
     field: {
       value: any;
@@ -168,14 +186,14 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     const load = async () => {
       try {
         const API_BASE = getAPIBase();
-        const token = Cookies.get('auth_token');
+        const token = Cookies.get("auth_token");
         if (!token) {
           setCentros([]);
           return;
         }
         const res = await fetch(`${API_BASE}/centros-distribucion`, {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
         });
@@ -186,7 +204,9 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       }
     };
     load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Hooks para datos de dropdowns
@@ -209,13 +229,19 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     const fetchData = async () => {
       try {
         const API_BASE = getAPIBase();
-        const token = Cookies.get('auth_token');
+        const token = Cookies.get("auth_token");
 
         // Fetch vehicles
         setLoadingVehiculos(true);
-        const resVehiculos = await fetch(`${API_BASE}/tesoreria/dropdown/vehiculos`, {
-          headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }
-        });
+        const resVehiculos = await fetch(
+          `${API_BASE}/tesoreria/dropdown/vehiculos`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: token ? `Bearer ${token}` : "",
+            },
+          },
+        );
         const jsonVehiculos = await resVehiculos.json();
         if (jsonVehiculos.success) {
           setVehiculos(jsonVehiculos.data);
@@ -224,16 +250,22 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
 
         // Fetch employees
         setLoadingRepartidores(true);
-        const resRepartidores = await fetch(`${API_BASE}/tesoreria/dropdown/repartidores`, {
-          headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' }
-        });
+        const resRepartidores = await fetch(
+          `${API_BASE}/tesoreria/dropdown/repartidores`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: token ? `Bearer ${token}` : "",
+            },
+          },
+        );
         const jsonRepartidores = await resRepartidores.json();
         if (jsonRepartidores.success) {
           setRepartidores(jsonRepartidores.data);
         }
         setLoadingRepartidores(false);
       } catch (err) {
-        console.error('Error fetching dropdown data:', err);
+        console.error("Error fetching dropdown data:", err);
         setLoadingVehiculos(false);
         setLoadingRepartidores(false);
       }
@@ -245,34 +277,34 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
   const form = useForm<z.infer<typeof tesoreriaSchema>>({
     resolver: zodResolver(tesoreriaSchema),
     defaultValues: {
-  fecha: (function () {
-    const f = tesoreria?.fecha;
-    if (!f) return getTodayLimaYMD();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f; // already YYYY-MM-DD
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(f)) return peruDateToYMD(f); // convert DD/MM/YYYY
-    // fallback: try to parse ISO-ish and extract YYYY-MM-DD
-    try {
-      return new Date(f).toISOString().split('T')[0];
-    } catch (e) {
-      return getTodayLimaYMD();
-    }
-  })(),
-  placa: tesoreria?.placa || "",
+      fecha: (function () {
+        const f = tesoreria?.fecha;
+        if (!f) return getTodayLimaYMD();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f; // already YYYY-MM-DD
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(f)) return peruDateToYMD(f); // convert DD/MM/YYYY
+        // fallback: try to parse ISO-ish and extract YYYY-MM-DD
+        try {
+          return new Date(f).toISOString().split("T")[0];
+        } catch (e) {
+          return getTodayLimaYMD();
+        }
+      })(),
+      placa: tesoreria?.placa || "",
       nombre: tesoreria?.nombre || "",
       cargo: tesoreria?.cargo || "",
       categoria: tesoreria?.categoria || "",
       detalle: tesoreria?.detalle || "",
       reembolso: tesoreria?.reembolso || undefined,
-  distrito: tesoreria?.distrito || "",
-  turno: tesoreria?.turno ? String(tesoreria.turno) : "",
-  encargado: tesoreria?.encargado || "",
-  id_centro: tesoreria?.id_centro ? String(tesoreria.id_centro) : "",
+      distrito: tesoreria?.distrito || "",
+      turno: tesoreria?.turno ? String(tesoreria.turno) : "",
+      encargado: tesoreria?.encargado || "",
+      id_centro: tesoreria?.id_centro ? String(tesoreria.id_centro) : "",
       monto: tesoreria?.monto || 0,
     },
   });
   // Estado visual del monto (sin símbolo, ya que mostramos prefijo S/)
   const [montoInput, setMontoInput] = useState<string>(
-    formatNumberPretty(tesoreria?.monto ?? 0)
+    formatNumberPretty(tesoreria?.monto ?? 0),
   );
   useEffect(() => {
     setMontoInput(formatNumberPretty(form.getValues("monto") || 0));
@@ -286,7 +318,11 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       if (!f) return getTodayLimaYMD();
       if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f;
       if (/^\d{2}\/\d{2}\/\d{4}$/.test(f)) return peruDateToYMD(f);
-      try { return new Date(f).toISOString().split('T')[0]; } catch { return getTodayLimaYMD(); }
+      try {
+        return new Date(f).toISOString().split("T")[0];
+      } catch {
+        return getTodayLimaYMD();
+      }
     };
 
     const vals: any = {
@@ -300,7 +336,9 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       distrito: tesoreria.distrito || "",
       turno: tesoreria.turno ? String(tesoreria.turno) : "",
       encargado: tesoreria.encargado || "",
-      id_centro: tesoreria.id_centro ? String((tesoreria as any).id_centro) : "",
+      id_centro: tesoreria.id_centro
+        ? String((tesoreria as any).id_centro)
+        : "",
       monto: tesoreria.monto || 0,
     };
 
@@ -314,29 +352,38 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     const payload: any = {
       ...data,
       turno: data.turno ? Number(data.turno) : undefined,
-      reembolso: !data.reembolso || data.reembolso === 'none' || data.reembolso === '' ? undefined : data.reembolso,
+      reembolso:
+        !data.reembolso || data.reembolso === "none" || data.reembolso === ""
+          ? undefined
+          : data.reembolso,
     };
     // Ensure monto is a number (defensive)
-    if (typeof payload.monto === 'string') {
-      const parsed = parseFloat(String(payload.monto).replace(/,/g, '.'));
+    if (typeof payload.monto === "string") {
+      const parsed = parseFloat(String(payload.monto).replace(/,/g, "."));
       payload.monto = isNaN(parsed) ? 0 : parsed;
     }
     // Normalize id_centro: '' -> undefined, string -> number
-  if (payload.id_centro === '') payload.id_centro = null; // send explicit null to indicate clearing
-  if (typeof payload.id_centro === 'string' && payload.id_centro !== '') payload.id_centro = Number(payload.id_centro);
-  // If creating (no tesoreria), validate saldo for all users (admins included).
-  if (!tesoreria) {
+    if (payload.id_centro === "") payload.id_centro = null; // send explicit null to indicate clearing
+    if (typeof payload.id_centro === "string" && payload.id_centro !== "")
+      payload.id_centro = Number(payload.id_centro);
+    // If creating (no tesoreria), validate saldo for all users (admins included).
+    if (!tesoreria) {
       try {
         const API_BASE = getAPIBase();
         const res = await fetch(`${API_BASE}/tesoreria/saldo/actual`);
         const json = await res.json();
         const saldoActual = parseFloat(json?.data?.saldo || 0);
         if (payload.monto > saldoActual) {
-          toast({ title: 'Saldo insuficiente', description: 'El monto excede el saldo disponible en la tarjeta de tesorería', variant: 'destructive' });
+          toast({
+            title: "Saldo insuficiente",
+            description:
+              "El monto excede el saldo disponible en la tarjeta de tesorería",
+            variant: "destructive",
+          });
           return false;
         }
       } catch (err) {
-        console.warn('No se pudo validar saldo:', err);
+        console.warn("No se pudo validar saldo:", err);
         // continue — allow submission to proceed to confirmation
       }
       // For non-admins, show confirmation modal; for admins proceed immediately
@@ -350,14 +397,23 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     if (tesoreria) {
       const oldMonto = tesoreria.monto || 0;
       if (data.monto > oldMonto) {
-        toast({ title: 'Edición inválida', description: 'No está permitido aumentar el monto al editar. Para sumar nuevo gasto cree un nuevo registro.', variant: 'destructive' });
+        toast({
+          title: "Edición inválida",
+          description:
+            "No está permitido aumentar el monto al editar. Para sumar nuevo gasto cree un nuevo registro.",
+          variant: "destructive",
+        });
         return false;
       }
     }
 
     // Ensure monto is positive
-    if (typeof payload.monto !== 'number' || Number(payload.monto) <= 0) {
-      toast({ title: 'Monto inválido', description: 'El monto debe ser mayor a 0', variant: 'destructive' });
+    if (typeof payload.monto !== "number" || Number(payload.monto) <= 0) {
+      toast({
+        title: "Monto inválido",
+        description: "El monto debe ser mayor a 0",
+        variant: "destructive",
+      });
       return false;
     }
 
@@ -366,23 +422,29 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
       // If we're editing (tesoreria exists) always include the id_centro key in the payload
       // so the server can detect the client's intent to clear it (send null) or set it.
       if (tesoreria) {
-        if (!Object.prototype.hasOwnProperty.call(payload, 'id_centro')) {
+        if (!Object.prototype.hasOwnProperty.call(payload, "id_centro")) {
           payload.id_centro = null;
         } else {
           // normalize values consistently
-          if (payload.id_centro === '') payload.id_centro = null;
-          if (typeof payload.id_centro === 'string' && payload.id_centro !== null) payload.id_centro = Number(payload.id_centro);
+          if (payload.id_centro === "") payload.id_centro = null;
+          if (
+            typeof payload.id_centro === "string" &&
+            payload.id_centro !== null
+          )
+            payload.id_centro = Number(payload.id_centro);
         }
       }
 
       const success = await onSubmit(payload as any);
       if (success) {
         form.reset();
-        try { window.dispatchEvent(new Event('tesoreria:refresh')); } catch {}
+        try {
+          window.dispatchEvent(new Event("tesoreria:refresh"));
+        } catch {}
       }
       return success;
     } catch (err) {
-      console.error('Error on submit:', err);
+      console.error("Error on submit:", err);
       return false;
     }
   };
@@ -396,20 +458,25 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
     <Card className="w-full max-w-2xl mx-auto pt-5">
       <CardContent>
         <Form {...form}>
-          <form noValidate onSubmit={(e) => {
-            e.preventDefault();
-            const values = form.getValues();
-            // Coerce monto to number if needed before validation
-            if (typeof values.monto === 'string') {
-              const p = parseFloat(String(values.monto).replace(/,/g, '.'));
-              form.setValue('monto', isNaN(p) ? 0 : p);
-            }
-            // Normalize empty centro to '' so schema transform can pick it up as undefined
-            if (values.id_centro === undefined) form.setValue('id_centro', '');
-            // Now run react-hook-form submit (this will call zodResolver)
-            form.handleSubmit(handleSubmit)();
-          }} className="space-y-6">
-      {/* Campos obligatorios */}
+          <form
+            noValidate
+            onSubmit={(e) => {
+              e.preventDefault();
+              const values = form.getValues();
+              // Coerce monto to number if needed before validation
+              if (typeof values.monto === "string") {
+                const p = parseFloat(String(values.monto).replace(/,/g, "."));
+                form.setValue("monto", isNaN(p) ? 0 : p);
+              }
+              // Normalize empty centro to '' so schema transform can pick it up as undefined
+              if (values.id_centro === undefined)
+                form.setValue("id_centro", "");
+              // Now run react-hook-form submit (this will call zodResolver)
+              form.handleSubmit(handleSubmit)();
+            }}
+            className="space-y-6"
+          >
+            {/* Campos obligatorios */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -418,14 +485,10 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                   <FormItem className="flex flex-col">
                     <FormLabel className="flex items-center gap-2">
                       <Calendar className="h-4 w-4" />
-          Fecha *
+                      Fecha *
                     </FormLabel>
                     <FormControl>
-                      <Input
-                        type="date"
-                        {...field}
-                        className="w-full"
-                      />
+                      <Input type="date" {...field} className="w-full" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -433,7 +496,7 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               />
             </div>
 
-      {/* PLACA T2 y Nombre (obligatorios) */}
+            {/* PLACA T2 y Nombre (obligatorios) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -444,12 +507,17 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                     <FormControl>
                       <Combobox
                         options={[
-                          { label: '(Vacío)', value: '' },
-                          { label: 'CD - Centro de Distribución', value: 'CD' },
-                          ...vehiculos.map((v: TesoreriaVehiculo) => ({ label: `${v.placa} - ${v.descripcion}`, value: v.placa }))
+                          { label: "(Vacío)", value: "" },
+                          { label: "CD - Centro de Distribución", value: "CD" },
+                          ...vehiculos.map((v: TesoreriaVehiculo) => ({
+                            label: `${v.placa} - ${v.descripcion}`,
+                            value: v.placa,
+                          })),
                         ]}
-                        value={field.value || ''}
-                        onChange={(value) => field.onChange(value === '' ? '' : value)}
+                        value={field.value || ""}
+                        onChange={(value) =>
+                          field.onChange(value === "" ? "" : value)
+                        }
                         placeholder="Seleccione o ingrese placa..."
                         emptyText="No se encontraron vehículos"
                         searchPlaceholder="Buscar placa o descripción..."
@@ -470,11 +538,13 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                       <Combobox
                         options={repartidores.map((r: TesoreriaRepartidor) => ({
                           label: r.descripcion,
-                          value: r.nombre
+                          value: r.nombre,
                         }))}
                         value={field.value}
                         onChange={(value) => {
-                          const repartidor = repartidores.find((r: TesoreriaRepartidor) => r.nombre === value);
+                          const repartidor = repartidores.find(
+                            (r: TesoreriaRepartidor) => r.nombre === value,
+                          );
                           field.onChange(value);
                         }}
                         placeholder="Buscar repartidor..."
@@ -489,25 +559,24 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               />
             </div>
 
-            {/* Centro de distribución (opcional) */}
+            {/* Centro de distribución (obligatorio) */}
             <FormField
               control={form.control}
               name="id_centro"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Centro de distribución (opcional)</FormLabel>
+                  <FormLabel>Centro de distribución *</FormLabel>
                   <FormControl>
                     <Combobox
-                      options={[{ label: '(Vacío)', value: '' }, ...centros.map(c => ({
-                        label: `${c.codigo} - ${c.nombre}${c.ciudad ? ` (${c.ciudad})` : ''}`,
-                        value: String(c.id_centro)
-                      }))]}
+                      options={centros.map((c) => ({
+                        label: `${c.codigo} - ${c.nombre}${c.ciudad ? ` (${c.ciudad})` : ""}`,
+                        value: String(c.id_centro),
+                      }))}
                       value={field.value ? String(field.value) : ""}
                       onChange={(value) => {
-                        // Keep empty string in form state for the empty option; schema transform will turn '' -> undefined
-                        field.onChange(value === '' ? '' : value);
+                        field.onChange(value || "");
                       }}
-                      placeholder="Buscar centro de distribución..."
+                      placeholder="Seleccione un centro de distribución..."
                       emptyText="No se encontraron centros."
                       searchPlaceholder="Buscar por código o nombre..."
                     />
@@ -525,7 +594,10 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Categoría *</FormLabel>
-                    <Select onValueChange={handleCategoriaChange} value={field.value}>
+                    <Select
+                      onValueChange={handleCategoriaChange}
+                      value={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleccionar categoría" />
@@ -550,8 +622,10 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                   <FormItem>
                     <FormLabel>Cargo</FormLabel>
                     <Select
-                      onValueChange={(val: string) => field.onChange(val === 'none' ? '' : val)}
-                      value={field.value === '' ? 'none' : field.value}
+                      onValueChange={(val: string) =>
+                        field.onChange(val === "none" ? "" : val)
+                      }
+                      value={field.value === "" ? "none" : field.value}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -561,7 +635,9 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                       <SelectContent>
                         <SelectItem value="none">(Vacío)</SelectItem>
                         {cargos.map((cargo) => (
-                          <SelectItem key={cargo} value={cargo}>{cargo}</SelectItem>
+                          <SelectItem key={cargo} value={cargo}>
+                            {cargo}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -602,7 +678,9 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
                       </FormControl>
                       <SelectContent>
                         {turnos.map((t) => (
-                          <SelectItem key={t.value} value={String(t.value)}>{t.label}</SelectItem>
+                          <SelectItem key={t.value} value={String(t.value)}>
+                            {t.label}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -732,51 +810,76 @@ export function TesoreriaForm({ tesoreria, onSubmit, onCancel, loading }: Tesore
               >
                 Cancelar
               </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? "Guardando..." : tesoreria ? "Actualizar" : "Crear"}
-                </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Guardando..." : tesoreria ? "Actualizar" : "Crear"}
+              </Button>
             </div>
           </form>
         </Form>
-          {/* Confirmación para usuarios no-admin antes de crear */}
-          {!isAdmin && !tesoreria && (
-            <div>
-              {showConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center">
-                  <div className="bg-black bg-opacity-50 absolute inset-0"></div>
-                  <div className="bg-white rounded shadow p-6 z-10 max-w-lg w-full">
-                    <h3 className="text-lg font-medium mb-2">Confirmar creación</h3>
-                    <p className="text-sm text-gray-600 mb-4">Estás a punto de crear un nuevo registro de tesorería. ¿Deseas continuar?</p>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
-                      <Button
-                        onClick={async () => {
-                          // Leer los valores actuales del formulario y enviar
-                          const values = form.getValues();
-                          // Coerce monto to number and normalize id_centro before sending
-                          if (typeof values.monto === 'string') {
-                            const p = parseFloat(String(values.monto).replace(/,/g, '.'));
-                            values.monto = isNaN(p) ? 0 : p;
-                          }
-                          if (values.id_centro === '') values.id_centro = null;
-                          if (typeof values.id_centro === 'string' && values.id_centro !== '') values.id_centro = Number(values.id_centro);
-                          const success = await onSubmit({ ...values, turno: values.turno ? Number(values.turno) : undefined } as any);
-                          if (success) {
-                            form.reset();
-                            setShowConfirm(false);
-                            try { window.dispatchEvent(new Event('tesoreria:refresh')); } catch {}
-                          }
-                        }}
-                      >
-                        Confirmar y crear
-                      </Button>
-                    </div>
+        {/* Confirmación para usuarios no-admin antes de crear */}
+        {!isAdmin && !tesoreria && (
+          <div>
+            {showConfirm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center">
+                <div className="bg-black bg-opacity-50 absolute inset-0"></div>
+                <div className="bg-white rounded shadow p-6 z-10 max-w-lg w-full">
+                  <h3 className="text-lg font-medium mb-2">
+                    Confirmar creación
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Estás a punto de crear un nuevo registro de tesorería.
+                    ¿Deseas continuar?
+                  </p>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowConfirm(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={async () => {
+                        // Leer los valores actuales del formulario y enviar
+                        const values = form.getValues();
+                        // Coerce monto to number and normalize id_centro before sending
+                        if (typeof values.monto === "string") {
+                          const p = parseFloat(
+                            String(values.monto).replace(/,/g, "."),
+                          );
+                          values.monto = isNaN(p) ? 0 : p;
+                        }
+                        if (values.id_centro === "") values.id_centro = null;
+                        if (
+                          typeof values.id_centro === "string" &&
+                          values.id_centro !== ""
+                        )
+                          values.id_centro = Number(values.id_centro);
+                        const success = await onSubmit({
+                          ...values,
+                          turno: values.turno
+                            ? Number(values.turno)
+                            : undefined,
+                        } as any);
+                        if (success) {
+                          form.reset();
+                          setShowConfirm(false);
+                          try {
+                            window.dispatchEvent(
+                              new Event("tesoreria:refresh"),
+                            );
+                          } catch {}
+                        }
+                      }}
+                    >
+                      Confirmar y crear
+                    </Button>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
-} 
+}

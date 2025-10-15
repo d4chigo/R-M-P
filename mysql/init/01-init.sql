@@ -212,6 +212,196 @@ DROP PROCEDURE ensure_idx_tesoreria_saldo_history_fecha$$
 DELIMITER ;
 
 -- ==============================
+-- TABLA: TESORERIA_SALDO_CENTRO
+-- Sistema de Saldos por Centro de Distribución
+-- ==============================
+
+-- 1. Tabla principal de saldos por centro
+CREATE TABLE IF NOT EXISTS TESORERIA_SALDO_CENTRO (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_centro INT NOT NULL,
+    saldo DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
+    updated_by INT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Constraints
+    CONSTRAINT fk_saldo_centro_centro
+        FOREIGN KEY (id_centro) REFERENCES CENTRO_DISTRIBUCION(id_centro)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_saldo_centro_updated_by
+        FOREIGN KEY (updated_by) REFERENCES USUARIO(id_usuario)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+
+    -- Índices
+    UNIQUE KEY uk_saldo_centro (id_centro),
+    INDEX idx_saldo_centro_updated (updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Saldos independientes por centro de distribución';
+
+-- 2. Tabla de historial de cambios de saldo por centro
+CREATE TABLE IF NOT EXISTS TESORERIA_SALDO_CENTRO_HISTORIAL (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    id_centro INT NOT NULL,
+    tipo ENUM('establecer', 'incrementar', 'gasto', 'devolucion') NOT NULL,
+    saldo_anterior DECIMAL(14, 2) NOT NULL,
+    monto DECIMAL(14, 2) NOT NULL,
+    saldo_nuevo DECIMAL(14, 2) NOT NULL,
+    motivo TEXT NULL,
+    id_registro_tesoreria INT NULL,
+    created_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    -- Constraints
+    CONSTRAINT fk_historial_centro
+        FOREIGN KEY (id_centro) REFERENCES CENTRO_DISTRIBUCION(id_centro)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_historial_created_by
+        FOREIGN KEY (created_by) REFERENCES USUARIO(id_usuario)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT fk_historial_tesoreria
+        FOREIGN KEY (id_registro_tesoreria) REFERENCES TESORERIA(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+
+    -- Índices
+    INDEX idx_historial_centro (id_centro),
+    INDEX idx_historial_tipo (tipo),
+    INDEX idx_historial_fecha (created_at),
+    INDEX idx_historial_registro (id_registro_tesoreria)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Historial de movimientos de saldo por centro de distribución';
+
+-- 3. Inicializar saldos para centros existentes
+INSERT IGNORE INTO TESORERIA_SALDO_CENTRO (id_centro, saldo, created_at, updated_at)
+SELECT
+    cd.id_centro,
+    0.00,
+    CURRENT_TIMESTAMP,
+    CURRENT_TIMESTAMP
+FROM CENTRO_DISTRIBUCION cd
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM TESORERIA_SALDO_CENTRO tsc
+    WHERE tsc.id_centro = cd.id_centro
+);
+
+-- 4. Trigger para registrar automáticamente cambios de saldo
+DELIMITER $$
+
+DROP TRIGGER IF EXISTS trg_saldo_centro_after_update$$
+
+CREATE TRIGGER trg_saldo_centro_after_update
+AFTER UPDATE ON TESORERIA_SALDO_CENTRO
+FOR EACH ROW
+BEGIN
+    -- Solo registrar si el saldo cambió
+    IF OLD.saldo != NEW.saldo THEN
+        INSERT INTO TESORERIA_SALDO_CENTRO_HISTORIAL (
+            id_centro,
+            tipo,
+            saldo_anterior,
+            monto,
+            saldo_nuevo,
+            created_by,
+            created_at
+        ) VALUES (
+            NEW.id_centro,
+            'devolucion', -- Tipo genérico para cambios automáticos
+            OLD.saldo,
+            NEW.saldo - OLD.saldo,
+            NEW.saldo,
+            NEW.updated_by,
+            CURRENT_TIMESTAMP
+        );
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- 5. Procedimiento almacenado: Obtener saldo de un centro
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_get_saldo_centro$$
+
+CREATE PROCEDURE sp_get_saldo_centro(
+    IN p_id_centro INT
+)
+BEGIN
+    SELECT
+        sc.id_centro,
+        sc.saldo,
+        c.codigo,
+        c.nombre as nombre_centro,
+        c.ciudad,
+        sc.updated_at,
+        sc.updated_by,
+        u.nombre_completo as updated_by_nombre
+    FROM TESORERIA_SALDO_CENTRO sc
+    LEFT JOIN CENTRO_DISTRIBUCION c ON sc.id_centro = c.id_centro
+    LEFT JOIN USUARIO u ON sc.updated_by = u.id_usuario
+    WHERE sc.id_centro = p_id_centro;
+END$$
+
+DELIMITER ;
+
+-- 6. Procedimiento almacenado: Validar saldo suficiente
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS sp_validar_saldo_centro$$
+
+CREATE PROCEDURE sp_validar_saldo_centro(
+    IN p_id_centro INT,
+    IN p_monto DECIMAL(14,2),
+    OUT p_saldo_actual DECIMAL(14,2),
+    OUT p_es_suficiente BOOLEAN
+)
+BEGIN
+    -- Obtener saldo actual
+    SELECT COALESCE(saldo, 0) INTO p_saldo_actual
+    FROM TESORERIA_SALDO_CENTRO
+    WHERE id_centro = p_id_centro;
+
+    -- Si no existe registro, saldo es 0
+    IF p_saldo_actual IS NULL THEN
+        SET p_saldo_actual = 0;
+    END IF;
+
+    -- Verificar si es suficiente
+    SET p_es_suficiente = (p_saldo_actual >= p_monto);
+END$$
+
+DELIMITER ;
+
+-- 7. Vista: Resumen de saldos por centro
+CREATE OR REPLACE VIEW v_resumen_saldos_centro AS
+SELECT
+    c.id_centro,
+    c.codigo,
+    c.nombre as nombre_centro,
+    c.ciudad,
+    COALESCE(sc.saldo, 0.00) as saldo_actual,
+    sc.updated_at as ultima_actualizacion,
+    u.nombre_completo as actualizado_por,
+    -- Contar movimientos del día actual
+    (SELECT COUNT(*)
+     FROM TESORERIA t
+     WHERE t.id_centro = c.id_centro
+       AND DATE(t.fecha) = CURDATE()
+       AND t.deleted_at IS NULL
+    ) as movimientos_hoy,
+    -- Sumar gastos del día actual
+    (SELECT COALESCE(SUM(t.monto), 0.00)
+     FROM TESORERIA t
+     WHERE t.id_centro = c.id_centro
+       AND DATE(t.fecha) = CURDATE()
+       AND t.deleted_at IS NULL
+    ) as gastos_hoy
+FROM CENTRO_DISTRIBUCION c
+LEFT JOIN TESORERIA_SALDO_CENTRO sc ON c.id_centro = sc.id_centro
+LEFT JOIN USUARIO u ON sc.updated_by = u.id_usuario
+ORDER BY c.nombre ASC;
+
+-- ==============================
 -- CREACIÓN DE ÍNDICES
 -- ==============================
 
@@ -234,6 +424,37 @@ CREATE INDEX idx_tesoreria_distrito ON TESORERIA(distrito);
 CREATE INDEX idx_tesoreria_deleted_at ON TESORERIA(deleted_at);
 CREATE INDEX idx_tesoreria_centro ON TESORERIA(id_centro);
 
+-- Índices adicionales en tabla TESORERIA para mejorar consultas con saldos por centro
+SET @index_exists = (
+    SELECT COUNT(*)
+    FROM INFORMATION_SCHEMA.STATISTICS
+    WHERE table_schema = DATABASE()
+    AND table_name = 'TESORERIA'
+    AND index_name = 'idx_tesoreria_id_centro'
+);
+
+SET @sql = IF(@index_exists = 0,
+    'CREATE INDEX idx_tesoreria_id_centro ON TESORERIA(id_centro)',
+    'SELECT "Index idx_tesoreria_id_centro already exists" AS info');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @index_exists2 = (
+    SELECT COUNT(*)
+    FROM INFORMATION_SCHEMA.STATISTICS
+    WHERE table_schema = DATABASE()
+    AND table_name = 'TESORERIA'
+    AND index_name = 'idx_tesoreria_fecha_centro'
+);
+
+SET @sql2 = IF(@index_exists2 = 0,
+    'CREATE INDEX idx_tesoreria_fecha_centro ON TESORERIA(fecha, id_centro)',
+    'SELECT "Index idx_tesoreria_fecha_centro already exists" AS info');
+PREPARE stmt2 FROM @sql2;
+EXECUTE stmt2;
+DEALLOCATE PREPARE stmt2;</parameter>
+
 -- Evitar duplicados por día/vehículo/nro_viaje
 ALTER TABLE VIAJE ADD UNIQUE KEY uq_viaje_por_dia_vehiculo (fecha, id_vehiculo, nro_viaje);
 
@@ -248,7 +469,7 @@ DROP TABLE IF EXISTS `resumen_rutas`;
 
 CREATE OR REPLACE VIEW v_resumen_rutas AS
 WITH viaje_latest AS (
-    SELECT 
+    SELECT
         fecha,
         id_vehiculo,
         id_repartidor,
@@ -283,9 +504,9 @@ SELECT
     v.nro_trip_adicional AS `Nro Trip Adicional`,
     v.tripulacion_especial AS `Tripulacion Especial`
 FROM VIAJE v
-JOIN viaje_latest vl ON 
-    v.fecha = vl.fecha AND 
-    v.id_vehiculo = vl.id_vehiculo AND 
+JOIN viaje_latest vl ON
+    v.fecha = vl.fecha AND
+    v.id_vehiculo = vl.id_vehiculo AND
     v.id_repartidor = vl.id_repartidor AND
     v.nro_viaje = vl.max_nro_viaje
 JOIN VEHICULO ve ON v.id_vehiculo = ve.id_vehiculo
@@ -362,5 +583,41 @@ WHERE deleted_at IS NULL
 GROUP BY DATE_FORMAT(fecha, '%Y-%m')
 ORDER BY Mes DESC;
 
+-- ==============================
+-- VERIFICACIÓN DE INTEGRACIÓN
+-- ==============================
 
+-- Consulta para verificar que todo se creó correctamente
+-- Nota: Esta consulta ayuda a verificar la inicialización en los logs de Docker
+SELECT
+    'Tabla TESORERIA_SALDO_CENTRO' as item,
+    COUNT(*) as registros
+FROM TESORERIA_SALDO_CENTRO
+UNION ALL
+SELECT
+    'Tabla TESORERIA_SALDO_CENTRO_HISTORIAL',
+    COUNT(*)
+FROM TESORERIA_SALDO_CENTRO_HISTORIAL
+UNION ALL
+SELECT
+    'Vista v_resumen_saldos_centro',
+    COUNT(*)
+FROM v_resumen_saldos_centro;
 
+-- Log de éxito
+SELECT '✅ Script 01-init.sql ejecutado exitosamente con sistema de saldos por centro integrado' AS status;
+
+-- ==============================
+-- NOTAS DE IMPLEMENTACIÓN:
+-- ==============================
+-- 1. Sistema de saldos por centro completamente integrado desde archivo 50-saldos-por-centro.sql
+-- 2. Utilizado por la tarjeta "Montos por Centro de Distribución" en el módulo de tesorería
+-- 3. Frontend: SaldoCard.tsx llama a /api/tesoreria/saldo/por-centro
+-- 4. Backend: tesoreria.controller.js proporciona endpoints:
+--    - GET /saldo/por-centro (obtener todos los saldos)
+--    - PUT /saldo/por-centro/:id_centro (establecer saldo específico - solo admin)
+--    - POST /saldo/por-centro/:id_centro/incrementar (agregar dinero - solo admin)
+-- 5. Triggers automáticos registran cambios en TESORERIA_SALDO_CENTRO_HISTORIAL
+-- 6. Procedimientos almacenados disponibles: sp_get_saldo_centro, sp_validar_saldo_centro
+-- 7. Vista v_resumen_saldos_centro proporciona información consolidada
+-- ==============================
