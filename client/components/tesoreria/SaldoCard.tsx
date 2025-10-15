@@ -59,10 +59,6 @@ export function SaldoCard() {
   const fetchSaldos = async () => {
     try {
       const token = Cookies.get("auth_token");
-      console.log(
-        "Fetching saldos from:",
-        `${API_BASE}/tesoreria/saldo/por-centro`,
-      );
 
       const res = await fetch(`${API_BASE}/tesoreria/saldo/por-centro`, {
         headers: {
@@ -71,11 +67,9 @@ export function SaldoCard() {
       });
 
       const json = await res.json();
-      console.log("Saldos response:", json);
 
       if (json && json.success) {
         const centros = json.data || [];
-        console.log("Centros recibidos:", centros);
         setCentrosSaldos(centros);
         const total = centros.reduce(
           (acc: number, c: CentroSaldo) =>
@@ -384,36 +378,36 @@ export function SaldoCard() {
           </DialogHeader>
           {selectedCentro && (
             <div className="space-y-3">
-              <div className="bg-gray-50 p-3 rounded">
-                <p className="text-sm font-medium text-gray-700">Centro:</p>
-                <p className="text-base font-semibold">
+              <div className="bg-gray-50 dark:bg-background p-3 rounded border border-gray-200 dark:border-border">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Centro:</p>
+                <p className="text-base font-semibold dark:text-foreground">
                   {selectedCentro.nombre_centro}
                 </p>
               </div>
-              <div className="bg-gray-50 p-3 rounded">
-                <p className="text-sm font-medium text-gray-700">
+              <div className="bg-gray-50 dark:bg-background p-3 rounded border border-gray-200 dark:border-border">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Saldo actual:
                 </p>
-                <p className="text-lg font-bold text-emerald-700">
+                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
                   {new Intl.NumberFormat("es-PE", {
                     style: "currency",
                     currency: "PEN",
                   }).format(selectedCentro.saldo)}
                 </p>
               </div>
-              <div className="bg-gray-50 p-3 rounded">
-                <p className="text-sm font-medium text-gray-700">
+              <div className="bg-gray-50 dark:bg-background p-3 rounded border border-gray-200 dark:border-border">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Última actualización:
                 </p>
-                <p className="text-base">
+                <p className="text-base dark:text-foreground">
                   {formatDateTime(selectedCentro.updated_at)}
                 </p>
               </div>
-              <div className="bg-gray-50 p-3 rounded">
-                <p className="text-sm font-medium text-gray-700">
+              <div className="bg-gray-50 dark:bg-background p-3 rounded border border-gray-200 dark:border-border">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Actualizado por:
                 </p>
-                <p className="text-base">
+                <p className="text-base dark:text-foreground">
                   {selectedCentro.updated_by_nombre || "Sistema"}
                 </p>
               </div>
