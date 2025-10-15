@@ -32,7 +32,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CalendarIcon, DollarSign, FileText, Calendar } from "lucide-react";
+import {
+  CalendarIcon,
+  DollarSign,
+  FileText,
+  Calendar,
+  Eye,
+} from "lucide-react";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
   Popover,
@@ -171,6 +177,8 @@ export function TesoreriaForm({
       id_centro: number;
     }>
   >([]);
+  const [saldoCentro, setSaldoCentro] = useState<number | null>(null);
+  const [loadingSaldo, setLoadingSaldo] = useState(false);
 
   interface FieldRenderProps {
     field: {
@@ -180,6 +188,49 @@ export function TesoreriaForm({
     };
   }
   const { toast } = useToast();
+
+  // Función para obtener el saldo de un centro
+  const fetchSaldoCentro = async (idCentro: number) => {
+    if (!idCentro) {
+      setSaldoCentro(null);
+      return;
+    }
+
+    setLoadingSaldo(true);
+    try {
+      const API_BASE = getAPIBase();
+      const token = Cookies.get("auth_token");
+      if (!token) {
+        setSaldoCentro(null);
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/tesoreria/saldo/por-centro`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const json = await res.json();
+      if (json && json.success) {
+        const centro = json.data.find(
+          (c: any) => Number(c.id_centro) === Number(idCentro),
+        );
+        if (centro) {
+          const saldoParsed = parseFloat(String(centro.saldo));
+          setSaldoCentro(saldoParsed);
+        } else {
+          setSaldoCentro(null);
+        }
+      }
+    } catch (err) {
+      console.error("Error al obtener saldo del centro:", err);
+      setSaldoCentro(null);
+    } finally {
+      setLoadingSaldo(false);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -344,10 +395,39 @@ export function TesoreriaForm({
 
     form.reset(vals);
     setMontoInput(formatNumberPretty(vals.monto || 0));
+
+    // Cargar saldo del centro al editar
+    if (vals.id_centro) {
+      fetchSaldoCentro(Number(vals.id_centro));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tesoreria]);
 
   const handleSubmit = async (data: z.infer<typeof tesoreriaSchema>) => {
+    // Validar que el monto sea positivo
+    const montoNumerico = parseFloat(String(data.monto));
+    if (montoNumerico <= 0 || isNaN(montoNumerico)) {
+      toast({
+        title: "Error",
+        description: "El monto debe ser mayor a 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar que el monto no exceda el saldo disponible (solo para gastos)
+    if (!tesoreria && saldoCentro !== null) {
+      const saldoNumerico = parseFloat(String(saldoCentro));
+
+      if (montoNumerico > saldoNumerico) {
+        toast({
+          title: "Saldo insuficiente",
+          description: `El monto S/ ${formatNumberPretty(montoNumerico)} excede el saldo disponible de S/ ${formatNumberPretty(saldoNumerico)}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
     // Normalizar payload (turno como número, reembolso vacío a undefined)
     const payload: any = {
       ...data,
@@ -366,31 +446,12 @@ export function TesoreriaForm({
     if (payload.id_centro === "") payload.id_centro = null; // send explicit null to indicate clearing
     if (typeof payload.id_centro === "string" && payload.id_centro !== "")
       payload.id_centro = Number(payload.id_centro);
-    // If creating (no tesoreria), validate saldo for all users (admins included).
-    if (!tesoreria) {
-      try {
-        const API_BASE = getAPIBase();
-        const res = await fetch(`${API_BASE}/tesoreria/saldo/actual`);
-        const json = await res.json();
-        const saldoActual = parseFloat(json?.data?.saldo || 0);
-        if (payload.monto > saldoActual) {
-          toast({
-            title: "Saldo insuficiente",
-            description:
-              "El monto excede el saldo disponible en la tarjeta de tesorería",
-            variant: "destructive",
-          });
-          return false;
-        }
-      } catch (err) {
-        console.warn("No se pudo validar saldo:", err);
-        // continue — allow submission to proceed to confirmation
-      }
-      // For non-admins, show confirmation modal; for admins proceed immediately
-      if (!isAdmin) {
-        setShowConfirm(true);
-        return false;
-      }
+
+    // La validación de saldo ya se realizó arriba usando el saldo del centro específico
+    // For non-admins, show confirmation modal; for admins proceed immediately
+    if (!tesoreria && !isAdmin) {
+      setShowConfirm(true);
+      return false;
     }
 
     // If editing, prevent increasing the monto (only allow equal or smaller amounts)
@@ -559,32 +620,73 @@ export function TesoreriaForm({
               />
             </div>
 
-            {/* Centro de distribución (obligatorio) */}
-            <FormField
-              control={form.control}
-              name="id_centro"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Centro de distribución *</FormLabel>
-                  <FormControl>
-                    <Combobox
-                      options={centros.map((c) => ({
-                        label: `${c.codigo} - ${c.nombre}${c.ciudad ? ` (${c.ciudad})` : ""}`,
-                        value: String(c.id_centro),
-                      }))}
-                      value={field.value ? String(field.value) : ""}
-                      onChange={(value) => {
-                        field.onChange(value || "");
-                      }}
-                      placeholder="Seleccione un centro de distribución..."
-                      emptyText="No se encontraron centros."
-                      searchPlaceholder="Buscar por código o nombre..."
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Centro de distribución (obligatorio) y Saldo del Centro */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="id_centro"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Centro de distribución *</FormLabel>
+                    <FormControl>
+                      <Combobox
+                        options={centros.map((c) => ({
+                          label: `${c.codigo} - ${c.nombre}${c.ciudad ? ` (${c.ciudad})` : ""}`,
+                          value: String(c.id_centro),
+                        }))}
+                        value={field.value ? String(field.value) : ""}
+                        onChange={(value) => {
+                          field.onChange(value || "");
+                          // Obtener el saldo del centro seleccionado
+                          if (value) {
+                            fetchSaldoCentro(Number(value));
+                          } else {
+                            setSaldoCentro(null);
+                          }
+                        }}
+                        placeholder="Seleccione un centro de distribución..."
+                        emptyText="No se encontraron centros."
+                        searchPlaceholder="Buscar por código o nombre..."
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Saldo del Centro (campo visual no editable) */}
+              <FormItem>
+                <FormLabel>Saldo disponible del centro</FormLabel>
+                <div className="relative">
+                  <Input
+                    value={
+                      loadingSaldo
+                        ? "Cargando..."
+                        : saldoCentro !== null
+                          ? `S/ ${formatNumberPretty(saldoCentro)}`
+                          : "Seleccione un centro"
+                    }
+                    disabled
+                    className={cn(
+                      "bg-gray-50 text-gray-700 font-semibold",
+                      saldoCentro !== null && saldoCentro > 0
+                        ? "text-emerald-600"
+                        : saldoCentro === 0
+                          ? "text-yellow-600"
+                          : "",
+                    )}
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <Eye className="h-4 w-4 text-gray-400" />
+                  </div>
+                </div>
+                {saldoCentro !== null && saldoCentro === 0 && (
+                  <p className="text-xs text-yellow-600 mt-1">
+                    ⚠️ Este centro no tiene saldo disponible
+                  </p>
+                )}
+              </FormItem>
+            </div>
 
             {/* Categoría (obligatoria) y Cargo (opcional) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
