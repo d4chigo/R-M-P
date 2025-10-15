@@ -453,7 +453,7 @@ SET @sql2 = IF(@index_exists2 = 0,
     'SELECT "Index idx_tesoreria_fecha_centro already exists" AS info');
 PREPARE stmt2 FROM @sql2;
 EXECUTE stmt2;
-DEALLOCATE PREPARE stmt2;</parameter>
+DEALLOCATE PREPARE stmt2;
 
 -- Evitar duplicados por día/vehículo/nro_viaje
 ALTER TABLE VIAJE ADD UNIQUE KEY uq_viaje_por_dia_vehiculo (fecha, id_vehiculo, nro_viaje);
