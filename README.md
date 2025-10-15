@@ -4,6 +4,12 @@
 
 ## 📋 Tabla de Contenidos
 
+- [🎯 Características](#-características)
+- [🏗️ Arquitectura](#️-arquitectura)
+- [🚀 Inicio Rápido](#-inicio-rápido)
+- [🔧 Configuración](#-configuración)
+- [🗄️ Migraciones de Base de Datos](#️-migraciones-de-base-de-datos)
+- [📚 Documentación Adicional](#-documentación-adicional)
 
 ## 🎯 Características
 
@@ -98,6 +104,50 @@ NEXT_PUBLIC_API_URL=http://localhost:4000   # URL del API para el frontend
 
 - **MySQL Root**: `root` / `rootpassword123`
 - **MySQL Usuario**: `rmp_user` / `rmp_password123`
+
+## 🗄️ Migraciones de Base de Datos
+
+El sistema incluye migraciones automáticas que se ejecutan al inicializar Docker:
+
+### Scripts de Inicialización
+
+Los scripts en `mysql/init/` se ejecutan automáticamente en orden:
+
+1. **`01-init.sql`** - Tablas principales (usuarios, roles, vehículos, etc.)
+2. **`50-saldos-por-centro.sql`** - Sistema de saldos por centro de distribución
+3. **`99-events.sql`** - Eventos programados y tareas automáticas
+
+### Nueva Funcionalidad: Saldos por Centro de Distribución
+
+La migración `50-saldos-por-centro.sql` incluye:
+
+- ✅ Gestión de saldos independientes por centro de distribución
+- ✅ Historial completo de movimientos de saldo
+- ✅ Triggers automáticos para auditoría
+- ✅ Procedimientos almacenados para validaciones
+- ✅ Vista de resumen para reportes
+
+### Reconstruir Docker con Migraciones
+
+Si necesitas reconstruir Docker con todas las migraciones:
+
+```bash
+# Hacer backup primero
+docker exec rmp_mysql mysqldump -u root -p${MYSQL_ROOT_PASSWORD} ${MYSQL_DATABASE} > backup.sql
+
+# Reconstruir desde cero
+docker-compose down -v
+docker-compose up -d --build
+```
+
+Para instrucciones detalladas, consulta: **[DOCKER_REBUILD_GUIDE.md](DOCKER_REBUILD_GUIDE.md)**
+
+## 📚 Documentación Adicional
+
+- **[DOCKER_REBUILD_GUIDE.md](DOCKER_REBUILD_GUIDE.md)** - Guía completa de reconstrucción de Docker
+- **[IMPLEMENTACION_SALDOS_CENTRO.md](IMPLEMENTACION_SALDOS_CENTRO.md)** - Documentación del sistema de saldos por centro
+- **[client/BACKEND_API_REQUIREMENTS.md](client/BACKEND_API_REQUIREMENTS.md)** - Especificaciones de API
+
 - **Base de Datos**: `rmp_db`
 
 ## 📁 Estructura del Proyecto

@@ -269,7 +269,7 @@ export function ViajeForm({
       fecha: formData.fecha,
       id_vehiculo: parseInt(formData.id_vehiculo),
       id_repartidor: parseInt(formData.id_repartidor),
-      id_centro: formData.id_centro ? parseInt(formData.id_centro) : undefined,
+      id_centro: formData.id_centro && formData.id_centro !== '' ? parseInt(formData.id_centro) : undefined,
       nro_viaje: parseInt(formData.nro_viaje),
   territorios_visitados: formData.territorios_visitados ? parseInt(formData.territorios_visitados) : undefined,
       salida_cd: formData.salida_cd || undefined,
@@ -304,7 +304,7 @@ export function ViajeForm({
   const centrosActivos = centros.filter((c) => c.estado === 'activo');
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 w-full" style={{ width: '100%' }}>
       {/* Alertas de advertencia */}
       {warnings.length > 0 && (
         <Alert className="border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20">
@@ -416,13 +416,16 @@ export function ViajeForm({
         <div>
           <Label htmlFor="id_centro">Centro de distribución</Label>
           <Combobox
-            options={centros.map((c) => ({
-              label: `${c.codigo} - ${c.nombre} ${c.ciudad ? `(${c.ciudad})` : ''}`,
-              value: c.id_centro?.toString() || ""
-            }))}
-            value={formData.id_centro}
+            options={[
+              { label: '(Vacío)', value: '' },
+              ...centros.map((c) => ({
+                label: `${c.codigo} - ${c.nombre} ${c.ciudad ? `(${c.ciudad})` : ''}`,
+                value: c.id_centro?.toString() || ""
+              }))
+            ]}
+            value={formData.id_centro || ''}
             onChange={(value) => {
-              handleInputChange("id_centro", value);
+              handleInputChange("id_centro", value === '' ? '' : value);
             }}
             placeholder="Buscar centro de distribución..."
             emptyText="No se encontraron centros."
@@ -520,7 +523,7 @@ export function ViajeForm({
             />
           </div>
           <div>
-            <Label htmlFor="nro_trip_adicional">Personal Adicional</Label>
+            <Label htmlFor="nro_trip_adicional">Tripulacion Adicional</Label>
             <Input
               id="nro_trip_adicional"
               type="number"
@@ -530,13 +533,13 @@ export function ViajeForm({
             />
           </div>
           <div className="md:col-span-2 lg:col-span-1">
-            <Label htmlFor="tripulacion_especial">Especificaciones</Label>
+            <Label htmlFor="tripulacion_especial">Tripulacion Especial</Label>
             <Input
               id="tripulacion_especial"
               type="text"
               value={formData.tripulacion_especial}
               onChange={(e) => handleInputChange("tripulacion_especial", e.target.value)}
-              placeholder="Ej: Supervisor, Practicante"
+              placeholder="Ej: Optimus, Supermercado"
             />
           </div>
         </div>

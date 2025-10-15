@@ -190,7 +190,6 @@ export default function UserManagement() {
 
   const loadRoles = async () => {
     try {
-      console.log('Cargando roles...');
       const response = await fetch(`${API_BASE_URL}/admin/roles`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -271,7 +270,6 @@ export default function UserManagement() {
     setSubmitError("");
 
     try {
-      console.log('Creando usuario:', formData);
       const response = await fetch(`${API_BASE_URL}/admin/usuarios`, {
         method: "POST",
         headers: {
@@ -369,7 +367,6 @@ export default function UserManagement() {
       );
 
       const data = await response.json();
-      console.log('Respuesta del servidor:', { status: response.status, data });
 
       if (response.ok && data.success) {
         await loadUsuarios();
@@ -409,7 +406,6 @@ export default function UserManagement() {
 
   const handleDeleteUser = async (userId: number) => {
     try {
-      console.log('Intentando eliminar usuario:', userId);
       const response = await fetch(`${API_BASE_URL}/admin/usuarios/${userId}`, {
         method: "DELETE",
         headers: {
