@@ -105,19 +105,22 @@ interface TesoreriaFormProps {
 }
 
 const categorias = [
-  "Combustible",
-  "Mantenimiento",
-  "Salarios",
+  "Trasbordo",
+  "Cochera",
+  "Viaticos",
   "Peajes",
-  "Viáticos",
-  "Seguros",
-  "Licencias",
-  "Impuestos",
-  "Servicios",
-  "Ventas",
-  "Adelantos",
-  "Comisiones",
-  "Otros",
+  "Gastos Administrativos",
+  "Movilidad",
+  "Urea",
+  "Extintores",
+  "Combustible",
+  "Revision Tecnica",
+  "Producto",
+  "Adelanto",
+  "Prestamo Personal",
+  "Pago de Personal",
+  "Pago Feriado",
+  "Pago Dominical",
 ];
 
 const cargos = [
@@ -137,17 +140,22 @@ const turnos = [
 ];
 
 const subcategorias = {
+  Trasbordo: ["Local", "Nacional", "Internacional"],
+  Cochera: ["Alquiler", "Mantenimiento", "Limpieza"],
+  Viaticos: ["Hospedaje", "Alimentación", "Transporte"],
+  Peajes: ["Autopista", "Puente", "Túnel"],
+  "Gastos Administrativos": ["Oficina", "Servicios", "Suministros"],
+  Movilidad: ["Transporte", "Gasolina", "Estacionamiento"],
+  Urea: ["Unidad 1", "Unidad 2", "Unidad 3"],
+  Extintores: ["Recarga", "Mantenimiento", "Reemplazo"],
   Combustible: ["Gasolina", "Diesel", "Gas Natural"],
-  Mantenimiento: ["Aceite", "Frenos", "Neumáticos", "Reparaciones"],
-  Salarios: ["Conductores", "Personal Administrativo", "Bonificaciones"],
-  Peajes: ["Autopistas", "Puentes", "Túneles"],
-  Seguros: ["Vehículos", "Personal", "Carga"],
-  Licencias: ["Municipales", "Provinciales", "Nacionales"],
-  Impuestos: ["IGV", "Renta", "Municipales"],
-  Servicios: ["Luz", "Agua", "Internet", "Teléfono"],
-  Ventas: ["Productos", "Servicios", "Comisiones"],
-  Comisiones: ["Ventas", "Servicios", "Referidos"],
-  Otros: ["Gastos Varios", "Emergencias", "Donaciones"],
+  "Revision Tecnica": ["Inspección", "Reparación", "Certificado"],
+  Producto: ["Materia Prima", "Productos Terminados", "Suministros"],
+  Adelanto: ["Efectivo", "Voucher", "Transferencia"],
+  "Prestamo Personal": ["Efectivo", "Descuento Nómina", "Otros"],
+  "Pago de Personal": ["Salarios", "Bonificaciones", "Comisiones"],
+  "Pago Feriado": ["Feriado Nacional", "Feriado Regional", "Otros"],
+  "Pago Dominical": ["Domingo", "Festivo", "Extraordinario"],
 };
 
 export function TesoreriaForm({
@@ -571,7 +579,7 @@ export function TesoreriaForm({
                           { label: "(Vacío)", value: "" },
                           { label: "CD - Centro de Distribución", value: "CD" },
                           ...vehiculos.map((v: TesoreriaVehiculo) => ({
-                            label: `${v.placa} - ${v.descripcion}`,
+                            label: v.descripcion,
                             value: v.placa,
                           })),
                         ]}
