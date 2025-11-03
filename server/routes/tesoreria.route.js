@@ -13,6 +13,12 @@ const {
 // GET routes are public but accept optional auth so we can show extra data to admins
 router.get("/", optionalAuth, getUserRoles, tesoreriaController.getTesoreria);
 router.get(
+  "/export",
+  optionalAuth,
+  getUserRoles,
+  tesoreriaController.exportTesoreria,
+);
+router.get(
   "/search",
   optionalAuth,
   getUserRoles,

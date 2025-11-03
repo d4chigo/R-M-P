@@ -2192,3 +2192,118 @@ const getAuditByTesoreriaId = async (req, res) => {
 
 module.exports.getAudit = getAudit;
 module.exports.getAuditByTesoreriaId = getAuditByTesoreriaId;
+
+// =====================
+// Exportar registros a XLSX
+// =====================
+const exportTesoreria = async (req, res) => {
+  try {
+    console.log("📊 Iniciando exportación de tesorería...");
+
+    const { where, params } = buildWhereAndParams({ ...req.query });
+    let rows;
+    try {
+      const [r] = await db.query(
+        `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at, t.created_by, t.updated_by,
+                u1.nombre_completo AS created_by_nombre,
+                u2.nombre_completo AS updated_by_nombre
+         FROM TESORERIA t
+         LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
+         LEFT JOIN USUARIO u1 ON t.created_by = u1.id_usuario
+         LEFT JOIN USUARIO u2 ON t.updated_by = u2.id_usuario
+         ${where}
+         ORDER BY t.fecha DESC, t.id DESC`,
+        params,
+      );
+      rows = r;
+    } catch (errQuery) {
+      if (
+        String(errQuery.message).includes("Unknown column") ||
+        String(errQuery.code).includes("ER_BAD_FIELD_ERROR")
+      ) {
+        console.warn(
+          "⚠️ Consulta de exportación con joins de auditoría falló, intentando consulta de respaldo",
+        );
+        const [r2] = await db.query(
+          `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
+           FROM TESORERIA t
+           LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
+           ${where}
+           ORDER BY t.fecha DESC, t.id DESC`,
+          params,
+        );
+        rows = r2;
+        rows.forEach((r) => {
+          r.created_by_nombre = null;
+          r.updated_by_nombre = null;
+        });
+      } else {
+        throw errQuery;
+      }
+    }
+
+    console.log(`✅ Se encontraron ${rows.length} registros para exportar`);
+
+    // Ocultar nombres si no es admin
+    const userRoles = req.userRoles || [];
+    const isAdmin =
+      Array.isArray(userRoles) && userRoles.includes("ADMINISTRADOR");
+    if (!isAdmin) {
+      rows.forEach((r) => {
+        r.created_by_nombre = null;
+        r.updated_by_nombre = null;
+      });
+    }
+
+    // Preparar datos para exportación
+    const exportData = rows.map((row) => ({
+      "Fecha": row.fecha || "",
+      "Placa": row.placa || "",
+      "Nombre": row.nombre || "",
+      "Cargo": row.cargo || "",
+      "Categoría": row.categoria || "",
+      "Detalle": row.detalle || "",
+      "Reembolso": row.reembolso || "",
+      "Distrito": row.distrito || "",
+      "Centro Distribución": row.centro_nombre || "",
+      "Turno": row.turno !== null && row.turno !== undefined ? row.turno : "",
+      "Encargado": row.encargado || "",
+      "Monto": row.monto || 0,
+      ...(isAdmin && { "Creado Por": row.created_by_nombre || "" }),
+      ...(isAdmin && { "Actualizado Por": row.updated_by_nombre || "" }),
+      ...(isAdmin && { "Fecha Creación": row.created_at || "" }),
+    }));
+
+    // Usar xlsx para generar el archivo
+    const XLSX = require("xlsx");
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Tesorería");
+
+    // Generar buffer
+    const buffer = XLSX.write(wb, { bookType: "xlsx", type: "buffer" });
+
+    // Configurar headers para descarga
+    const timestamp = new Date().toISOString().split("T")[0];
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="tesoreria_${timestamp}.xlsx"`
+    );
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    // Enviar archivo
+    res.send(buffer);
+  } catch (error) {
+    console.error("❌ Error al exportar tesorería:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error al exportar registros de tesorería",
+      error: error.message,
+    });
+  }
+};
+
+module.exports.exportTesoreria = exportTesoreria;

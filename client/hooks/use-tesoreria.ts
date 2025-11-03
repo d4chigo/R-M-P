@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApi } from './use-api';
+import { getAPIBase } from '@/lib/api-config';
 
 export interface TesoreriaVehiculo {
   id_vehiculo: number;
@@ -343,6 +344,42 @@ export const useTesoreria = () => {
     }
   };
 
+  // Exportar registros a XLSX
+  const exportTesoreria = async (params?: Partial<SearchParams>): Promise<void> => {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          if (value !== undefined && value !== '') {
+            queryParams.append(key, String(value));
+          }
+        });
+      }
+      const qp = queryParams.toString();
+      const apiBase = getAPIBase();
+      const response = await fetch(`${apiBase}/tesoreria/export${qp ? `?${qp}` : ''}`);
+      
+      if (!response.ok) {
+        throw new Error(`Error en exportación: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const timestamp = new Date().toISOString().split('T')[0];
+      a.download = `tesoreria_export_${timestamp}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError('Error al exportar registros');
+      console.error('Error exporting tesoreria:', err);
+      throw err;
+    }
+  };
+
   return {
     tesoreria,
     loading,
@@ -360,6 +397,7 @@ export const useTesoreria = () => {
     // New dropdown and audit methods
     fetchVehiculos,
     fetchRepartidores,
-    fetchAuditInfo
+    fetchAuditInfo,
+    exportTesoreria,
   };
 };
