@@ -1004,7 +1004,7 @@ const getSaldoHistorial = async (req, res) => {
   }
 };
 
-// Eliminar (soft delete) un registro de tesorería y devolver el monto al saldo
+// Eliminar (soft delete) un registro de tesorería y devolver el monto al saldo del centro de distribución
 const deleteTesoreria = async (req, res) => {
   try {
     // Defensa en profundidad: sólo ADMINISTRADOR puede eliminar
@@ -1020,7 +1020,7 @@ const deleteTesoreria = async (req, res) => {
     const { id } = req.params;
 
     const [existing] = await db.query(
-      "SELECT id, nombre, monto, categoria, deleted_at FROM TESORERIA WHERE id = ?",
+      "SELECT id, nombre, monto, categoria, deleted_at, id_centro FROM TESORERIA WHERE id = ?",
       [id],
     );
     if (existing.length === 0) {
@@ -1041,33 +1041,79 @@ const deleteTesoreria = async (req, res) => {
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
-      // Devolver monto al saldo
-      const [saldoRows] = await connection.query(
-        "SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE",
-      );
-      let saldoId, saldoActual;
-      if (saldoRows.length === 0) {
-        const [ins] = await connection.query(
-          "INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)",
+
+      const monto = parseFloat(existing[0].monto);
+      const idCentro = existing[0].id_centro;
+
+      // Si el registro tiene asociado un centro de distribución, devolver monto al centro
+      if (idCentro) {
+        const [saldoCentroRows] = await connection.query(
+          "SELECT saldo FROM TESORERIA_SALDO_CENTRO WHERE id_centro = ? FOR UPDATE",
+          [idCentro],
         );
-        saldoId = ins.insertId;
-        saldoActual = 0;
-      } else {
-        saldoId = saldoRows[0].id;
-        saldoActual = parseFloat(saldoRows[0].saldo || 0);
+
+        if (saldoCentroRows.length > 0) {
+          const saldoActualCentro = parseFloat(saldoCentroRows[0].saldo || 0);
+          const nuevoSaldoCentro = saldoActualCentro + monto;
+
+          // Actualizar saldo del centro
+          await connection.query(
+            `UPDATE TESORERIA_SALDO_CENTRO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id_centro = ?`,
+            [nuevoSaldoCentro, req.usuario ? req.usuario.id_usuario : null, idCentro],
+          );
+
+          // Registrar en historial del centro con tipo 'devolucion'
+          try {
+            await connection.query(
+              `INSERT INTO TESORERIA_SALDO_CENTRO_HISTORIAL
+               (id_centro, tipo, saldo_anterior, monto, saldo_nuevo, motivo, id_registro_tesoreria, created_by, created_at)
+               VALUES (?, 'devolucion', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+              [
+                idCentro,
+                saldoActualCentro,
+                monto,
+                nuevoSaldoCentro,
+                `Devolución por eliminación: ${existing[0].categoria} - ${existing[0].nombre}`,
+                id,
+                req.usuario ? req.usuario.id_usuario : null,
+              ],
+            );
+          } catch (histErr) {
+            console.warn(
+              "No se pudo registrar en historial de centro al eliminar:",
+              histErr.message,
+            );
+          }
+        }
       }
-      const nuevoSaldo = saldoActual + parseFloat(existing[0].monto);
-      await connection.query(
-        "UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId],
-      );
 
       // Marcar como eliminado
       await connection.query(
         "UPDATE TESORERIA SET deleted_at = NOW(), updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         [id],
       );
+
+      // Audit dentro de la transacción
+      try {
+        await logAudit({
+          req,
+          evento: "DELETE",
+          entidad: "TESORERIA",
+          entityId: Number(id),
+          detalle: { 
+            before: existing[0],
+            saldo_devuelto_al_centro: idCentro ? monto : null,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("Advertencia: No se pudo registrar auditoría:", auditErr.message);
+      }
+
       await connection.commit();
+      return res.json({
+        success: true,
+        message: `Registro enviado a la papelera: ${existing[0].nombre} - ${existing[0].categoria} S/.${monto.toFixed(2)}. Saldo devuelto al centro.`,
+      });
     } catch (txErr) {
       await connection.rollback();
       console.error("Error en transacción eliminar tesorería:", txErr);
@@ -1079,24 +1125,9 @@ const deleteTesoreria = async (req, res) => {
     } finally {
       connection.release();
     }
-
-    // Audit
-    try {
-      await logAudit({
-        req,
-        evento: "DELETE",
-        entidad: "TESORERIA",
-        entityId: Number(id),
-        detalle: { before: existing[0] },
-      });
-    } catch (e) {}
-    res.json({
-      success: true,
-      message: `Registro enviado a la papelera: ${existing[0].nombre} - ${existing[0].categoria} S/.${existing[0].monto}`,
-    });
   } catch (error) {
     console.error("❌ Error al eliminar registro de tesorería:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error al eliminar registro de tesorería",
       error: error.message,
@@ -1104,7 +1135,7 @@ const deleteTesoreria = async (req, res) => {
   }
 };
 
-// Restaurar un registro desde la papelera (soft restore) y descontar nuevamente del saldo
+// Restaurar un registro desde la papelera (soft restore) y descontar nuevamente del saldo del centro
 const restoreTesoreria = async (req, res) => {
   try {
     // Defensa en profundidad: sólo ADMINISTRADOR puede restaurar
@@ -1119,7 +1150,7 @@ const restoreTesoreria = async (req, res) => {
     }
     const { id } = req.params;
     const [existing] = await db.query(
-      "SELECT id, monto, deleted_at FROM TESORERIA WHERE id = ?",
+      "SELECT id, monto, deleted_at, id_centro FROM TESORERIA WHERE id = ?",
       [id],
     );
     if (existing.length === 0) {
@@ -1138,40 +1169,95 @@ const restoreTesoreria = async (req, res) => {
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
-      // Descontar del saldo nuevamente
-      const [saldoRows] = await connection.query(
-        "SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE",
-      );
-      let saldoId, saldoActual;
-      if (saldoRows.length === 0) {
-        const [ins] = await connection.query(
-          "INSERT INTO TESORERIA_SALDO (saldo) VALUES (0)",
-        );
-        saldoId = ins.insertId;
-        saldoActual = 0;
-      } else {
-        saldoId = saldoRows[0].id;
-        saldoActual = parseFloat(saldoRows[0].saldo || 0);
-      }
-      const monto = parseFloat(existing[0].monto);
-      if (monto > saldoActual) {
-        await connection.rollback();
-        return res.status(400).json({
-          success: false,
-          message: "Saldo insuficiente para restaurar el registro",
-        });
-      }
-      const nuevoSaldo = saldoActual - monto;
-      await connection.query(
-        "UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId],
-      );
 
+      const monto = parseFloat(existing[0].monto);
+      const idCentro = existing[0].id_centro;
+
+      // Si el registro tiene asociado un centro, validar y descontar del saldo del centro
+      if (idCentro) {
+        const [saldoCentroRows] = await connection.query(
+          "SELECT saldo FROM TESORERIA_SALDO_CENTRO WHERE id_centro = ? FOR UPDATE",
+          [idCentro],
+        );
+
+        if (saldoCentroRows.length === 0) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: "Centro de distribución no encontrado o sin saldo asignado",
+          });
+        }
+
+        const saldoActualCentro = parseFloat(saldoCentroRows[0].saldo || 0);
+
+        if (monto > saldoActualCentro) {
+          await connection.rollback();
+          return res.status(400).json({
+            success: false,
+            message: `Saldo insuficiente en el centro para restaurar el registro. Saldo disponible: S/ ${saldoActualCentro.toFixed(2)}, requerido: S/ ${monto.toFixed(2)}`,
+          });
+        }
+
+        const nuevoSaldoCentro = saldoActualCentro - monto;
+
+        // Actualizar saldo del centro
+        await connection.query(
+          `UPDATE TESORERIA_SALDO_CENTRO SET saldo = ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id_centro = ?`,
+          [nuevoSaldoCentro, req.usuario ? req.usuario.id_usuario : null, idCentro],
+        );
+
+        // Registrar en historial del centro con tipo 'gasto' (es como si estuviera activo nuevamente)
+        try {
+          await connection.query(
+            `INSERT INTO TESORERIA_SALDO_CENTRO_HISTORIAL
+             (id_centro, tipo, saldo_anterior, monto, saldo_nuevo, motivo, id_registro_tesoreria, created_by, created_at)
+             VALUES (?, 'gasto', ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+            [
+              idCentro,
+              saldoActualCentro,
+              monto,
+              nuevoSaldoCentro,
+              `Restauración de registro desde papelera`,
+              id,
+              req.usuario ? req.usuario.id_usuario : null,
+            ],
+          );
+        } catch (histErr) {
+          console.warn(
+            "No se pudo registrar en historial de centro al restaurar:",
+            histErr.message,
+          );
+        }
+      }
+
+      // Limpiar la marca de eliminación
       await connection.query(
         "UPDATE TESORERIA SET deleted_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         [id],
       );
+
+      // Audit dentro de la transacción
+      try {
+        await logAudit({
+          req,
+          evento: "RESTORE",
+          entidad: "TESORERIA",
+          entityId: Number(id),
+          detalle: { 
+            restored: true,
+            saldo_descontado_del_centro: idCentro ? monto : null,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("Advertencia: No se pudo registrar auditoría:", auditErr.message);
+        // No rollback aquí, solo warning
+      }
+
       await connection.commit();
+      return res.json({ 
+        success: true, 
+        message: `Registro restaurado exitosamente. Saldo de S/ ${monto.toFixed(2)} descontado del centro.` 
+      });
     } catch (txErr) {
       await connection.rollback();
       console.error("Error en transacción restaurar tesorería:", txErr);
@@ -1183,21 +1269,9 @@ const restoreTesoreria = async (req, res) => {
     } finally {
       connection.release();
     }
-
-    // Audit
-    try {
-      await logAudit({
-        req,
-        evento: "RESTORE",
-        entidad: "TESORERIA",
-        entityId: Number(id),
-        detalle: { restored: true },
-      });
-    } catch (e) {}
-    res.json({ success: true, message: "Registro restaurado exitosamente" });
   } catch (error) {
     console.error("❌ Error al restaurar registro de tesorería:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Error al restaurar registro de tesorería",
       error: error.message,
@@ -1267,7 +1341,7 @@ const searchTesoreria = async (req, res) => {
 const purgeTesoreria = async (_req, res) => {
   try {
     // Nota: esta ruta normalmente estará protegida por middleware requireAdmin, pero añadimos
-    // una comprobación extra si llamadas directas bypassearon middleware.
+    // una comprobación extra si llamadas directas bypassearan middleware.
     const reqObj = _req || {};
     if (!reqObj.userRoles && reqObj.usuario && reqObj.usuario.roles) {
       reqObj.userRoles = reqObj.usuario.roles.map((r) =>
@@ -1280,19 +1354,110 @@ const purgeTesoreria = async (_req, res) => {
         message: "Acción no permitida: se requiere rol ADMINISTRADOR",
       });
     }
-    // Elimina filas cuya deleted_at sea anterior a 7 días
-    const [result] = await db.query(
-      `DELETE FROM TESORERIA
-       WHERE deleted_at IS NOT NULL
-         AND deleted_at < (NOW() - INTERVAL 7 DAY)`,
-    );
 
-    const affected = result?.affectedRows ?? 0;
-    res.json({
-      success: true,
-      purged: affected,
-      message: `Registros eliminados definitivamente: ${affected}`,
-    });
+    const connection = await db.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      // 1. Obtener todos los registros a purgar con su id_centro
+      const [toPurge] = await connection.query(
+        `SELECT id, monto, id_centro FROM TESORERIA
+         WHERE deleted_at IS NOT NULL
+           AND deleted_at < (NOW() - INTERVAL 7 DAY)`,
+      );
+
+      // 2. Para cada registro, si tiene id_centro, devolver el monto al saldo del centro
+      for (const record of toPurge) {
+        if (record.id_centro) {
+          const monto = parseFloat(record.monto || 0);
+          
+          try {
+            // Actualizar saldo del centro
+            await connection.query(
+              `UPDATE TESORERIA_SALDO_CENTRO 
+               SET saldo = saldo + ?, updated_by = ?, updated_at = CURRENT_TIMESTAMP
+               WHERE id_centro = ?`,
+              [monto, reqObj.usuario ? reqObj.usuario.id_usuario : null, record.id_centro],
+            );
+
+            // Registrar en historial del centro
+            try {
+              await connection.query(
+                `INSERT INTO TESORERIA_SALDO_CENTRO_HISTORIAL
+                 (id_centro, tipo, saldo_anterior, monto, saldo_nuevo, motivo, id_registro_tesoreria, created_by, created_at)
+                 SELECT 
+                   id_centro,
+                   'devolucion',
+                   saldo - ?,
+                   ?,
+                   saldo,
+                   'Purga automática: devolución por eliminación permanente de registro',
+                   ?,
+                   ?,
+                   CURRENT_TIMESTAMP
+                 FROM TESORERIA_SALDO_CENTRO
+                 WHERE id_centro = ?`,
+                [monto, monto, record.id, reqObj.usuario ? reqObj.usuario.id_usuario : null, record.id_centro],
+              );
+            } catch (histErr) {
+              console.warn(
+                `No se pudo registrar en historial al purgar registro ${record.id}:`,
+                histErr.message,
+              );
+            }
+          } catch (updateErr) {
+            console.warn(
+              `No se pudo actualizar saldo del centro ${record.id_centro} al purgar:`,
+              updateErr.message,
+            );
+          }
+        }
+      }
+
+      // 3. Eliminar permanentemente los registros
+      const [result] = await connection.query(
+        `DELETE FROM TESORERIA
+         WHERE deleted_at IS NOT NULL
+           AND deleted_at < (NOW() - INTERVAL 7 DAY)`,
+      );
+
+      const affected = result?.affectedRows ?? 0;
+
+      // Auditar la purga dentro de la transacción
+      try {
+        await logAudit({
+          req: reqObj,
+          evento: "PURGE",
+          entidad: "TESORERIA",
+          entityId: null,
+          detalle: { 
+            registros_purgados: affected,
+            registros_procesados: toPurge.length,
+          },
+        });
+      } catch (auditErr) {
+        console.warn("Advertencia: No se pudo registrar auditoría de purga:", auditErr.message);
+        // No rollback aquí, solo warning
+      }
+
+      await connection.commit();
+
+      return res.json({
+        success: true,
+        purged: affected,
+        message: `Registros eliminados definitivamente: ${affected}. Saldos devueltos a los centros.`,
+      });
+    } catch (txErr) {
+      await connection.rollback();
+      console.error("Error en transacción purgar tesorería:", txErr);
+      return res.status(500).json({
+        success: false,
+        message: "Error al purgar registros de tesorería",
+        error: txErr.message,
+      });
+    } finally {
+      connection.release();
+    }
   } catch (error) {
     console.error("❌ Error al purgar tesorería:", error);
     res.status(500).json({
