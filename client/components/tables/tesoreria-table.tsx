@@ -92,6 +92,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     fetchTrash,
   fetchTesoreriaById,
     restoreTesoreria,
+    exportTesoreria,
   } = useTesoreria();
 
   const { toast } = useToast();
@@ -147,19 +148,22 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   } = usePagination(tesoreria, initialPageSize);
 
   const categorias = [
-    "Combustible",
-    "Mantenimiento",
-    "Salarios",
+    "Trasbordo",
+    "Cochera",
+    "Viaticos",
     "Peajes",
-  "Viáticos",
-    "Seguros",
-    "Licencias",
-    "Impuestos",
-    "Servicios",
-    "Ventas",
-  "Adelantos",
-    "Comisiones",
-    "Otros",
+    "Gastos Administrativos",
+    "Movilidad",
+    "Urea",
+    "Extintores",
+    "Combustible",
+    "Revision Tecnica",
+    "Producto",
+    "Adelanto",
+    "Prestamo Personal",
+    "Pago de Personal",
+    "Pago Feriado",
+    "Pago Dominical",
   ];
 
   const handleSearch = async () => {
@@ -174,6 +178,28 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     setSearchTerm("");
     setFilterCategoria("");
     await searchTesoreria({});
+  };
+
+  const handleExport = async () => {
+    try {
+      const params: any = {
+        scope: mode,
+      };
+      if (searchTerm) params.q = searchTerm;
+      if (filterCategoria) params.categoria = filterCategoria;
+
+      await exportTesoreria(params);
+      toast({
+        title: "Éxito",
+        description: "Exportación completada exitosamente",
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Error al exportar los registros",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCreate = async (data: any) => {
@@ -350,6 +376,21 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   if (variant === "simple") {
     return (
       <div className="space-y-4">
+        {/* Botón de Exportación - Solo para tabs de Hoy e Historial */}
+        {(mode === "active" || mode === "history") && (
+          <div className="flex justify-end">
+            <Button
+              onClick={handleExport}
+              variant="outline"
+              className="flex items-center gap-2"
+              disabled={tesoreria.length === 0}
+            >
+              <Download className="h-4 w-4" />
+              Exportar a Excel
+            </Button>
+          </div>
+        )}
+        
         <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>

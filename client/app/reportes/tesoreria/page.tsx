@@ -33,20 +33,23 @@ export default function TesoreriaReportPage() {
   // Options for dropdowns
   const [placaOptions, setPlacaOptions] = useState<string[]>([]);
   const [repartidorOptions, setRepartidorOptions] = useState<Array<{ id?: string; label: string; value?: string }>>([]);
-  const categorias = [
-    "Combustible",
-    "Mantenimiento",
-    "Salarios",
+    const categorias = [
+    "Trasbordo",
+    "Cochera",
+    "Viaticos",
     "Peajes",
-    "Viáticos",
-    "Seguros",
-    "Licencias",
-    "Impuestos",
-    "Servicios",
-    "Ventas",
-    "Adelantos",
-    "Comisiones",
-    "Otros",
+    "Gastos Administrativos",
+    "Movilidad",
+    "Urea",
+    "Extintores",
+    "Combustible",
+    "Revision Tecnica",
+    "Producto",
+    "Adelanto",
+    "Prestamo Personal",
+    "Pago de Personal",
+    "Pago Feriado",
+    "Pago Dominical",
   ];
 
   const [categoriaRows, setCategoriaRows] = useState<any[]>([]);
