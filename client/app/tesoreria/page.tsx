@@ -68,17 +68,22 @@ export default function TesoreriaPage() {
   const totalRegistros = tesoreria.length;
 
   const categorias = [
-    "Combustible",
-    "Mantenimiento",
-    "Salarios",
+    "Trasbordo",
+    "Cochera",
+    "Viaticos",
     "Peajes",
-    "Seguros",
-    "Licencias",
-    "Impuestos",
-    "Servicios",
-    "Ventas",
-    "Comisiones",
-    "Otros",
+    "Gastos Administrativos",
+    "Movilidad",
+    "Urea",
+    "Extintores",
+    "Combustible",
+    "Revision Tecnica",
+    "Producto",
+    "Adelanto",
+    "Prestamo Personal",
+    "Pago de Personal",
+    "Pago Feriado",
+    "Pago Dominical",
   ];
 
   const buildParams = useMemo(() => {
