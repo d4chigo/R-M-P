@@ -103,6 +103,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   const [selectedTesoreria, setSelectedTesoreria] = useState<Tesoreria | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [initialPageSize] = useState(10);
+  const [currentSearchParams, setCurrentSearchParams] = useState<any>({});
 
   // Mantener sincronizado con la página (variant="simple")
   useEffect(() => {
@@ -115,6 +116,8 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
       const detail = (e as CustomEvent).detail || {};
       // Asegurar que el scope se respete según el modo de la tabla
       const params = { ...detail, scope: mode } as any;
+      // Guardar los parámetros de búsqueda completos (incluyen fecha, q, categoria, etc)
+      setCurrentSearchParams(params);
       // Para history, si no hay fechas, el backend decidirá por fecha < hoy
       searchTesoreria(params);
     };
@@ -182,11 +185,11 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
 
   const handleExport = async () => {
     try {
-      const params: any = {
-        scope: mode,
+      // Usar los parámetros de búsqueda guardados (incluyen fecha, q, categoria, etc)
+      const params = {
+        ...currentSearchParams,
+        scope: mode, // Asegurar que el scope sea consistente
       };
-      if (searchTerm) params.q = searchTerm;
-      if (filterCategoria) params.categoria = filterCategoria;
 
       await exportTesoreria(params);
       toast({
