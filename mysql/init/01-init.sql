@@ -115,11 +115,25 @@ CREATE TABLE TESORERIA (
     turno TINYINT NULL,
     encargado VARCHAR(99) NULL,
     monto DECIMAL(11,2) NOT NULL,
+    es_multiple BOOLEAN DEFAULT FALSE,
     created_by INT NULL,
     updated_by INT NULL,
     deleted_at DATETIME NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Tabla TESORERIA_CATEGORIAS: Detalles de categorías múltiples para registros de tesorería
+CREATE TABLE TESORERIA_CATEGORIAS (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    id_tesoreria INT NOT NULL,
+    categoria VARCHAR(99) NOT NULL,
+    monto DECIMAL(11,2) NOT NULL,
+    orden INT NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (id_tesoreria) REFERENCES TESORERIA(id) ON DELETE CASCADE,
+    INDEX idx_tesoreria_categorias (id_tesoreria),
+    INDEX idx_categoria (categoria)
 );
 
 -- ==============================
@@ -423,6 +437,7 @@ CREATE INDEX idx_tesoreria_turno ON TESORERIA(turno);
 CREATE INDEX idx_tesoreria_distrito ON TESORERIA(distrito);
 CREATE INDEX idx_tesoreria_deleted_at ON TESORERIA(deleted_at);
 CREATE INDEX idx_tesoreria_centro ON TESORERIA(id_centro);
+CREATE INDEX idx_tesoreria_es_multiple ON TESORERIA(es_multiple);
 
 -- Índices adicionales en tabla TESORERIA para mejorar consultas con saldos por centro
 SET @index_exists = (
@@ -603,6 +618,77 @@ SELECT
     'Vista v_resumen_saldos_centro',
     COUNT(*)
 FROM v_resumen_saldos_centro;
+
+-- ==============================
+-- TRIGGERS PARA MÚLTIPLES CATEGORÍAS
+-- ==============================
+
+DELIMITER $$
+
+CREATE TRIGGER trg_tesoreria_primera_categoria
+AFTER INSERT ON TESORERIA_CATEGORIAS
+FOR EACH ROW
+BEGIN
+    -- Actualizar el monto total en TESORERIA
+    UPDATE TESORERIA 
+    SET monto = (
+        SELECT SUM(monto) FROM TESORERIA_CATEGORIAS 
+        WHERE id_tesoreria = NEW.id_tesoreria
+    )
+    WHERE id = NEW.id_tesoreria;
+    
+    -- Marcar como múltiple si hay más de una categoría
+    UPDATE TESORERIA 
+    SET es_multiple = (
+        SELECT COUNT(*) > 1 FROM TESORERIA_CATEGORIAS 
+        WHERE id_tesoreria = NEW.id_tesoreria
+    )
+    WHERE id = NEW.id_tesoreria;
+END$$
+
+CREATE TRIGGER trg_tesoreria_categorias_update
+AFTER UPDATE ON TESORERIA_CATEGORIAS
+FOR EACH ROW
+BEGIN
+    -- Actualizar el monto total en TESORERIA
+    UPDATE TESORERIA 
+    SET monto = (
+        SELECT SUM(monto) FROM TESORERIA_CATEGORIAS 
+        WHERE id_tesoreria = NEW.id_tesoreria
+    )
+    WHERE id = NEW.id_tesoreria;
+    
+    -- Marcar como múltiple si hay más de una categoría
+    UPDATE TESORERIA 
+    SET es_multiple = (
+        SELECT COUNT(*) > 1 FROM TESORERIA_CATEGORIAS 
+        WHERE id_tesoreria = NEW.id_tesoreria
+    )
+    WHERE id = NEW.id_tesoreria;
+END$$
+
+CREATE TRIGGER trg_tesoreria_categorias_delete
+BEFORE DELETE ON TESORERIA_CATEGORIAS
+FOR EACH ROW
+BEGIN
+    -- Actualizar el monto total en TESORERIA (excluyendo el registro que será eliminado)
+    UPDATE TESORERIA 
+    SET monto = (
+        SELECT COALESCE(SUM(monto), 0) FROM TESORERIA_CATEGORIAS 
+        WHERE id_tesoreria = OLD.id_tesoreria AND id <> OLD.id
+    )
+    WHERE id = OLD.id_tesoreria;
+    
+    -- Marcar como múltiple según las categorías restantes
+    UPDATE TESORERIA 
+    SET es_multiple = (
+        SELECT COUNT(*) > 1 FROM TESORERIA_CATEGORIAS 
+        WHERE id_tesoreria = OLD.id_tesoreria AND id <> OLD.id
+    )
+    WHERE id = OLD.id_tesoreria;
+END$$
+
+DELIMITER ;
 
 -- Log de éxito
 SELECT '✅ Script 01-init.sql ejecutado exitosamente con sistema de saldos por centro integrado' AS status;

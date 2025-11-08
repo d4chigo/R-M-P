@@ -180,6 +180,37 @@ ORDER BY Mes DESC;
 SELECT '✅ Vista v_tesoreria_tendencia_mensual creada' AS status;
 
 -- ============================================
+-- VISTA: Tesorería con categorías extendidas
+-- ============================================
+
+CREATE OR REPLACE VIEW TESORERIA_EXTENDED AS
+SELECT 
+    t.id,
+    t.id_centro,
+    t.fecha,
+    t.categoria,
+    t.monto,
+    t.es_multiple,
+    t.turno,
+    t.reembolso,
+    t.distrito,
+    t.otros,
+    t.created_by,
+    t.created_at,
+    t.updated_by,
+    t.updated_at,
+    t.deleted_at,
+    COALESCE(COUNT(DISTINCT tc.id), 0) AS cantidad_categorias,
+    COALESCE(SUM(tc.monto), t.monto) AS monto_total
+FROM TESORERIA t
+LEFT JOIN TESORERIA_CATEGORIAS tc ON t.id = tc.id_tesoreria
+GROUP BY t.id, t.id_centro, t.fecha, t.categoria, t.monto, t.es_multiple, 
+         t.turno, t.reembolso, t.distrito, t.otros, t.created_by, t.created_at, 
+         t.updated_by, t.updated_at, t.deleted_at;
+
+SELECT '✅ Vista TESORERIA_EXTENDED creada' AS status;
+
+-- ============================================
 -- VERIFICACIÓN FINAL
 -- ============================================
 

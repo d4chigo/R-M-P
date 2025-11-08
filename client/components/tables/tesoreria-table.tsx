@@ -65,6 +65,7 @@ import { TesoreriaForm } from "@/components/forms/tesoreria-form";
 import { useTesoreria } from "@/hooks/use-tesoreria";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { CategoriesPopover } from "@/components/tables/categories-popover";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { TablePagination, usePagination } from "@/components/ui/table-pagination";
@@ -285,8 +286,12 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   };
 
   const handleEdit = (tesoreria: Tesoreria) => {
-    setSelectedTesoreria(tesoreria);
-    setIsEditDialogOpen(true);
+    // Fetch full record to include categories for multiple-category entries
+    (async () => {
+      const full = await fetchTesoreriaById ? await fetchTesoreriaById(tesoreria.id) : null;
+      setSelectedTesoreria(full || tesoreria);
+      setIsEditDialogOpen(true);
+    })();
   };
 
   const handleView = (tesoreria: Tesoreria) => {
@@ -435,7 +440,14 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     <TableCell>{item.nombre}</TableCell>
                     <TableCell>{item.centro_codigo || item.centro_nombre ? `${item.centro_codigo || ''}${item.centro_codigo && item.centro_nombre ? ' - ' : ''}${item.centro_nombre || ''}` : ''}</TableCell>
                     <TableCell>{item.cargo || ""}</TableCell>
-                    <TableCell>{item.categoria}</TableCell>
+                    <TableCell>
+                      <CategoriesPopover
+                        categories={item.categorias || []}
+                        mainCategory={item.categoria}
+                        mainMonto={item.monto}
+                        formatCurrency={formatCurrency}
+                      />
+                    </TableCell>
                     <TableCell>{item.distrito || ""}</TableCell>
                     <TableCell>{(() => {
                       const n = Number(item.turno);
@@ -591,7 +603,32 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Categoría</label>
-                    <p className="text-sm">{selectedTesoreria.categoria}</p>
+                    {selectedTesoreria.es_multiple && selectedTesoreria.categorias ? (
+                      <div className="mt-2">
+                        <table className="text-xs border w-full">
+                          <thead>
+                            <tr className="bg-gray-100 border-b">
+                              <th className="text-left p-1">Categoría</th>
+                              <th className="text-right p-1">Monto</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedTesoreria.categorias.map((cat, idx) => (
+                              <tr key={idx} className="border-b">
+                                <td className="p-1">{cat.categoria}</td>
+                                <td className="p-1 text-right">{formatCurrency(cat.monto)}</td>
+                              </tr>
+                            ))}
+                            <tr className="bg-gray-50 font-bold">
+                              <td className="p-1">Total</td>
+                              <td className="p-1 text-right">{formatCurrency(selectedTesoreria.monto)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-sm">{selectedTesoreria.categoria}</p>
+                    )}
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Distrito</label>
@@ -792,9 +829,12 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                       <TableCell>{item.nombre}</TableCell>
                       <TableCell>{item.cargo || "-"}</TableCell>
                       <TableCell>
-                        <div>
-                          <div className="font-medium">{item.categoria}</div>
-                        </div>
+                        <CategoriesPopover
+                          categories={item.categorias || []}
+                          mainCategory={item.categoria}
+                          mainMonto={item.monto}
+                          formatCurrency={formatCurrency}
+                        />
                       </TableCell>
                       <TableCell>
                         <div className="max-w-xs truncate" title={item.detalle || ""}>
@@ -937,7 +977,32 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Categoría</label>
-                  <p className="text-sm">{selectedTesoreria.categoria}</p>
+                  {selectedTesoreria.es_multiple && selectedTesoreria.categorias ? (
+                    <div className="mt-2">
+                      <table className="text-xs border w-full">
+                        <thead>
+                          <tr className="bg-gray-100 border-b">
+                            <th className="text-left p-1">Categoría</th>
+                            <th className="text-right p-1">Monto</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {selectedTesoreria.categorias.map((cat, idx) => (
+                            <tr key={idx} className="border-b">
+                              <td className="p-1">{cat.categoria}</td>
+                              <td className="p-1 text-right">{formatCurrency(cat.monto)}</td>
+                            </tr>
+                          ))}
+                          <tr className="bg-gray-50 font-bold">
+                            <td className="p-1">Total</td>
+                            <td className="p-1 text-right">{formatCurrency(selectedTesoreria.monto)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm">{selectedTesoreria.categoria}</p>
+                  )}
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Reembolso</label>

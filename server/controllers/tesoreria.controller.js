@@ -104,6 +104,63 @@ function buildWhereAndParams(query) {
   return { where, params };
 }
 
+// ======================================
+// HELPERS PARA MANEJO DE CATEGORÍAS MÚLTIPLES
+// ======================================
+
+/**
+ * Crear categorías múltiples para un registro de tesorería
+ * @param {Object} connection - Conexión de base de datos activa
+ * @param {number} idTesoreria - ID del registro principal
+ * @param {Array} categorias - Array de objetos {categoria, monto}
+ */
+const createCategorias = async (connection, idTesoreria, categorias) => {
+  if (!categorias || !Array.isArray(categorias) || categorias.length === 0) {
+    return;
+  }
+
+  for (let i = 0; i < categorias.length; i++) {
+    const { categoria, monto } = categorias[i];
+    if (categoria && monto) {
+      await connection.query(
+        `INSERT INTO TESORERIA_CATEGORIAS (id_tesoreria, categoria, monto, orden)
+         VALUES (?, ?, ?, ?)`,
+        [idTesoreria, categoria, parseFloat(monto), i + 1]
+      );
+    }
+  }
+};
+
+/**
+ * Obtener todas las categorías de un registro
+ */
+const getCategorias = async (connection, idTesoreria) => {
+  const [rows] = await connection.query(
+    `SELECT id, categoria, monto, orden FROM TESORERIA_CATEGORIAS 
+     WHERE id_tesoreria = ? ORDER BY orden ASC`,
+    [idTesoreria]
+  );
+  return rows || [];
+};
+
+/**
+ * Eliminar todas las categorías de un registro
+ */
+const deleteCategorias = async (connection, idTesoreria) => {
+  await connection.query(
+    `DELETE FROM TESORERIA_CATEGORIAS WHERE id_tesoreria = ?`,
+    [idTesoreria]
+  );
+};
+
+/**
+ * Calcular monto total a partir de array de categorías
+ */
+const calcularMontoTotal = (categorias) => {
+  if (!categorias || !Array.isArray(categorias)) return 0;
+  return categorias.reduce((acc, cat) => acc + (parseFloat(cat.monto) || 0), 0);
+};
+
 // Obtener registros de tesorería con soporte de scope (por defecto: active/hoy)
 const getTesoreria = async (req, res) => {
   try {
@@ -191,7 +248,7 @@ const getTesoreriaById = async (req, res) => {
     let rows;
     try {
       const [r] = await db.query(
-        `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at, t.created_by, t.updated_by,
+        `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.es_multiple, t.created_at, t.updated_at, t.created_by, t.updated_by,
                 u1.nombre_completo AS created_by_nombre,
                 u2.nombre_completo AS updated_by_nombre
          FROM TESORERIA t
@@ -201,6 +258,20 @@ const getTesoreriaById = async (req, res) => {
          WHERE t.id = ?`,
         [id],
       );
+
+      if (r.length > 0) {
+        // Si es múltiple, obtener las categorías
+        if (r[0].es_multiple) {
+          const connection = await db.getConnection();
+          try {
+            const cats = await getCategorias(connection, id);
+            r[0].categorias = cats;
+          } finally {
+            connection.release();
+          }
+        }
+      }
+
       rows = r;
     } catch (errQuery) {
       if (
@@ -211,13 +282,23 @@ const getTesoreriaById = async (req, res) => {
           "⚠️ Consulta detalle con joins de auditoría falló, intentando consulta de respaldo sin joins de USUARIO",
         );
         const [r2] = await db.query(
-          `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
+          `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.es_multiple, t.created_at, t.updated_at
            FROM TESORERIA t
            LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
            WHERE t.id = ?`,
           [id],
         );
         rows = r2;
+        // Si es múltiple, obtener las categorías en el fallback también
+        if (rows.length > 0 && rows[0].es_multiple) {
+          const connection = await db.getConnection();
+          try {
+            const cats = await getCategorias(connection, id);
+            rows[0].categorias = cats;
+          } finally {
+            connection.release();
+          }
+        }
         rows.forEach((r) => {
           r.created_by_nombre = null;
           r.updated_by_nombre = null;
@@ -267,6 +348,7 @@ const createTesoreria = async (req, res) => {
       nombre,
       cargo,
       categoria,
+      categorias, // Array de {categoria, monto} para múltiples
       detalle,
       reembolso,
       distrito,
@@ -278,18 +360,37 @@ const createTesoreria = async (req, res) => {
     // Normalize empty-string id_centro to null so both '' and null mean 'no centro'
     if (id_centro === "") id_centro = null;
 
+    // Si viene categorias (array) con MÁS DE 1 elemento, usar múltiples; sino usar categoria simple + monto
+    const usarMultiples = Array.isArray(categorias) && categorias.length > 1;
+    const montoTotal = usarMultiples 
+      ? calcularMontoTotal(categorias)
+      : (Array.isArray(categorias) && categorias.length === 1)
+        ? categorias[0].monto
+        : parseFloat(monto || 0);
+
     // Validaciones básicas
-    if (!fecha || !nombre || !categoria || monto === undefined) {
+    if (!fecha || !nombre) {
       return res.status(400).json({
         success: false,
-        message: "Fecha, nombre, categoría y monto son requeridos",
+        message: "Fecha y nombre son requeridos",
       });
     }
 
-    if (monto <= 0) {
+    // Validar que tenga al menos una categoría
+    const hasCategoryData = usarMultiples || 
+                          (Array.isArray(categorias) && categorias.length >= 1) ||
+                          categoria;
+    if (!hasCategoryData) {
+      return res.status(400).json({
+        success: false,
+        message: "Debe seleccionar al menos una categoría",
+      });
+    }
+
+    if (montoTotal <= 0) {
       return res
         .status(400)
-        .json({ success: false, message: "El monto debe ser mayor a 0" });
+        .json({ success: false, message: "El monto total debe ser mayor a 0" });
     }
 
     // Validar que id_centro sea obligatorio
@@ -335,7 +436,7 @@ const createTesoreria = async (req, res) => {
         saldoActual = parseFloat(saldoCentroRows[0].saldo || 0);
       }
 
-      if (monto > saldoActual) {
+      if (montoTotal > saldoActual) {
         await connection.rollback();
         return res.status(400).json({
           success: false,
@@ -343,29 +444,47 @@ const createTesoreria = async (req, res) => {
         });
       }
 
+      // Cuando hay múltiples categorías, usar "Multiple" como categoría principal
+      // Cuando hay 1 categoría en el array, usar el nombre de esa categoría
+      // Cuando no hay array, usar la categoría simple
+      let categoriaPrincipal;
+      if (usarMultiples) {
+        categoriaPrincipal = "Multiple";
+      } else if (Array.isArray(categorias) && categorias.length === 1) {
+        categoriaPrincipal = categorias[0].categoria;
+      } else {
+        categoriaPrincipal = categoria;
+      }
+
       // Insertar registro de tesorería
       const [result] = await connection.query(
-        `INSERT INTO TESORERIA (fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO TESORERIA (fecha, placa, nombre, cargo, categoria, detalle, reembolso, distrito, id_centro, turno, encargado, monto, es_multiple, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           fecha,
           placa || null,
           nombre,
           cargo || null,
-          categoria,
+          categoriaPrincipal,
           detalle || null,
           reembolso || null,
           distrito || null,
           id_centro ?? null,
           turno ?? null,
           encargado || null,
-          monto,
+          montoTotal,
+          usarMultiples ? true : false,
           req.usuario ? req.usuario.id_usuario : null,
         ],
       );
 
+      // Si hay categorías múltiples, insertarlas en la tabla de detalle
+      if (usarMultiples) {
+        await createCategorias(connection, result.insertId, categorias);
+      }
+
       // Restar monto del saldo del centro
-      const nuevoSaldo = saldoActual - parseFloat(monto);
+      const nuevoSaldo = saldoActual - montoTotal;
       await connection.query(
         `UPDATE TESORERIA_SALDO_CENTRO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id_centro = ?`,
         [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, id_centro],
@@ -380,9 +499,9 @@ const createTesoreria = async (req, res) => {
           [
             id_centro,
             saldoActual,
-            parseFloat(monto),
+            montoTotal,
             nuevoSaldo,
-            `Gasto: ${categoria} - ${nombre}`,
+            `Gasto: ${categoriaPrincipal} - ${nombre}${usarMultiples ? ' (múltiples categorías)' : ''}`,
             result.insertId,
             req.usuario ? req.usuario.id_usuario : null,
           ],
@@ -409,14 +528,16 @@ const createTesoreria = async (req, res) => {
               placa,
               nombre,
               cargo,
-              categoria,
+              categoria: categoriaPrincipal,
               detalle,
               reembolso,
               distrito,
               id_centro,
               turno,
               encargado,
-              monto,
+              monto: montoTotal,
+              es_multiple: usarMultiples,
+              categorias: usarMultiples ? categorias : undefined,
             },
             saldo_after: nuevoSaldo,
           },
@@ -481,6 +602,7 @@ const updateTesoreria = async (req, res) => {
       nombre,
       cargo,
       categoria,
+      categorias, // Array de {categoria, monto}
       detalle,
       reembolso,
       distrito,
@@ -489,6 +611,7 @@ const updateTesoreria = async (req, res) => {
       encargado,
     } = req.body;
     const newMonto = req.body.monto;
+    
     // Debug: mostrar body recibido para inspección (temporal)
     try {
       console.log(
@@ -498,20 +621,26 @@ const updateTesoreria = async (req, res) => {
         req.body,
       );
     } catch (e) {}
-    // Detectar si el cliente incluyó la clave id_centro en el body. Si la incluyó
-    // con valor null o '', significa intención de "limpiar" el centro.
+    
+    // Detectar si el cliente incluyó la clave id_centro en el body
     const hasIdCentro = Object.prototype.hasOwnProperty.call(
       req.body,
       "id_centro",
     );
-    // Además, permitir una cabecera opcional que indique intención explícita de limpiar
-    // el centro (útil si algún proxy o serializador omitiera la clave JSON).
     const clearIdCentroHeader =
       ((req.get && req.get("X-Clear-Id-Centro")) || "").toString() === "1";
 
-    // Verificar que el registro existe (leer también id_centro para preservarlo si el cliente no lo envía)
+    // Detectar si se están actualizando categorías múltiples (más de 1)
+    const usarMultiples = Array.isArray(categorias) && categorias.length > 1;
+    const montoTotal = usarMultiples 
+      ? calcularMontoTotal(categorias)
+      : (Array.isArray(categorias) && categorias.length === 1)
+        ? categorias[0].monto
+        : (newMonto ? parseFloat(newMonto) : undefined);
+
+    // Verificar que el registro existe
     const [existing] = await db.query(
-      "SELECT id, monto, deleted_at, id_centro FROM TESORERIA WHERE id = ?",
+      "SELECT id, monto, deleted_at, id_centro, es_multiple FROM TESORERIA WHERE id = ?",
       [id],
     );
     if (existing.length === 0) {
@@ -528,7 +657,6 @@ const updateTesoreria = async (req, res) => {
     }
 
     // Si el body incluye id_centro y su valor NO es vacío/NULL, validar que exista.
-    // Si viene '' o null, lo consideramos intención de limpiar (no validar como existente).
     if (
       hasIdCentro &&
       id_centro !== "" &&
@@ -547,23 +675,26 @@ const updateTesoreria = async (req, res) => {
       }
     }
 
-    // Normalizar intención de 'limpiar' cuando cliente envía '' -> convertir a null
+    // Normalizar intención de 'limpiar' cuando cliente envía ''
     if (hasIdCentro && id_centro === "") {
-      // marca intención explícita de limpiar
-      // Convertimos a null para que la cláusula id_centro = ? reciba NULL y limpie la columna
-      req.body.id_centro = null; // mantener consistencia con req.body
+      req.body.id_centro = null;
     }
 
     const connection = await db.getConnection();
-    try {
+      try {
       await connection.beginTransaction();
 
-      // Ajustar saldo si cambia el monto
-      if (typeof newMonto !== "undefined" && newMonto !== null) {
-        const oldMonto = parseFloat(existing[0].monto);
-        const parsedNewMonto = parseFloat(newMonto);
+      // Preparar id_centro para UPDATE (necesario también en ajuste de saldos)
+      const idCentroParam = hasIdCentro 
+        ? (id_centro === "" ? null : (id_centro ?? null))
+        : (clearIdCentroHeader ? null : existing[0].id_centro ?? null);
 
-        // Política: en edición solo se permiten montos inferiores o iguales al original (no aumentar)
+      // Ajustar saldo si cambia el monto (aplicar política de no aumentar)
+      if (usarMultiples || typeof newMonto !== "undefined") {
+        const oldMonto = parseFloat(existing[0].monto);
+        const parsedNewMonto = usarMultiples ? montoTotal : parseFloat(newMonto);
+
+        // Política: en edición solo se permiten montos inferiores o iguales al original
         if (parsedNewMonto > oldMonto) {
           await connection.rollback();
           return res.status(400).json({
@@ -573,8 +704,9 @@ const updateTesoreria = async (req, res) => {
           });
         }
 
-        const delta = parsedNewMonto - oldMonto; // si <0: devolver saldo (sumar al saldo)
+        const delta = parsedNewMonto - oldMonto;
         if (delta !== 0) {
+          // Actualizar saldo global
           const [saldoRows] = await connection.query(
             "SELECT id, saldo FROM TESORERIA_SALDO LIMIT 1 FOR UPDATE",
           );
@@ -590,21 +722,69 @@ const updateTesoreria = async (req, res) => {
             saldoActual = parseFloat(saldoRows[0].saldo || 0);
           }
 
-          // Como ya prevenimos incrementos, aquí delta será negativo y por tanto nuevoSaldo = saldoActual - delta => suma
           const nuevoSaldo = saldoActual - delta;
           await connection.query(
             `UPDATE TESORERIA_SALDO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id = ?`,
             [nuevoSaldo, req.usuario ? req.usuario.id_usuario : null, saldoId],
           );
+
+          // Actualizar saldo del centro específico si existe
+          const centroPrincipal = idCentroParam ?? existing[0].id_centro;
+          if (centroPrincipal) {
+            const [centrSaldoRows] = await connection.query(
+              "SELECT saldo FROM TESORERIA_SALDO_CENTRO WHERE id_centro = ? FOR UPDATE",
+              [centroPrincipal],
+            );
+            let centroSaldoActual;
+            if (centrSaldoRows.length === 0) {
+              // Si no existe, crear registro con saldo 0
+              await connection.query(
+                "INSERT INTO TESORERIA_SALDO_CENTRO (id_centro, saldo, created_at, updated_at) VALUES (?, 0, NOW(), NOW())",
+                [centroPrincipal],
+              );
+              centroSaldoActual = 0;
+            } else {
+              centroSaldoActual = parseFloat(centrSaldoRows[0].saldo || 0);
+            }
+
+            const nuevoSaldoCentro = centroSaldoActual - delta;
+            await connection.query(
+              `UPDATE TESORERIA_SALDO_CENTRO SET saldo = ?, updated_by = ?, updated_at = ${getLimaNowSQLClause()} WHERE id_centro = ?`,
+              [nuevoSaldoCentro, req.usuario ? req.usuario.id_usuario : null, centroPrincipal],
+            );
+
+            // Registrar en historial del centro
+            const historiMotivo = `Ajuste por edición: disminución de monto en registro ID ${id}`;
+            const historiParams = [
+              centroPrincipal,
+              centroSaldoActual,
+              -delta,
+              nuevoSaldoCentro,
+              historiMotivo,
+              Number(id),
+              req.usuario ? req.usuario.id_usuario : null,
+            ];
+            await connection.query(
+              `INSERT INTO TESORERIA_SALDO_CENTRO_HISTORIAL
+               (id_centro, tipo, saldo_anterior, monto, saldo_nuevo, motivo, id_registro_tesoreria, created_by, created_at)
+               VALUES (?, 'devolucion', ?, ?, ?, ?, ?, ?, ${getLimaNowSQLClause()})`,
+              historiParams,
+            );
+          }
         }
       }
 
-      // Actualizar registro.
-      // Para simplificar y evitar ambigüedades, siempre escribimos el campo `id_centro` con
-      // un parámetro: si el cliente incluyó la clave se usará su valor (null -> limpiar).
-      // Si el cliente NO incluyó la clave, preservamos el valor actual leyendo existing[0].id_centro
-      // y pasándolo como parámetro para que no cambie.
-      const idCentroSetClause = "id_centro = ?";
+      // Cuando hay múltiples categorías, usar "Multiple" como categoría principal
+      // Cuando hay 1 categoría en el array, usar el nombre de esa categoría
+      // Cuando no hay array, usar la categoría simple
+      let categoriaPrincipal;
+      if (usarMultiples) {
+        categoriaPrincipal = "Multiple";
+      } else if (Array.isArray(categorias) && categorias.length === 1) {
+        categoriaPrincipal = categorias[0].categoria;
+      } else {
+        categoriaPrincipal = categoria;
+      }
 
       const sql = `UPDATE TESORERIA SET
           fecha = COALESCE(?, fecha),
@@ -615,61 +795,33 @@ const updateTesoreria = async (req, res) => {
           detalle = COALESCE(?, detalle),
           reembolso = COALESCE(?, reembolso),
           distrito = COALESCE(?, distrito),
-          ${idCentroSetClause},
+          id_centro = ?,
           turno = COALESCE(?, turno),
           encargado = COALESCE(?, encargado),
           monto = COALESCE(?, monto),
+          es_multiple = ?,
           updated_by = ?,
           updated_at = CURRENT_TIMESTAMP
         WHERE id = ?`;
 
-      // Param order must match the placeholders in the SQL above. If hasIdCentro is true
-      // we pass id_centro (possibly null) in place; otherwise we pass a null/placeholder
-      // so COALESCE behaves as before.
-      // If client signaled clearing (hasIdCentro and id_centro === ''), id_centro was normalized to null above,
-      // so pass null to the DB to set the column to NULL.
-      // Compute idCentroParam: precedence:
-      // 1) If client provided the key (hasIdCentro) use its normalized value (even null).
-      // 2) Else if client sent special header to clear, treat as explicit null.
-      // 3) Otherwise fallback to existing DB value to preserve it.
-      let idCentroParam;
-      if (hasIdCentro) {
-        idCentroParam = id_centro === "" ? null : (id_centro ?? null);
-      } else if (clearIdCentroHeader) {
-        idCentroParam = null; // client signaled to clear the centro via header
-      } else {
-        idCentroParam = existing[0]
-          ? typeof existing[0].id_centro !== "undefined"
-            ? existing[0].id_centro
-            : null
-          : null;
-      }
-
-      if (clearIdCentroHeader) {
-        console.log(
-          "tesoreria.update - clearIdCentroHeader detected; will clear id_centro",
-        );
-      }
-
-      // Construir array de params de forma explícita para facilitar el logging y evitar desorden
       const paramsForSql = [
         fecha,
         placa,
         nombre,
         cargo,
-        categoria,
+        categoriaPrincipal,
         detalle,
         reembolso,
         distrito,
         idCentroParam,
         turno,
         encargado,
-        newMonto,
+        montoTotal,
+        usarMultiples ? true : false,
         req.usuario ? req.usuario.id_usuario : null,
         id,
       ];
 
-      // Debug temporal: imprimir qué se va a pasar al UPDATE (ayuda a depurar cuando la UI muestra éxito pero no hay cambios)
       console.log(
         "tesoreria.update - hasIdCentro=",
         hasIdCentro,
@@ -685,7 +837,14 @@ const updateTesoreria = async (req, res) => {
 
       await connection.query(sql, paramsForSql);
 
+      // Si se actualizaron categorías múltiples, reemplazarlas
+      if (usarMultiples) {
+        await deleteCategorias(connection, id);
+        await createCategorias(connection, id, categorias);
+      }
+
       await connection.commit();
+      
       // Audit
       try {
         await logAudit({
@@ -699,23 +858,27 @@ const updateTesoreria = async (req, res) => {
               placa,
               nombre,
               cargo,
-              categoria,
+              categoria: categoriaPrincipal,
               detalle,
               reembolso,
               distrito,
-              id_centro,
+              id_centro: idCentroParam,
               turno,
               encargado,
-              monto: newMonto,
+              monto: montoTotal,
+              es_multiple: usarMultiples,
+              categorias: usarMultiples ? categorias : undefined,
             },
             note: "Saldo ajustado si cambió el monto",
           },
         });
       } catch (e) {}
+      
       res.json({
         success: true,
         message: "Registro de tesorería actualizado exitosamente",
       });
+      
       // Intentar ejecutar rollover automáticamente (no bloquear si falla)
       try {
         await performRollover?.(req);

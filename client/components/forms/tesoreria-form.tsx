@@ -10,6 +10,7 @@ import type {
   TesoreriaRepartidor,
 } from "@/hooks/use-tesoreria";
 import { Combobox } from "@/components/ui/combobox";
+import { CategoriesTable } from "./categories-table";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import * as z from "zod";
@@ -85,7 +86,7 @@ const tesoreriaSchema = z.object({
       .positive("Debe seleccionar un centro de distribución"),
   ),
   cargo: z.string().optional(), // Opcional
-  categoria: z.string().min(1, "La categoría es requerida"),
+  categoria: z.string().optional(), // Ahora es opcional (se valida en handleSubmit desde categories)
   detalle: z.string().optional(),
   reembolso: z.enum(["Si", "No"]).optional(), // Opcional
   distrito: z.string().min(1, "El distrito es requerido"),
@@ -94,7 +95,7 @@ const tesoreriaSchema = z.object({
   // Monto: keep as number in the schema to avoid runtime transform issues.
   // We validate positivity in the submit handler to provide clear UX and
   // avoid zod runtime errors with chained transforms in the current bundle.
-  monto: z.number(),
+  monto: z.number().optional(), // Ahora es opcional (se calcula desde categories)
 });
 
 interface TesoreriaFormProps {
@@ -172,9 +173,26 @@ export function TesoreriaForm({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(isNaN(n) ? 0 : n);
-  const [selectedCategoria, setSelectedCategoria] = useState<string>(
-    tesoreria?.categoria || "",
-  );
+
+  // Parser para números que acepta coma y punto
+  const parseNumber = (s: string): number => {
+    const cleaned = String(s || "").replace(/[^0-9,\.]/g, "");
+    const normalized = cleaned.replace(/,/g, ".");
+    const num = parseFloat(normalized);
+    return isNaN(num) ? 0 : num;
+  };
+
+  // Estado para manejar categorías por filas desde el inicio
+  const [categories, setCategories] = useState<
+    Array<{
+      categoria: string;
+      monto: number;
+    }>
+  >([{ categoria: "", monto: 0 }]);
+
+  // DEBUG: Log state on every render
+  console.log(`🎯 TESORERIA FORM RENDER - ${categories.length} categorías:`, categories.map((c, i) => `[${i}] ${c.categoria}:${c.monto}`).join(" | "));
+
   const [showConfirm, setShowConfirm] = useState(false);
   const [centros, setCentros] = useState<
     Array<{
@@ -361,18 +379,11 @@ export function TesoreriaForm({
       monto: tesoreria?.monto || 0,
     },
   });
-  // Estado visual del monto (sin símbolo, ya que mostramos prefijo S/)
-  const [montoInput, setMontoInput] = useState<string>(
-    formatNumberPretty(tesoreria?.monto ?? 0),
-  );
-  useEffect(() => {
-    setMontoInput(formatNumberPretty(form.getValues("monto") || 0));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tesoreria?.monto]);
 
-  // Cuando la prop `tesoreria` cambia (abrir modal editar), resetear el formulario
+  // Efecto principal: sincronizar formulario y categorías cuando cambia tesoreria (editar) o se abre un nuevo formulario
   useEffect(() => {
-    if (!tesoreria) return;
+    console.log("🔄 TESORERIA EFFECT - Tesoreria ID changed:", tesoreria?.id);
+    
     const normalizeFecha = (f: any) => {
       if (!f) return getTodayLimaYMD();
       if (/^\d{4}-\d{2}-\d{2}$/.test(f)) return f;
@@ -384,37 +395,80 @@ export function TesoreriaForm({
       }
     };
 
-    const vals: any = {
-      fecha: normalizeFecha(tesoreria.fecha),
-      placa: tesoreria.placa || "",
-      nombre: tesoreria.nombre || "",
-      cargo: tesoreria.cargo || "",
-      categoria: tesoreria.categoria || "",
-      detalle: tesoreria.detalle || "",
-      reembolso: tesoreria.reembolso || undefined,
-      distrito: tesoreria.distrito || "",
-      turno: tesoreria.turno ? String(tesoreria.turno) : "",
-      encargado: tesoreria.encargado || "",
-      id_centro: tesoreria.id_centro
-        ? String((tesoreria as any).id_centro)
-        : "",
-      monto: tesoreria.monto || 0,
-    };
+    if (tesoreria) {
+      console.log("✏️ EDITING MODE - Loading tesoreria data");
+      // EDITAR: Cargar datos del registro existente
+      const vals: any = {
+        fecha: normalizeFecha(tesoreria.fecha),
+        placa: tesoreria.placa || "",
+        nombre: tesoreria.nombre || "",
+        cargo: tesoreria.cargo || "",
+        categoria: tesoreria.categoria || "",
+        detalle: tesoreria.detalle || "",
+        reembolso: tesoreria.reembolso || undefined,
+        distrito: tesoreria.distrito || "",
+        turno: tesoreria.turno ? String(tesoreria.turno) : "",
+        encargado: tesoreria.encargado || "",
+        id_centro: tesoreria.id_centro
+          ? String((tesoreria as any).id_centro)
+          : "",
+        monto: tesoreria.monto || 0,
+      };
 
-    form.reset(vals);
-    setMontoInput(formatNumberPretty(vals.monto || 0));
+      // Reset form SIN el monto (se calcula desde categorías)
+      const resetVals = { ...vals };
+      delete resetVals.monto;
+      form.reset(resetVals);
 
-    // Cargar saldo del centro al editar
-    if (vals.id_centro) {
-      fetchSaldoCentro(Number(vals.id_centro));
+      // Inicializar categorías desde el registro
+      if (Array.isArray(tesoreria?.categorias) && tesoreria.categorias.length > 0) {
+        console.log("📂 Loading categories from tesoreria.categorias:", tesoreria.categorias);
+        setCategories(
+          tesoreria.categorias.map((c: any, idx: number) => ({
+            categoria: c.categoria,
+            monto: parseFloat(String(c.monto)),
+            id: `loaded-cat-${tesoreria.id}-${idx}`,
+          })),
+        );
+      } else if (tesoreria.categoria && tesoreria.monto) {
+        console.log("📂 Loading single category from tesoreria");
+        setCategories([{ categoria: tesoreria.categoria, monto: tesoreria.monto, id: `loaded-cat-${tesoreria.id}-0` }]);
+      }
+
+      // Cargar saldo del centro al editar
+      if (vals.id_centro) {
+        fetchSaldoCentro(Number(vals.id_centro));
+      }
+    } else {
+      console.log("✨ NEW MODE - Resetting to empty");
+      // CREAR: Nuevo registro - resetear categorías a una fila vacía
+      setCategories([{ categoria: "", monto: 0 }]);
     }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tesoreria]);
+  }, [tesoreria?.id]);
 
   const handleSubmit = async (data: z.infer<typeof tesoreriaSchema>) => {
-    // Validar que el monto sea positivo
-    const montoNumerico = parseFloat(String(data.monto));
-    if (montoNumerico <= 0 || isNaN(montoNumerico)) {
+    // Validar que todas las categorías tengan valores
+    const validCategories = categories.filter(
+      (cat) => cat.categoria && cat.monto > 0,
+    );
+    if (validCategories.length === 0) {
+      toast({
+        title: "Error",
+        description: "Debes agregar al menos una categoría con monto mayor a 0",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Calcular monto total desde las categorías
+    const montoTotal = validCategories.reduce(
+      (acc, cat) => acc + (cat.monto || 0),
+      0,
+    );
+
+    if (montoTotal <= 0 || isNaN(montoTotal)) {
       toast({
         title: "Error",
         description: "El monto debe ser mayor a 0",
@@ -423,19 +477,20 @@ export function TesoreriaForm({
       return;
     }
 
-    // Validar que el monto no exceda el saldo disponible (solo para gastos)
+    // Validar que el monto no exceda el saldo disponible (solo para gastos nuevos)
     if (!tesoreria && saldoCentro !== null) {
       const saldoNumerico = parseFloat(String(saldoCentro));
 
-      if (montoNumerico > saldoNumerico) {
+      if (montoTotal > saldoNumerico) {
         toast({
           title: "Saldo insuficiente",
-          description: `El monto S/ ${formatNumberPretty(montoNumerico)} excede el saldo disponible de S/ ${formatNumberPretty(saldoNumerico)}`,
+          description: `El monto S/ ${formatNumberPretty(montoTotal)} excede el saldo disponible de S/ ${formatNumberPretty(saldoNumerico)}`,
           variant: "destructive",
         });
         return;
       }
     }
+
     // Normalizar payload (turno como número, reembolso vacío a undefined)
     const payload: any = {
       ...data,
@@ -445,18 +500,18 @@ export function TesoreriaForm({
           ? undefined
           : data.reembolso,
     };
-    // Ensure monto is a number (defensive)
-    if (typeof payload.monto === "string") {
-      const parsed = parseFloat(String(payload.monto).replace(/,/g, "."));
-      payload.monto = isNaN(parsed) ? 0 : parsed;
-    }
+
+    // Siempre incluir categorías como array, la principal y el monto total
+    payload.categorias = validCategories;
+    payload.categoria = validCategories[0]?.categoria || "";
+    payload.monto = montoTotal;
+
     // Normalize id_centro: '' -> undefined, string -> number
-    if (payload.id_centro === "") payload.id_centro = null; // send explicit null to indicate clearing
+    if (payload.id_centro === "") payload.id_centro = null;
     if (typeof payload.id_centro === "string" && payload.id_centro !== "")
       payload.id_centro = Number(payload.id_centro);
 
-    // La validación de saldo ya se realizó arriba usando el saldo del centro específico
-    // For non-admins, show confirmation modal; for admins proceed immediately
+    // Para usuarios no-admin, mostrar confirmación; para admins proceder directamente
     if (!tesoreria && !isAdmin) {
       setShowConfirm(true);
       return false;
@@ -465,7 +520,7 @@ export function TesoreriaForm({
     // If editing, prevent increasing the monto (only allow equal or smaller amounts)
     if (tesoreria) {
       const oldMonto = tesoreria.monto || 0;
-      if (data.monto > oldMonto) {
+      if (montoTotal > oldMonto) {
         toast({
           title: "Edición inválida",
           description:
@@ -476,20 +531,9 @@ export function TesoreriaForm({
       }
     }
 
-    // Ensure monto is positive
-    if (typeof payload.monto !== "number" || Number(payload.monto) <= 0) {
-      toast({
-        title: "Monto inválido",
-        description: "El monto debe ser mayor a 0",
-        variant: "destructive",
-      });
-      return false;
-    }
-
     // For admins or when editing, proceed to submit directly
     try {
       // If we're editing (tesoreria exists) always include the id_centro key in the payload
-      // so the server can detect the client's intent to clear it (send null) or set it.
       if (tesoreria) {
         if (!Object.prototype.hasOwnProperty.call(payload, "id_centro")) {
           payload.id_centro = null;
@@ -507,6 +551,7 @@ export function TesoreriaForm({
       const success = await onSubmit(payload as any);
       if (success) {
         form.reset();
+        setCategories([{ categoria: "", monto: 0 }]);
         try {
           window.dispatchEvent(new Event("tesoreria:refresh"));
         } catch {}
@@ -516,11 +561,6 @@ export function TesoreriaForm({
       console.error("Error on submit:", err);
       return false;
     }
-  };
-
-  const handleCategoriaChange = (categoria: string) => {
-    setSelectedCategoria(categoria);
-    form.setValue("categoria", categoria);
   };
 
   return (
@@ -696,35 +736,25 @@ export function TesoreriaForm({
               </FormItem>
             </div>
 
-            {/* Categoría (obligatoria) y Cargo (opcional) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="categoria"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Categoría *</FormLabel>
-                    <Select
-                      onValueChange={handleCategoriaChange}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar categoría" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {categorias.map((categoria) => (
-                          <SelectItem key={categoria} value={categoria}>
-                            {categoria}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            {/* Tabla de Categorías por Filas */}
+            <div className="grid grid-cols-1 gap-4">
+              <FormLabel className="text-base font-semibold">
+                Categorías y Montos *
+              </FormLabel>
+              <CategoriesTable
+                categories={categories}
+                onCategoriesChange={(newCats) => {
+                  console.log(`📤 CategoriesTable changed state. New count: ${newCats.length}`, newCats.map(c => `${c.categoria}:${c.monto}`).join(" | "));
+                  setCategories(newCats);
+                }}
+                categoriaOptions={categorias}
+                formatNumberPretty={formatNumberPretty}
+                parseNumber={parseNumber}
               />
+            </div>
+
+            {/* Cargo (opcional) */}
+            <div className="grid grid-cols-1 gap-4">
               <FormField
                 control={form.control}
                 name="cargo"
@@ -821,49 +851,6 @@ export function TesoreriaForm({
                 </FormItem>
               )}
             />
-
-            {/* Monto (obligatorio) — entrada simple y bonita con prefijo S/ */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="monto"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Monto *</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-3 flex items-center text-gray-500 select-none">
-                          S/
-                        </span>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0.00"
-                          className="pl-10"
-                          value={montoInput}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            // Permitir números, coma o punto. Normalizar a punto para cálculo.
-                            const cleaned = raw.replace(/[^0-9,\.]/g, "");
-                            const normalized = cleaned.replace(/,/g, ".");
-                            setMontoInput(cleaned);
-                            const num = parseFloat(normalized);
-                            field.onChange(isNaN(num) ? 0 : num);
-                          }}
-                          onFocus={(e) => e.currentTarget.select()}
-                          onBlur={() => {
-                            const n = form.getValues("monto") || 0;
-                            setMontoInput(formatNumberPretty(n));
-                          }}
-                        />
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              {/* espacio para layout */}
-            </div>
 
             {/* Encargado (obligatorio) */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

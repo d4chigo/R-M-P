@@ -29,6 +29,13 @@ export interface Tesoreria {
   turno?: number | null; // 0/1 or any small int per backend
   encargado?: string | null;
   monto: number;
+  es_multiple?: boolean; // Nuevo: indica si tiene múltiples categorías
+  categorias?: Array<{
+    id?: number;
+    categoria: string;
+    monto: number;
+    orden?: number;
+  }>; // Nuevo: array de categorías con montos individuales
   created_at: string;
   updated_at: string;
   deleted_at?: string | null;
@@ -43,13 +50,17 @@ export interface TesoreriaFormData {
   nombre: string;
   id_centro?: number | null;
   cargo?: string | null;
-  categoria: string;
+  categoria?: string; // Opcional cuando se usan categorías múltiples
+  categorias?: Array<{
+    categoria: string;
+    monto: number;
+  }>; // Nuevo: array de categorías con montos
   detalle?: string | null;
   reembolso?: string | null;
   distrito?: string | null;
   turno?: number | null;
   encargado?: string | null;
-  monto: number;
+  monto?: number; // Opcional cuando se usan categorías múltiples
 }
 
 export interface SearchParams {
