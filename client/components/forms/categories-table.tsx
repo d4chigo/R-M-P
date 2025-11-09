@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Trash2, Plus } from "lucide-react";
+import { useState } from "react";
 
 interface Category {
   categoria: string;
@@ -32,6 +33,9 @@ export function CategoriesTable({
   formatNumberPretty,
   parseNumber,
 }: CategoriesTableProps) {
+  // Estado local para manejar los valores de input mientras se escriben
+  const [inputValues, setInputValues] = useState<Record<string, string>>({});
+
   const handleAddCategory = () => {
     console.log("📝 [CategoriesTable] Antes de agregar:", categories);
     const newId = `cat-${Date.now()}-${Math.random()}`;
@@ -60,6 +64,31 @@ export function CategoriesTable({
     updated[index] = { ...updated[index], monto: parsed };
     console.log("💰 [CategoriesTable] Array actualizado:", updated);
     onCategoriesChange(updated);
+  };
+
+  const handleInputChange = (index: number, value: string) => {
+    const categoryId = categories[index]?.id || `temp-${index}`;
+    setInputValues(prev => ({ ...prev, [categoryId]: value }));
+  };
+
+  const handleInputBlur = (index: number) => {
+    const categoryId = categories[index]?.id || `temp-${index}`;
+    const inputValue = inputValues[categoryId] || "";
+    handleMontoChange(index, inputValue);
+    // Limpiar el valor del input local después de procesarlo
+    setInputValues(prev => {
+      const newValues = { ...prev };
+      delete newValues[categoryId];
+      return newValues;
+    });
+  };
+
+  const getInputValue = (index: number) => {
+    const categoryId = categories[index]?.id || `temp-${index}`;
+    if (inputValues[categoryId] !== undefined) {
+      return inputValues[categoryId];
+    }
+    return categories[index].monto > 0 ? formatNumberPretty(categories[index].monto) : "";
   };
 
   const totalMonto = categories.reduce((acc, cat) => acc + (cat.monto || 0), 0);
@@ -115,14 +144,11 @@ export function CategoriesTable({
                         type="text"
                         inputMode="decimal"
                         placeholder="0.00"
-                        value={
-                          category.monto > 0
-                            ? formatNumberPretty(category.monto)
-                            : ""
-                        }
+                        value={getInputValue(index)}
                         onChange={(e) =>
-                          handleMontoChange(index, e.target.value)
+                          handleInputChange(index, e.target.value)
                         }
+                        onBlur={() => handleInputBlur(index)}
                         className="w-full text-right bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700"
                       />
                     </td>
