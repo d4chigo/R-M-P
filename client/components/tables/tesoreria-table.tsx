@@ -570,7 +570,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
 
         {/* Diálogo de visualización */}
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-          <DialogContent className="max-w-2xl w-full mx-auto h-[80vh] max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl w-full mx-auto h-[80vh] max-h-[80vh] overflow-y-auto bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
             <DialogHeader>
               <DialogTitle>Detalles del Registro de Tesorería</DialogTitle>
             </DialogHeader>
@@ -639,21 +639,21 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                     {selectedTesoreria.es_multiple && selectedTesoreria.categorias ? (
                       <div className="mt-2">
                         <div className="overflow-auto">
-                          <table className="text-xs border w-full">
+                          <table className="text-xs border w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
                             <thead>
-                              <tr className="bg-gray-100 border-b">
+                              <tr className="bg-gray-100 dark:bg-gray-800 border-b">
                                 <th className="text-left p-1">Categoría</th>
                                 <th className="text-right p-1">Monto</th>
                               </tr>
                             </thead>
                             <tbody>
                               {selectedTesoreria.categorias.map((cat, idx) => (
-                                <tr key={idx} className="border-b">
+                                <tr key={idx} className="border-b border-gray-200 dark:border-gray-700">
                                   <td className="p-1">{cat.categoria}</td>
                                   <td className="p-1 text-right">{formatCurrency(cat.monto)}</td>
                                 </tr>
                               ))}
-                              <tr className="bg-gray-50 font-bold">
+                              <tr className="bg-gray-50 dark:bg-gray-900 font-bold">
                                 <td className="p-1">Total</td>
                                 <td className="p-1 text-right">{formatCurrency(selectedTesoreria.monto)}</td>
                               </tr>

@@ -68,18 +68,18 @@ export function CategoriesTable({
 
   return (
     <div className="space-y-3">
-      <div className="border rounded-lg overflow-hidden">
+      <div className="border rounded-lg overflow-hidden bg-white dark:bg-gray-900">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
             <thead>
-              <tr className="bg-gray-100 border-b">
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 w-1/2">
+              <tr className="bg-gray-100 dark:bg-gray-800 border-b">
+                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-100 w-1/2">
                   Categoría
                 </th>
-                <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700 w-1/4">
+                <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700 dark:text-gray-100 w-1/4">
                   Monto (S/)
                 </th>
-                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700 w-1/4">
+                <th className="px-4 py-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-100 w-1/4">
                   Acción
                 </th>
               </tr>
@@ -89,7 +89,7 @@ export function CategoriesTable({
                 categories.map((category, index) => (
                   <tr
                     key={category.id || `cat-${index}`}
-                    className="border-b hover:bg-gray-50 transition-colors"
+                    className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     <td className="px-4 py-3">
                       <Select
@@ -98,12 +98,12 @@ export function CategoriesTable({
                           handleCategoryChange(index, value)
                         }
                       >
-                        <SelectTrigger className="w-full">
+                        <SelectTrigger className="w-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700">
                           <SelectValue placeholder="Seleccione categoría..." />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
                           {categoriaOptions.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
+                            <SelectItem key={cat} value={cat} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
                               {cat}
                             </SelectItem>
                           ))}
@@ -123,7 +123,7 @@ export function CategoriesTable({
                         onChange={(e) =>
                           handleMontoChange(index, e.target.value)
                         }
-                        className="w-full text-right"
+                        className="w-full text-right bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700"
                       />
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -132,7 +132,7 @@ export function CategoriesTable({
                         variant="ghost"
                         size="sm"
                         onClick={() => handleRemoveCategory(index)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-gray-800"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -141,7 +141,7 @@ export function CategoriesTable({
                 ))
               ) : (
                 <tr>
-                  <td colSpan={3} className="px-4 py-4 text-center text-gray-500">
+                  <td colSpan={3} className="px-4 py-4 text-center text-gray-500 dark:text-gray-400">
                     No hay categorías. Agrega una para comenzar.
                   </td>
                 </tr>
@@ -151,9 +151,9 @@ export function CategoriesTable({
         </div>
 
         {/* Total row */}
-        <div className="bg-blue-50 border-t px-4 py-3 flex justify-between items-center">
-          <span className="text-sm font-semibold text-gray-700">Total:</span>
-          <span className="text-lg font-bold text-blue-600">
+        <div className="bg-blue-50 dark:bg-gray-800 border-t px-4 py-3 flex justify-between items-center">
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-100">Total:</span>
+          <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
             S/ {formatNumberPretty(totalMonto)}
           </span>
         </div>
@@ -169,7 +169,7 @@ export function CategoriesTable({
           e.stopPropagation();
           handleAddCategory();
         }}
-        className="w-full gap-2"
+        className="w-full gap-2 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-700"
       >
         <Plus className="h-4 w-4" />
         Agregar categoría
