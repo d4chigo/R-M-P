@@ -2534,12 +2534,17 @@ const exportTesoreria = async (req, res) => {
       const [r] = await db.query(
         `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at, t.created_by, t.updated_by,
                 u1.nombre_completo AS created_by_nombre,
-                u2.nombre_completo AS updated_by_nombre
+                u2.nombre_completo AS updated_by_nombre,
+                GROUP_CONCAT(tc.categoria ORDER BY tc.orden SEPARATOR ', ') as categorias_multiples,
+                GROUP_CONCAT(tc.monto ORDER BY tc.orden SEPARATOR ', ') as montos_multiples,
+                COUNT(tc.id) as num_categorias
          FROM TESORERIA t
          LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
          LEFT JOIN USUARIO u1 ON t.created_by = u1.id_usuario
          LEFT JOIN USUARIO u2 ON t.updated_by = u2.id_usuario
+         LEFT JOIN TESORERIA_CATEGORIAS tc ON t.id = tc.id_tesoreria
          ${where}
+         GROUP BY t.id
          ORDER BY t.fecha DESC, t.id DESC`,
         params,
       );
@@ -2553,10 +2558,15 @@ const exportTesoreria = async (req, res) => {
           "⚠️ Consulta de exportación con joins de auditoría falló, intentando consulta de respaldo",
         );
         const [r2] = await db.query(
-          `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at
+          `SELECT t.id, t.fecha, t.placa, t.nombre, t.cargo, t.categoria, t.detalle, t.reembolso, t.distrito, t.id_centro, c.codigo as centro_codigo, c.nombre as centro_nombre, t.turno, t.encargado, t.monto, t.created_at, t.updated_at,
+                  GROUP_CONCAT(tc.categoria ORDER BY tc.orden SEPARATOR ', ') as categorias_multiples,
+                  GROUP_CONCAT(tc.monto ORDER BY tc.orden SEPARATOR ', ') as montos_multiples,
+                  COUNT(tc.id) as num_categorias
            FROM TESORERIA t
            LEFT JOIN CENTRO_DISTRIBUCION c ON t.id_centro = c.id_centro
+           LEFT JOIN TESORERIA_CATEGORIAS tc ON t.id = tc.id_tesoreria
            ${where}
+           GROUP BY t.id
            ORDER BY t.fecha DESC, t.id DESC`,
           params,
         );
@@ -2584,32 +2594,101 @@ const exportTesoreria = async (req, res) => {
     }
 
     // Preparar datos para exportación
-    const exportData = rows.map((row) => ({
-      "Fecha": row.fecha || "",
-      "Placa": row.placa || "",
-      "Nombre": row.nombre || "",
-      "Cargo": row.cargo || "",
-      "Categoría": row.categoria || "",
-      "Detalle": row.detalle || "",
-      "Reembolso": row.reembolso || "",
-      "Distrito": row.distrito || "",
-      "Centro Distribución": row.centro_nombre || "",
-      "Turno": row.turno !== null && row.turno !== undefined ? row.turno : "",
-      "Encargado": row.encargado || "",
-      "Monto": row.monto || 0,
-      ...(isAdmin && { "Creado Por": row.created_by_nombre || "" }),
-      ...(isAdmin && { "Actualizado Por": row.updated_by_nombre || "" }),
-      ...(isAdmin && { "Fecha Creación": row.created_at || "" }),
-    }));
+    const exportData = rows.map((row) => {
+      const esMultiple = row.num_categorias > 1;
+      const categorias = esMultiple ? row.categorias_multiples : row.categoria;
+      const montoIndividual = esMultiple ? row.montos_multiples : "";
+
+      const dataRow = {
+        "Fecha": row.fecha || "",
+        "Placa": row.placa || "",
+        "CD": row.centro_nombre || "",
+        "Nombre": row.nombre || "",
+        "Cargo": row.cargo || "",
+        "Categoría/as": categorias || "",
+        "Monto": montoIndividual,
+        "Monto Total": row.monto || 0,
+        "Distrito": row.distrito || "",
+        "Encargado": row.encargado || "",
+        "Detalle": row.detalle || "",
+        "Reembolso": row.reembolso || "",
+      };
+
+      // Agregar campos de auditoría solo para admins
+      if (isAdmin) {
+        dataRow["Creado Por"] = row.created_by_nombre || "";
+        dataRow["Actualizado Por"] = row.updated_by_nombre || "";
+        dataRow["Fecha Creación"] = row.created_at || "";
+      }
+
+      return dataRow;
+    });
 
     // Usar xlsx para generar el archivo
     const XLSX = require("xlsx");
-    const ws = XLSX.utils.json_to_sheet(exportData);
+
+    // Crear headers
+    const headers = [
+      "Fecha", "Placa", "CD", "Nombre", "Cargo", "Categoría/as",
+      "Monto", "Monto Total", "Distrito", "Encargado", "Detalle", "Reembolso"
+    ];
+
+    if (isAdmin) {
+      headers.push("Creado Por", "Actualizado Por", "Fecha Creación");
+    }
+
+    // Crear datos con headers
+    const data = [headers, ...exportData.map(row => headers.map(header => row[header] || ""))];
+
+    const ws = XLSX.utils.aoa_to_sheet(data);
     const wb = XLSX.utils.book_new();
+
+    // Definir anchos de columna
+    ws['!cols'] = [
+      { wch: 12 }, // Fecha
+      { wch: 12 }, // Placa
+      { wch: 18 }, // CD
+      { wch: 18 }, // Nombre
+      { wch: 15 }, // Cargo
+      { wch: 30 }, // Categoría/as
+      { wch: 30 }, // Monto
+      { wch: 18 }, // Monto Total
+      { wch: 15 }, // Distrito
+      { wch: 20 }, // Encargado
+      { wch: 30 }, // Detalle
+      { wch: 15 }, // Reembolso
+    ];
+
+    // Añadir anchos adicionales para campos de admin si es admin
+    if (isAdmin) {
+      ws['!cols'].push(
+        { wch: 20 }, // Creado Por
+        { wch: 20 }, // Actualizado Por
+        { wch: 18 }  // Fecha Creación
+      );
+    }
+
+    // Aplicar estilos a la primera fila (encabezados)
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let col = 0; col < headers.length; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+      if (ws[cellAddress]) {
+        ws[cellAddress].s = {
+          fill: { fgColor: { rgb: "4F81BD" } },
+          font: { bold: true, color: { rgb: "FFFFFF" } },
+          alignment: { horizontal: "center", vertical: "center" }
+        };
+      }
+    }
+
     XLSX.utils.book_append_sheet(wb, ws, "Tesorería");
 
-    // Generar buffer
-    const buffer = XLSX.write(wb, { bookType: "xlsx", type: "buffer" });
+    // Generar buffer con estilos (usar bookSST para preservar estilos)
+    const buffer = XLSX.write(wb, {
+      bookType: "xlsx",
+      type: "buffer",
+      Props: { Author: "Sistema R-M-P" }
+    });
 
     // Configurar headers para descarga
     const timestamp = new Date().toISOString().split("T")[0];
