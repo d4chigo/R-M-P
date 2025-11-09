@@ -519,7 +519,7 @@ export function TesoreriaForm({
 
     // If editing, prevent increasing the monto (only allow equal or smaller amounts)
     if (tesoreria) {
-      const oldMonto = tesoreria.monto || 0;
+      const oldMonto = parseFloat(String(tesoreria.monto || 0));
       if (montoTotal > oldMonto) {
         toast({
           title: "Edición inválida",

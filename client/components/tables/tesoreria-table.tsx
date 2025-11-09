@@ -84,19 +84,17 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     loading,
     error,
     createTesoreria,
-    updateTesoreria,
     deleteTesoreria,
-    searchTesoreria,
+    updateTesoreria,
     fetchTesoreria,
     fetchActive,
     fetchHistory,
     fetchTrash,
-  fetchTesoreriaById,
+    fetchTesoreriaById,
     restoreTesoreria,
     exportTesoreria,
-  } = useTesoreria();
-
-  const { toast } = useToast();
+    searchTesoreria,
+  } = useTesoreria();  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategoria, setFilterCategoria] = useState<string>("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -219,7 +217,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     } else {
       toast({
         title: "Error",
-        description: "Error al crear el registro de tesorería",
+        description: error || "Error al crear el registro de tesorería",
         variant: "destructive",
       });
       return false;
@@ -249,7 +247,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
     } else {
       toast({
         title: "Error",
-        description: "Error al actualizar el registro de tesorería",
+        description: error || "Error al actualizar el registro de tesorería",
         variant: "destructive",
       });
       return false;
