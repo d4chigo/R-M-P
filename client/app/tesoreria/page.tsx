@@ -28,6 +28,7 @@ import {
   Filter,
   RefreshCcw,
   Plus,
+  Download,
 } from "lucide-react";
 import { useTesoreria } from "@/hooks/use-tesoreria";
 import { useToast } from "@/hooks/use-toast";
@@ -40,7 +41,7 @@ import { es } from "date-fns/locale";
 import { getTodayLimaYMD, formatDateForPeru } from "@/lib/utils/date-lima";
 
 export default function TesoreriaPage() {
-  const { tesoreria, loading, createTesoreria, searchTesoreria } = useTesoreria();
+  const { tesoreria, loading, createTesoreria, searchTesoreria, exportTesoreria } = useTesoreria();
   const { toast } = useToast();
 
   // UI state
@@ -145,6 +146,23 @@ export default function TesoreriaPage() {
       toast({ title: "Error", description: "No se pudo crear el registro", variant: "destructive" });
     }
     return success;
+  };
+
+  const handleExport = async () => {
+    try {
+      const params = buildParams();
+      await exportTesoreria(params);
+      toast({
+        title: "Éxito",
+        description: "Exportación completada exitosamente",
+      });
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Error al exportar los registros",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -282,9 +300,20 @@ export default function TesoreriaPage() {
         <TabsContent value="active" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>
-                {fecha ? `Lista de Registros (Fecha: ${formatDatePeru(fecha)})` : 'Lista de Registros (Hoy)'}
-              </CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle>
+                  {fecha ? `Lista de Registros (Fecha: ${formatDatePeru(fecha)})` : 'Lista de Registros (Hoy)'}
+                </CardTitle>
+                <Button
+                  onClick={handleExport}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  disabled={tesoreria.length === 0}
+                >
+                  <Download className="h-4 w-4" />
+                  Exportar a Excel
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <TesoreriaTable variant="simple" mode="active" />
@@ -296,9 +325,20 @@ export default function TesoreriaPage() {
         <TabsContent value="history" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle>
-                {fecha ? `Historial (Fecha: ${formatDatePeru(fecha)})` : 'Historial de Registros'}
-              </CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle>
+                  {fecha ? `Historial (Fecha: ${formatDatePeru(fecha)})` : 'Historial de Registros'}
+                </CardTitle>
+                <Button
+                  onClick={handleExport}
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  disabled={tesoreria.length === 0}
+                >
+                  <Download className="h-4 w-4" />
+                  Exportar a Excel
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <TesoreriaTable variant="simple" mode="history" />

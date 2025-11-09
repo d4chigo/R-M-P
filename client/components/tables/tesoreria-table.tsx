@@ -58,7 +58,6 @@ import {
   FileText,
   MoreHorizontal,
   Filter,
-  Download,
 } from "lucide-react";
 import { Tesoreria } from "@/hooks/use-tesoreria";
 import { TesoreriaForm } from "@/components/forms/tesoreria-form";
@@ -382,20 +381,6 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
   if (variant === "simple") {
     return (
       <div className="space-y-4">
-        {/* Botón de Exportación - Solo para tabs de Hoy e Historial */}
-        {(mode === "active" || mode === "history") && (
-          <div className="flex justify-end">
-            <Button
-              onClick={handleExport}
-              variant="outline"
-              className="flex items-center gap-2"
-              disabled={tesoreria.length === 0}
-            >
-              <Download className="h-4 w-4" />
-              Exportar a Excel
-            </Button>
-          </div>
-        )}
         
         <div className="rounded-md border overflow-x-auto">
           <Table>
