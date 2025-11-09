@@ -570,87 +570,41 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
 
         {/* Diálogo de visualización */}
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl w-full mx-auto h-[80vh] max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Detalles del Registro de Tesorería</DialogTitle>
             </DialogHeader>
             {selectedTesoreria && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="h-full flex flex-col md:flex-row gap-6">
+                {/* Left column: textual info */}
+                <div className="md:flex-1 min-w-0 space-y-4 max-h-[68vh] overflow-y-auto pr-4">
                   <div>
                     <label className="text-sm font-medium text-gray-500">Fecha</label>
-                    <p className="text-sm">
-                      {formatDatePeru(selectedTesoreria.fecha)}
-                    </p>
+                    <p className="text-sm">{formatDatePeru(selectedTesoreria.fecha)}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">PLACA T2</label>
-                    <p className="text-sm">{selectedTesoreria.placa || ""}</p>
-                  </div>
+
                   <div>
                     <label className="text-sm font-medium text-gray-500">Nombre</label>
                     <p className="text-sm">{selectedTesoreria.nombre}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Centro de distribución</label>
-                    <p className="text-sm">{selectedTesoreria.centro_codigo || selectedTesoreria.centro_nombre ? `${selectedTesoreria.centro_codigo || ''}${selectedTesoreria.centro_codigo && selectedTesoreria.centro_nombre ? ' - ' : ''}${selectedTesoreria.centro_nombre || ''}` : '-'}</p>
-                  </div>
+
                   <div>
                     <label className="text-sm font-medium text-gray-500">Cargo</label>
                     <p className="text-sm">{selectedTesoreria.cargo || "-"}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Categoría</label>
-                    {selectedTesoreria.es_multiple && selectedTesoreria.categorias ? (
-                      <div className="mt-2">
-                        <table className="text-xs border w-full">
-                          <thead>
-                            <tr className="bg-gray-100 border-b">
-                              <th className="text-left p-1">Categoría</th>
-                              <th className="text-right p-1">Monto</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {selectedTesoreria.categorias.map((cat, idx) => (
-                              <tr key={idx} className="border-b">
-                                <td className="p-1">{cat.categoria}</td>
-                                <td className="p-1 text-right">{formatCurrency(cat.monto)}</td>
-                              </tr>
-                            ))}
-                            <tr className="bg-gray-50 font-bold">
-                              <td className="p-1">Total</td>
-                              <td className="p-1 text-right">{formatCurrency(selectedTesoreria.monto)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="text-sm">{selectedTesoreria.categoria}</p>
-                    )}
-                  </div>
+
                   <div>
                     <label className="text-sm font-medium text-gray-500">Distrito</label>
                     <p className="text-sm">{selectedTesoreria.distrito || ""}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Turno</label>
-                    <p className="text-sm">{
-                      selectedTesoreria.turno === 1 ? '1 - Mañana' :
-                      selectedTesoreria.turno === 2 ? '2 - Tarde' :
-                      selectedTesoreria.turno === 3 ? '3 - Noche' :
-                      selectedTesoreria.turno || ""
-                    }</p>
-                  </div>
+
                   <div>
                     <label className="text-sm font-medium text-gray-500">Encargado</label>
                     <p className="text-sm">{selectedTesoreria.encargado || ""}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Monto</label>
-                    <p className="text-sm font-medium">{formatCurrency(selectedTesoreria.monto)}</p>
-                  </div>
+
                   {isAdmin && selectedTesoreria.created_by_nombre && (
-                    <div className="col-span-2 mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Información de Auditoría</h4>
                       <div className="grid grid-cols-1 gap-2 text-sm">
                         <div>
@@ -666,6 +620,66 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
                       </div>
                     </div>
                   )}
+                </div>
+
+                {/* Right column: placa/centro/categorias/monto */}
+                <div className="md:w-96 w-full min-w-0 space-y-4 max-h-[68vh] overflow-y-auto">
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">PLACA T2</label>
+                    <p className="text-sm">{selectedTesoreria.placa || ""}</p>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Centro de distribución</label>
+                    <p className="text-sm">{selectedTesoreria.centro_codigo || selectedTesoreria.centro_nombre ? `${selectedTesoreria.centro_codigo || ''}${selectedTesoreria.centro_codigo && selectedTesoreria.centro_nombre ? ' - ' : ''}${selectedTesoreria.centro_nombre || ''}` : '-'}</p>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Categoría</label>
+                    {selectedTesoreria.es_multiple && selectedTesoreria.categorias ? (
+                      <div className="mt-2">
+                        <div className="overflow-auto">
+                          <table className="text-xs border w-full">
+                            <thead>
+                              <tr className="bg-gray-100 border-b">
+                                <th className="text-left p-1">Categoría</th>
+                                <th className="text-right p-1">Monto</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedTesoreria.categorias.map((cat, idx) => (
+                                <tr key={idx} className="border-b">
+                                  <td className="p-1">{cat.categoria}</td>
+                                  <td className="p-1 text-right">{formatCurrency(cat.monto)}</td>
+                                </tr>
+                              ))}
+                              <tr className="bg-gray-50 font-bold">
+                                <td className="p-1">Total</td>
+                                <td className="p-1 text-right">{formatCurrency(selectedTesoreria.monto)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm">{selectedTesoreria.categoria}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Turno</label>
+                    <p className="text-sm">{
+                      selectedTesoreria.turno === 1 ? '1 - Mañana' :
+                      selectedTesoreria.turno === 2 ? '2 - Tarde' :
+                      selectedTesoreria.turno === 3 ? '3 - Noche' :
+                      selectedTesoreria.turno || ""
+                    }</p>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-gray-500">Monto</label>
+                    <p className="text-sm font-medium">{formatCurrency(selectedTesoreria.monto)}</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -948,7 +962,7 @@ export function TesoreriaTable({ onRefresh, variant = "full", mode = "active" }:
 
       {/* Diálogo de visualización */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl w-full mx-auto h-[80vh] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalles del Registro de Tesorería</DialogTitle>
           </DialogHeader>
