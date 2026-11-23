@@ -1,7 +1,10 @@
 const jwt = require("jsonwebtoken");
 const db = require("../config/db");
 
-const JWT_SECRET = process.env.JWT_SECRET || "REMOVED_SECRET";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error("Falta la variable de entorno obligatoria JWT_SECRET");
+}
 
 // Middleware para verificar autenticación
 const authenticateToken = async (req, res, next) => {

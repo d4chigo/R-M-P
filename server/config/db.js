@@ -1,11 +1,19 @@
 const mysql = require('mysql2/promise');
 
 // Configuración de base de datos
+const required = (name) => {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Falta la variable de entorno obligatoria ${name}`);
+  }
+  return value;
+};
+
 const dbConfig = {
   host: process.env.DB_HOST || 'mysql',
   port: process.env.DB_PORT || 3306,
   user: process.env.DB_USER || 'rmp_user',
-  password: process.env.DB_PASSWORD || 'REMOVED_SECRET',
+  password: required('DB_PASSWORD'),
   database: process.env.DB_NAME || 'rmp_db',
   waitForConnections: true,
   connectionLimit: 10,

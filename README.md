@@ -85,10 +85,10 @@ El archivo `.env` contiene todas las configuraciones necesarias:
 NODE_ENV=development                    # development | production | test
 
 # Configuración de Base de Datos
-MYSQL_ROOT_PASSWORD=REMOVED_SECRET     # Contraseña del usuario root
+MYSQL_ROOT_PASSWORD=                     # Contraseña del usuario root (obligatoria)
 MYSQL_DATABASE=rmp_db                   # Nombre de la base de datos
 MYSQL_USER=rmp_user                     # Usuario de la aplicación
-MYSQL_PASSWORD=REMOVED_SECRET          # Contraseña del usuario
+MYSQL_PASSWORD=                         # Contraseña del usuario (obligatoria)
 
 # Configuración de Puertos
 CLIENT_PORT=3000                        # Puerto del frontend
@@ -102,8 +102,8 @@ NEXT_PUBLIC_API_URL=http://localhost:4000   # URL del API para el frontend
 
 ### Credenciales por Defecto
 
-- **MySQL Root**: `root` / `REMOVED_SECRET`
-- **MySQL Usuario**: `rmp_user` / `REMOVED_SECRET`
+- **MySQL Root**: configurado mediante `MYSQL_ROOT_PASSWORD`
+- **MySQL Usuario**: configurado mediante `MYSQL_USER` y `MYSQL_PASSWORD`
 
 ## 🗄️ Migraciones de Base de Datos
 
@@ -238,7 +238,7 @@ const dbConfig = {
   port: 3306,
   database: 'rmp_db',
   user: 'rmp_user',
-  password: 'REMOVED_SECRET'
+  password: process.env.DB_PASSWORD
 }
 ```
 

@@ -7,7 +7,7 @@
 -- para crear o recrear las vistas SQL del sistema.
 --
 -- Uso:
---   docker exec -i rmp_mysql mysql -u root -pREMOVED_SECRET rmp_db < mysql/migrations/create-all-views.sql
+--   docker compose exec -T mysql mysql -u root -p rmp_db < mysql/migrations/create-all-views.sql
 -- ============================================
 
 USE rmp_db;

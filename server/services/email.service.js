@@ -195,7 +195,7 @@ class EmailService {
     try {
       console.log('[EMAIL] Intentando enviar correo a:', email);
       if (!this.transporter) {
-        console.warn("⚠️ Email no configurado - Contraseña generada pero no enviada:", tempPassword);
+        console.warn("⚠️ Email no configurado - Contraseña temporal generada pero no enviada");
         return {
           success: false,
           message: "Email no configurado. Contraseña temporal generada pero no enviada.",
@@ -249,11 +249,9 @@ RMP - Route Management Platform
       };
     } catch (error) {
       console.error("❌ Error al enviar email:", error);
-      // Log con la contraseña temporal para desarrollo
-      console.warn("⚠️ Contraseña temporal generada:", tempPassword);
       return {
         success: false,
-        message: "Error al enviar email. Contraseña temporal: " + tempPassword,
+        message: "Error al enviar el correo electrónico",
         temporaryPassword: tempPassword,
       };
     }
@@ -291,8 +289,6 @@ RMP - Route Management Platform
     console.log("🧪 EMAIL DE PRUEBA - NO ENVIADO:");
     console.log("Para:", email);
     console.log("Usuario:", userName);
-    console.log("Contraseña temporal:", tempPassword);
-
     return {
       success: true,
       message: "Email de prueba generado (no enviado)",
